@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import type { Component } from 'vue'
 import { pages } from './pages'
-import { locale, localePath, LOCALES, type Locale } from './i18n/locale'
+import { locale, localePath, LOCALES, markLangSwitch, type Locale } from './i18n/locale'
+import { cancelLanguageRetype } from './composables/retype'
 
 // Lazy view modules, resolved to their default export so each is a valid
 // `() => Promise<Component>` route loader.
@@ -68,7 +69,14 @@ export const router = createRouter({
 
 // Keep the locale ref in lockstep with the route BEFORE the view renders, so
 // usePageContent/useHead resolve the right language on each navigation.
-router.beforeEach((to) => {
+router.beforeEach((to, from) => {
   const l = (to.meta.locale as Locale | undefined) ?? 'en'
-  if (locale.value !== l) locale.value = l
+  if (locale.value !== l) {
+    // Cancel a still-running retype BEFORE the ref flips: it restores the
+    // captured strings while they still match the on-screen language, so the
+    // chrome's reactive re-render patches over clean text.
+    cancelLanguageRetype()
+    if (from.matched.length > 0) markLangSwitch() // in-app switch, not initial load
+    locale.value = l
+  }
 })

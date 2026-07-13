@@ -6,6 +6,7 @@
   >
     <a
       href="#hero"
+      data-no-retype=""
       style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.12rem; letter-spacing:0.01em; color:#FBFAF7; text-decoration:none;"
     >Peter Merc<span style="color:var(--accent);">.</span></a>
     <div style="display:flex; align-items:center; gap:clamp(1.1rem, 2.5vw, 2.2rem);">
@@ -38,7 +39,9 @@
            mobile. Plain absolute-path <a>s — App.vue's click interceptor
            turns them into router.push, and the route-keyed remount re-runs
            the page in the new language. Hash is preserved across the switch. -->
-      <nav :aria-label="c.langAria" style="display:inline-flex; align-items:center; gap:0.15rem;">
+      <!-- data-no-retype: EN/SL don't change between locales — retyping the
+           control you just clicked would read as noise -->
+      <nav :aria-label="c.langAria" data-no-retype="" style="display:inline-flex; align-items:center; gap:0.15rem;">
         <a
           class="lang-link"
           :class="{ active: locale === 'en' }"

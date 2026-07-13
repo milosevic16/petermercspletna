@@ -385,8 +385,10 @@
 import { onMounted, onUnmounted } from 'vue'
 import { initEffects } from './Home.effects'
 import { useRootVars } from '@/composables/useTheme'
+import { runLanguageRetype } from '@/composables/retype'
 import { usePageContent } from '@/i18n/useContent'
 import { useHead } from '@/i18n/useHead'
+import { consumeLangSwitch } from '@/i18n/locale'
 import home from '@/content/home'
 
 // All copy comes from the locale-keyed content module. The router remounts
@@ -412,6 +414,20 @@ let dispose: (() => void) | undefined
 onMounted(() => {
   useRootVars(ROOT_VARS)
   dispose = initEffects(t.value)
+  if (consumeLangSwitch()) {
+    // In-app language switch: kill the one-shot entrance animations for this
+    // mount — #main's rise (its translateY exposes a paper-colored gap under
+    // the masthead) and the hero's own staggered entrances — and let the
+    // retype sweep carry the transition instead. Runs pre-paint (onMounted),
+    // so neither the gap nor untyped text ever hits the screen.
+    for (const id of ['main', 'mline-1', 'mline-2', 'mline-3', 'hero-img', 'hero-img-m']) {
+      const el = document.getElementById(id)
+      if (el) el.style.animation = 'none'
+    }
+    const badge = document.querySelector<HTMLElement>('#hero h1 + p')
+    if (badge) badge.style.animation = 'none'
+    if (!window.location.hash) runLanguageRetype()
+  }
 })
 onUnmounted(() => dispose && dispose())
 </script>
