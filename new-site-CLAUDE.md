@@ -64,6 +64,8 @@ The site is bilingual: **English at `/`, Slovenian at `/sl`** (real per-locale r
 
 ## Web3Forms
 
+**Form is prepared, backend not yet wired.** `#contact-form` now has real named inputs — `name`, `email`, `topic` (a hidden field; `pickTopic` mirrors the chosen Regarding button's **stable English key** into it), `message`, and the `botcheck` honeypot — with the old mailto/To/Subject conceit removed. `onSubmit` (in `Home.effects.ts`) is a neutral placeholder (`preventDefault` only, so no reload); the adaptation step replaces its body with the POST below. The visible topic label localizes; the submitted `topic` key and the subject stay English.
+
 - One shared helper: `src/composables/web3forms.ts` → `wireWeb3Form(fx, opts)`. **All** submit logic lives there; each page with a form wires it with one line at the end of its effects `initEffects()`. Listeners inside it go through the tracker (`fx.on`) — never bare `addEventListener`.
 - The access key is public-by-design: an exported `WEB3FORMS_KEY` constant, no env indirection. `opts` carries the `root` selector, `subject` (string or function of the collected fields), a `page` label, and message overrides.
 - Submit: JSON POST to `https://api.web3forms.com/submit` with `access_key`, `subject`, `from_name`, `replyto`, custom `page` field, plus all `[name]` fields collected under `root`. Success = `(await r.json()).success`.

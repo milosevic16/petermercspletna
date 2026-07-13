@@ -135,10 +135,10 @@ export interface HomeContent {
     newMessage: string
     onAir: string
     standby: string
-    toLabel: string
-    toName: string
-    toConfirm: string
-    subjectLabel: string
+    nameLabel: string
+    namePlaceholder: string
+    emailLabel: string
+    emailPlaceholder: string
     messageLabel: string
     send: string
     sentNote: string
@@ -286,7 +286,7 @@ const home: Localized<HomeContent> = {
           role: 'Academia & policy',
           desc: 'Teaching financial and technology law at the New University, and policy work at Blockchain Think Tank Slovenia.',
           href: '',
-          nodeLabel: 'Lecturing & mentoring',
+          nodeLabel: 'Lecturing',
           aria: 'Lecturing and mentoring — Think Tank and New University',
         },
         suricate: {
@@ -425,7 +425,7 @@ const home: Localized<HomeContent> = {
       chyron: 'Contact',
       headline: 'If what you’re building runs ahead of the rulebook, we should talk',
       intro:
-        'Pick a topic and fill in the draft below — the button opens the finished email in your own mail app. Nothing sends from this page.',
+        'Pick a topic, add your details and a few lines, then send — I read every message myself and reply.',
       regarding: 'Regarding',
       topics: [
         {
@@ -455,16 +455,16 @@ const home: Localized<HomeContent> = {
         },
       ],
       msgHint: 'A few lines about what you have in mind is plenty.',
-      newMessage: 'New message — draft',
+      newMessage: 'New message',
       onAir: 'On air',
       standby: 'Standby',
-      toLabel: 'To',
-      toName: 'Peter Merc',
-      toConfirm: '⚠ to confirm',
-      subjectLabel: 'Subject',
+      nameLabel: 'Name',
+      namePlaceholder: 'Your name',
+      emailLabel: 'Email',
+      emailPlaceholder: 'you@company.com',
       messageLabel: 'Message',
-      send: 'Open the draft in my mail app ↗',
-      sentNote: 'Draft opened — press send there to deliver it ✓',
+      send: 'Send message',
+      sentNote: 'Thanks — your message is on its way. I’ll be in touch.',
     },
     bar: {
       aria: 'Page progress',
@@ -614,7 +614,7 @@ const home: Localized<HomeContent> = {
           role: 'Akademsko delo in politike',
           desc: 'Predavanja finančnega in tehnološkega prava na Novi univerzi ter delo pri politikah v Blockchain Think Tank Slovenija.',
           href: '',
-          nodeLabel: 'Predavanja in mentorstvo',
+          nodeLabel: 'Predavanja',
           aria: 'Predavanja in mentorstvo — Think Tank in Nova univerza',
         },
         suricate: {
@@ -753,7 +753,7 @@ const home: Localized<HomeContent> = {
       chyron: 'Kontakt',
       headline: 'Če to, kar gradite, prehiteva pravila, se morava pogovoriti',
       intro:
-        'Izberite temo in izpolnite osnutek spodaj — gumb odpre pripravljeno e-pošto v vašem poštnem odjemalcu. S te strani se ne pošlje nič.',
+        'Izberite temo, dodajte svoje podatke in nekaj vrstic ter pošljite — vsako sporočilo preberem osebno in odgovorim.',
       regarding: 'Glede',
       topics: [
         {
@@ -783,16 +783,16 @@ const home: Localized<HomeContent> = {
         },
       ],
       msgHint: 'Nekaj vrstic o tem, kaj imate v mislih, povsem zadošča.',
-      newMessage: 'Novo sporočilo — osnutek',
+      newMessage: 'Novo sporočilo',
       onAir: 'V etru',
       standby: 'V pripravljenosti',
-      toLabel: 'Za',
-      toName: 'Peter Merc',
-      toConfirm: '⚠ za potrditev',
-      subjectLabel: 'Zadeva',
+      nameLabel: 'Ime',
+      namePlaceholder: 'Vaše ime',
+      emailLabel: 'E-pošta',
+      emailPlaceholder: 'vi@podjetje.com',
       messageLabel: 'Sporočilo',
-      send: 'Odpri osnutek v mojem poštnem odjemalcu ↗',
-      sentNote: 'Osnutek odprt — tam pritisnite pošlji, da ga dostavite ✓',
+      send: 'Pošlji sporočilo',
+      sentNote: 'Hvala — vaše sporočilo je na poti. Kmalu se oglasim.',
     },
     bar: {
       aria: 'Napredek strani',
