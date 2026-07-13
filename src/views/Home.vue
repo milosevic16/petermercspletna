@@ -19,7 +19,7 @@
           <div aria-hidden="true" style="position:absolute; inset:0; background:#6E6E6E; mask-image:linear-gradient(to right, black 0%, transparent 12%); -webkit-mask-image:linear-gradient(to right, black 0%, transparent 12%); pointer-events:none;"></div>
         </div>
         <div class="pm-mobile-only">
-          <img id="hero-img-m" src="/assets/8e09394b.jpg" alt="Peter Merc — black-and-white studio portrait" loading="eager" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 0%; filter:grayscale(1) contrast(1.02); transform-origin:50% 0%; animation:pm-settle 2.4s cubic-bezier(0.22,0.61,0.36,1) backwards;">
+          <img id="hero-img-m" src="/assets/dac13693.jpg" alt="Peter Merc — black-and-white studio portrait" loading="eager" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 0%; filter:grayscale(1) contrast(1.02); transform-origin:50% 0%; animation:pm-settle 2.4s cubic-bezier(0.22,0.61,0.36,1) backwards;">
           <div aria-hidden="true" style="position:absolute; inset:0; background:#6E6E6E; mask-image:linear-gradient(to bottom, black 0%, rgba(0,0,0,0.58) 3.5%, rgba(0,0,0,0.3) 6.5%, rgba(0,0,0,0.1) 9%, transparent 11.5%); -webkit-mask-image:linear-gradient(to bottom, black 0%, rgba(0,0,0,0.58) 3.5%, rgba(0,0,0,0.3) 6.5%, rgba(0,0,0,0.1) 9%, transparent 11.5%); pointer-events:none;"></div>
         </div>
       </div>
