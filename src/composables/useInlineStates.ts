@@ -21,9 +21,12 @@ export function useInlineStates(root: Ref<HTMLElement | null>): void {
   onMounted(() => {
     const host = root.value
     if (!host) return
+    // Skip hover states on touch (no `mouseleave` fires, so they'd stick); keep
+    // focus states, which work for keyboard users on every device.
+    const canHover = (() => { try { return window.matchMedia('(hover: hover)').matches } catch { return true } })()
     const consider = (el: HTMLElement) => {
       const hov = el.getAttribute('data-hover')
-      if (hov != null) wire(el, hov, 'mouseenter', 'mouseleave')
+      if (hov != null && canHover) wire(el, hov, 'mouseenter', 'mouseleave')
       const foc = el.getAttribute('data-focus')
       if (foc != null) wire(el, foc, 'focus', 'blur')
     }

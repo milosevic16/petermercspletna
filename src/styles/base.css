@@ -14,7 +14,9 @@
   --line: #D5D0C3;
 }
 
-html { scroll-behavior: smooth; }
+/* Kill the native mobile tap flash (a dark/grey rectangle on the warm paper);
+   interactive elements give their own feedback by opening/selecting. */
+html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
 
 body { margin: 0; background: #ECE9E2; color: #17181A; font-family: 'Spectral', Georgia, serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 

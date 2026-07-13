@@ -961,6 +961,10 @@ export function initEffects(copy: HomeContent): () => void {
     // Scoped to the VIEW roots (main + progress bar) so chrome hovers, wired by
     // SiteChrome/Masthead, are not double-bound.
     const __EVMAP = { click: "click", keydown: "keydown", focus: "focusin", blur: "focusout" }
+    // Only wire pointer-hover states where the primary input can actually hover.
+    // On touch, `mouseenter` fires on tap but `mouseleave` never does, so a
+    // data-hover background would stick to the tapped element (the grey artefact).
+    const __canHover = (function () { try { return window.matchMedia("(hover: hover)").matches } catch (e) { return true } })()
     function __viewRoots() {
       return [document.getElementById("main"), document.querySelector("[data-if=\"barOn\"]")].filter(Boolean)
     }
@@ -972,7 +976,7 @@ export function initEffects(copy: HomeContent): () => void {
             if (typeof fn === "function") __fx.on(el, __EVMAP[kind], fn)
           })
         })
-        root.querySelectorAll("[data-hover]").forEach(function (el) {
+        if (__canHover) root.querySelectorAll("[data-hover]").forEach(function (el) {
           const hov = el.getAttribute("data-hover")
           __fx.on(el, "mouseenter", function () { el.__b = el.style.cssText; el.style.cssText = el.__b + ";" + hov })
           __fx.on(el, "mouseleave", function () { if (el.__b != null) el.style.cssText = el.__b })
