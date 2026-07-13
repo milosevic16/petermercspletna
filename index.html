@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="pm-booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -8,8 +8,113 @@
       name="description"
       content="Peter Merc, Ph.D. — tech &amp; crypto lawyer and venture investor in Ljubljana. Founder of Lemur Legal, managing partner at Suricate Ventures, co-founder of Blocksquare and Bloctopus Intelligence."
     />
+    <style>
+      /* ---- boot veil -------------------------------------------------------
+         First-paint intro: inline static HTML+CSS only (no JS, fonts or images)
+         so it renders before anything else and hides the SPA's staged load.
+         It draws the operating-map graph (same geometry as #network in the
+         Home view), then cycles an accent highlight around the satellites like
+         the live map's selection. src/main.ts lifts it (removes .pm-booting)
+         once the route, fonts and hero portrait are ready. Arial only — no
+         webfont reference, so nothing swaps mid-intro. */
+      html.pm-booting { overflow: hidden; background: #26282c; }
+      #boot {
+        position: fixed; inset: 0; z-index: 9999;
+        display: grid; place-items: center;
+        background: radial-gradient(120% 90% at 50% 42%, #2c2e33 0%, #26282c 55%, #1f2125 100%);
+        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.08s, visibility 0s 0.8s;
+        /* failsafe: if the app never boots (broken JS), reveal the page anyway */
+        animation: boot-failsafe 0.6s ease 9s forwards;
+      }
+      html:not(.pm-booting) #boot { opacity: 0; visibility: hidden; pointer-events: none; }
+      .boot-figure { width: min(66vw, 380px); transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.45s ease; }
+      html:not(.pm-booting) .boot-figure { transform: scale(1.07); opacity: 0; }
+      .boot-figure svg { display: block; width: 100%; height: auto; }
+
+      .boot-line {
+        stroke: rgba(236, 231, 220, 0.25); stroke-width: 1;
+        stroke-dasharray: var(--L);
+        animation:
+          boot-draw 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.24s + var(--i) * 0.09s) backwards,
+          boot-line-glow 3.85s linear calc(1.45s + var(--i) * 0.55s) infinite;
+      }
+      .boot-dot {
+        fill: #3a3d43; stroke: #948e81; stroke-width: 1.5;
+        transform-box: fill-box; transform-origin: center;
+        animation:
+          boot-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) calc(0.5s + var(--i) * 0.09s) backwards,
+          boot-dot-glow 3.85s linear calc(1.45s + var(--i) * 0.55s) infinite;
+      }
+      .boot-hub-core {
+        transform-box: fill-box; transform-origin: center;
+        animation: boot-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s backwards;
+      }
+      .boot-hub-ring {
+        transform-box: fill-box; transform-origin: center;
+        animation: boot-fade 0.45s ease 0.3s backwards, boot-pulse 3.4s ease-in-out 1.3s infinite;
+      }
+      .boot-hub-txt {
+        font: 700 17px Arial, sans-serif; letter-spacing: 0.08em; fill: #ece7dc;
+        animation: boot-fade 0.4s ease 0.4s backwards;
+      }
+      .boot-brand {
+        margin: 26px 0 0; padding-left: 0.26em; /* re-centre the trailing letter-spacing */
+        text-align: center; font: 600 11px Arial, sans-serif;
+        letter-spacing: 0.26em; color: #948e81;
+        animation: boot-up 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 1.15s backwards;
+      }
+      .boot-brand span { color: #d2453e; }
+
+      @keyframes boot-draw { from { stroke-dashoffset: var(--L); } to { stroke-dashoffset: 0; } }
+      @keyframes boot-pop { from { transform: scale(0); } 70% { transform: scale(1.18); } to { transform: scale(1); } }
+      @keyframes boot-fade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes boot-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+      @keyframes boot-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.09); opacity: 0.5; } }
+      @keyframes boot-line-glow {
+        0%, 10% { stroke: #d2453e; stroke-width: 1.6; }
+        15%, 100% { stroke: rgba(236, 231, 220, 0.25); stroke-width: 1; }
+      }
+      @keyframes boot-dot-glow {
+        0%, 10% { fill: #d2453e; stroke: #d2453e; }
+        15%, 100% { fill: #3a3d43; stroke: #948e81; }
+      }
+      @keyframes boot-failsafe { to { opacity: 0; visibility: hidden; } }
+
+      /* static completed graph for reduced motion (failsafe on #boot stays live) */
+      @media (prefers-reduced-motion: reduce) {
+        #boot .boot-figure, #boot .boot-figure * { animation: none !important; }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot" role="presentation" aria-hidden="true">
+      <div class="boot-figure">
+        <!-- the operating map, clockwise from the top: faculty, suricate,
+             blocksquare, bloctopus, fintech, thinktank, lemur -->
+        <svg viewBox="0 0 560 480" xmlns="http://www.w3.org/2000/svg">
+          <line class="boot-line" style="--i:0; --L:182"   x1="280" y1="240" x2="280" y2="58"></line>
+          <line class="boot-line" style="--i:1; --L:213.4" x1="280" y1="240" x2="446" y2="106"></line>
+          <line class="boot-line" style="--i:2; --L:222.9" x1="280" y1="240" x2="502" y2="260"></line>
+          <line class="boot-line" style="--i:3; --L:201.4" x1="280" y1="240" x2="412" y2="392"></line>
+          <line class="boot-line" style="--i:4; --L:201.8" x1="280" y1="240" x2="152" y2="396"></line>
+          <line class="boot-line" style="--i:5; --L:197.3" x1="280" y1="240" x2="84"  y2="262"></line>
+          <line class="boot-line" style="--i:6; --L:203.4" x1="280" y1="240" x2="122" y2="112"></line>
+          <circle class="boot-dot" style="--i:0" cx="280" cy="58"  r="9"></circle>
+          <circle class="boot-dot" style="--i:1" cx="446" cy="106" r="9"></circle>
+          <circle class="boot-dot" style="--i:2" cx="502" cy="260" r="9"></circle>
+          <circle class="boot-dot" style="--i:3" cx="412" cy="392" r="9"></circle>
+          <circle class="boot-dot" style="--i:4" cx="152" cy="396" r="9"></circle>
+          <circle class="boot-dot" style="--i:5" cx="84"  cy="262" r="9"></circle>
+          <circle class="boot-dot" style="--i:6" cx="122" cy="112" r="9"></circle>
+          <g>
+            <circle class="boot-hub-core" cx="280" cy="240" r="36" fill="#D2453E"></circle>
+            <circle class="boot-hub-ring" cx="280" cy="240" r="44" fill="none" stroke="rgba(236,231,220,0.3)" stroke-width="1"></circle>
+            <text class="boot-hub-txt" x="280" y="240" dy="0.34em" dx="0.04em" text-anchor="middle">PM</text>
+          </g>
+        </svg>
+        <p class="boot-brand">PETER MERC<span>.</span></p>
+      </div>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
