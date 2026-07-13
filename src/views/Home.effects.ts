@@ -91,7 +91,7 @@ export function initEffects(copy: HomeContent): () => void {
         var mq = null;
         try { mq = window.matchMedia('(max-width: 819px)'); } catch (e) {}
         if (mq) {
-          var onMq = () => { this.setState({ mobile: mq.matches }); };
+          var onMq = () => { this.setState({ mobile: mq.matches }); this._fitMap(); };
           onMq();
           if (mq.addEventListener) {
             __fx.on(mq, 'change', onMq);
@@ -158,7 +158,7 @@ export function initEffects(copy: HomeContent): () => void {
         onScroll();
         this._c.push(() => window.removeEventListener('scroll', onScroll));
 
-        var onResize = () => { this._refreshOffs(); onScroll(); this._threadDraw(false); };
+        var onResize = () => { this._refreshOffs(); onScroll(); this._fitMap(); };
         __fx.on(window, 'resize', onResize);
         __fx.on(window, 'load', onResize);
         this._c.push(() => window.removeEventListener('resize', onResize));
@@ -324,10 +324,13 @@ export function initEffects(copy: HomeContent): () => void {
           __fx.on(frm, 'input', onInp);
           this._c.push(() => frm.removeEventListener('input', onInp));
         }
-        // Counsel dossier open by default
-        setTimeout(() => { if (!this._open) this._toggle('counsel'); }, 650);
+        // All "What I do" dossiers start closed (no auto-open).
 
-        requestAnimationFrame(() => { this._applySel(); this._threadDraw(false); });
+        requestAnimationFrame(() => { this._applySel(); this._pulseChain(this.state.sel); });
+        // Size the operating map to its content on mobile (re-fit once web fonts
+        // load, since label widths — and thus the crop — depend on them).
+        this._fitMap();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this._fitMap());
       }
 
       componentDidUpdate(prevProps) {
@@ -339,6 +342,7 @@ export function initEffects(copy: HomeContent): () => void {
         if (this._airT) clearTimeout(this._airT);
         if (this._typeT) clearInterval(this._typeT);
         this._twStop();
+        this._pulseStop();
         if (this._thA) { try { this._thA.cancel(); } catch (e) {} }
         if (this._thRaf) cancelAnimationFrame(this._thRaf);
       }
@@ -433,6 +437,22 @@ export function initEffects(copy: HomeContent): () => void {
         });
       }
 
+      // Fit the operating map on mobile by cropping the viewBox to the graph's
+      // actual content (nodes + labels) plus a margin, so it renders noticeably
+      // bigger; desktop keeps the full 560x480 frame.
+      _fitMap() {
+        var svg = document.querySelector('#network svg[viewBox]');
+        if (!svg) return;
+        if (!this.state.mobile) { svg.setAttribute('viewBox', '0 0 560 480'); return; }
+        var bb;
+        try { bb = svg.getBBox(); } catch (e) { return; }
+        if (!bb || bb.width < 50) return;
+        var m = 16;
+        svg.setAttribute('viewBox',
+          Math.round(bb.x - m) + ' ' + Math.round(bb.y - m) + ' ' +
+          Math.round(bb.width + 2 * m) + ' ' + Math.round(bb.height + 2 * m));
+      }
+
       _twStop() {
         if (this._twRaf) { cancelAnimationFrame(this._twRaf); this._twRaf = null; }
         if (this._twNodes) {
@@ -494,49 +514,12 @@ export function initEffects(copy: HomeContent): () => void {
         var fx = document.getElementById('fx-layer');
         var NS = 'http://www.w3.org/2000/svg';
         if (mode === 'surge' && fx) {
-          // Chain of node centres from the selected node up to the hub, so the
-          // surge dot travels THROUGH the branches and intermediate node rather
-          // than flying straight to the centre.
-          var chain = [];
-          var pk = key, guard = 0;
-          while (pk && guard++ < 16) {
-            var pg = document.getElementById('node-' + pk);
-            var pc = pg ? pg.querySelector('circle') : null;
-            if (pc) chain.push({ x: parseFloat(pc.getAttribute('cx')), y: parseFloat(pc.getAttribute('cy')) });
-            if (pk === 'pm') break;
-            pk = this._parent[pk];
-          }
-          var dot = document.createElementNS(NS, 'circle');
-          dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '4.5');
-          dot.setAttribute('fill', 'var(--accent)');
-          fx.appendChild(dot);
-          var pulseHub = () => {
-            var hub = document.querySelector('#node-pm circle');
-            if (hub && hub.animate) {
-              hub.style.transformBox = 'fill-box'; hub.style.transformOrigin = 'center';
-              __fx.anim(hub, [{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 380, easing: ease });
-            }
-          };
-          if (dot.animate && chain.length >= 2) {
-            var start = chain[0];
-            // cumulative segment lengths → distance-proportional keyframe offsets,
-            // so the dot glides at a constant speed along the branches.
-            var cum = [0], total = 0;
-            for (var si = 1; si < chain.length; si++) {
-              total += Math.hypot(chain[si].x - chain[si - 1].x, chain[si].y - chain[si - 1].y);
-              cum.push(total);
-            }
-            var kf = chain.map((w, i) => ({
-              transform: 'translate(' + (w.x - start.x).toFixed(1) + 'px,' + (w.y - start.y).toFixed(1) + 'px)',
-              opacity: i === chain.length - 1 ? 0.9 : 1,
-              offset: total ? cum[i] / total : (i / (chain.length - 1))
-            }));
-            var an = __fx.anim(dot, kf, { duration: Math.round(200 + total * 1.5), easing: 'cubic-bezier(0.4,0,0.2,1)' });
-            an.onfinish = () => { dot.remove(); pulseHub(); };
-          } else { dot.remove(); if (chain.length) pulseHub(); }
+          // The traveling pulse from the selected node through its section to the
+          // hub is owned by _pulseChain (started on selection). Here we just
+          // cascade the panel rows in from the map side.
           var dx = cx < hx ? -16 : 16;
           rows.forEach((r, i) => {
-            if (r.animate) __fx.anim(r, 
+            if (r.animate) __fx.anim(r,
               [{ opacity: 0, transform: 'translateX(' + dx + 'px)' }, { opacity: 1, transform: 'none' }],
               { duration: 430, delay: 200 + i * 55, easing: ease, fill: 'backwards' }
             );
@@ -579,73 +562,77 @@ export function initEffects(copy: HomeContent): () => void {
         }
       }
 
-      _threadDraw(anim) {
-        var wrap = document.getElementById('map-wrap');
-        var svg = document.getElementById('thread-svg');
-        var path = document.getElementById('thread-path');
-        var dotEl = document.getElementById('thread-dot');
-        var node = document.getElementById('node-' + this.state.sel);
-        var panel = document.getElementById('net-panel');
-        if (!wrap || !svg || !path || !node || !panel) return;
-        var wr = wrap.getBoundingClientRect();
-        if (wr.width < 10) return;
-        var c = node.querySelector('circle');
-        var nr = (c || node).getBoundingClientRect();
-        var pr = panel.getBoundingClientRect();
-        var sx = nr.left + nr.width / 2 - wr.left;
-        var sy = nr.top + nr.height / 2 - wr.top;
-        var ex = pr.left - wr.left;
-        var ey = pr.top - wr.top + 1;
-        var stacked = pr.top > wr.top + wr.height * 0.55 && pr.left < wr.left + wr.width * 0.2;
-        if (stacked) { ex = pr.left - wr.left + 24; }
-        svg.setAttribute('viewBox', '0 0 ' + wr.width.toFixed(0) + ' ' + wr.height.toFixed(0));
-        // Smooth S-curve from the selected node to the panel anchor (same as
-        // the original radial map). `stacked` = the mobile layout where the
-        // panel sits below the map rather than beside it.
-        var mx = (ex - sx) * 0.45;
-        var d;
-        if (stacked) {
-          d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' C ' + sx.toFixed(1) + ' ' + (sy + (ey - sy) * 0.5).toFixed(1) + ', ' + ex.toFixed(1) + ' ' + (ey - (ey - sy) * 0.4).toFixed(1) + ', ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
-        } else {
-          d = 'M ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ' C ' + (sx + mx).toFixed(1) + ' ' + sy.toFixed(1) + ', ' + (ex - mx).toFixed(1) + ' ' + ey.toFixed(1) + ', ' + ex.toFixed(1) + ' ' + ey.toFixed(1);
+      _pulseStop() {
+        if (this._pulseAnims) { this._pulseAnims.forEach((a) => { try { a.cancel(); } catch (e) {} }); this._pulseAnims = null; }
+        if (this._pulseTimer) { clearInterval(this._pulseTimer); this._pulseTimer = null; }
+        if (this._pulseEl && this._pulseEl.parentNode) this._pulseEl.parentNode.removeChild(this._pulseEl);
+        this._pulseEl = null;
+      }
+
+      // A soft pulse that repeatedly rides the highlighted route from the selected
+      // node, THROUGH its section (category) node, into the PM hub — replacing the
+      // old selected-node → title thread. Loops while that node stays selected.
+      _pulseChain(key) {
+        this._pulseStop();
+        if (this._reduced) return;
+        var fx = document.getElementById('fx-layer');
+        if (!fx) return;
+        var NS = 'http://www.w3.org/2000/svg';
+        // node centres, selected → parent → … → hub (in SVG user units)
+        var chain = [], pk = key, guard = 0;
+        while (pk && guard++ < 16) {
+          var pg = document.getElementById('node-' + pk);
+          var pc = pg ? pg.querySelector('circle') : null;
+          if (pc) chain.push({ x: parseFloat(pc.getAttribute('cx')), y: parseFloat(pc.getAttribute('cy')) });
+          if (pk === 'pm') break;
+          pk = this._parent[pk];
         }
-        path.setAttribute('d', d);
-        var L = 300;
-        try { L = path.getTotalLength(); } catch (e) {}
-        if (this._thA) { try { this._thA.cancel(); } catch (e) {} this._thA = null; }
-        if (this._thRaf) { cancelAnimationFrame(this._thRaf); this._thRaf = null; }
-        var flow = () => {
-          path.style.strokeDasharray = '3 10';
-          path.style.strokeDashoffset = '0';
-          path.style.animation = this._reduced ? '' : 'pm-dash 1.15s linear infinite';
+        if (chain.length < 2) return;
+        var start = chain[0];
+        // distance-proportional keyframe offsets → constant travel speed
+        var cum = [0], total = 0;
+        for (var si = 1; si < chain.length; si++) {
+          total += Math.hypot(chain[si].x - chain[si - 1].x, chain[si].y - chain[si - 1].y);
+          cum.push(total);
+        }
+        var dur = Math.round(950 + total * 2.6);
+        var g = document.createElementNS(NS, 'g');
+        g.style.pointerEvents = 'none';
+        var halo = document.createElementNS(NS, 'circle');
+        halo.setAttribute('cx', start.x); halo.setAttribute('cy', start.y); halo.setAttribute('r', '10');
+        halo.setAttribute('fill', 'var(--accent)'); halo.setAttribute('opacity', '0.16');
+        var core = document.createElementNS(NS, 'circle');
+        core.setAttribute('cx', start.x); core.setAttribute('cy', start.y); core.setAttribute('r', '4.5');
+        core.setAttribute('fill', 'var(--accent)');
+        g.appendChild(halo); g.appendChild(core);
+        fx.appendChild(g);
+        var moveKf = chain.map((w, i) => ({
+          transform: 'translate(' + (w.x - start.x).toFixed(1) + 'px,' + (w.y - start.y).toFixed(1) + 'px)',
+          offset: total ? cum[i] / total : (i / (chain.length - 1))
+        }));
+        // fade in as it leaves the node, fade out as it merges into the hub
+        var fadeKf = [
+          { opacity: 0, offset: 0 },
+          { opacity: 1, offset: 0.14 },
+          { opacity: 1, offset: 0.8 },
+          { opacity: 0, offset: 1 }
+        ];
+        this._pulseAnims = [];
+        if (g.animate) {
+          this._pulseAnims.push(g.animate(moveKf, { duration: dur, easing: 'linear', iterations: Infinity }));
+          this._pulseAnims.push(g.animate(fadeKf, { duration: dur, easing: 'ease-in-out', iterations: Infinity }));
+        }
+        this._pulseEl = g;
+        // the hub gives a gentle "reception" beat each time a pulse arrives
+        var ease = 'cubic-bezier(0.2,0.7,0.2,1)';
+        var pulseHub = () => {
+          var hub = document.querySelector('#node-pm circle');
+          if (hub && hub.animate) {
+            hub.style.transformBox = 'fill-box'; hub.style.transformOrigin = 'center';
+            __fx.anim(hub, [{ transform: 'scale(1)' }, { transform: 'scale(1.13)' }, { transform: 'scale(1)' }], { duration: 440, easing: ease });
+          }
         };
-        if (!anim || this._reduced || !path.animate) {
-          path.style.animation = '';
-          flow();
-          if (dotEl) dotEl.setAttribute('opacity', '0');
-          return;
-        }
-        path.style.animation = '';
-        path.style.strokeDasharray = L + ' ' + L;
-        path.style.strokeDashoffset = L;
-        this._thA = __fx.anim(path, 
-          [{ strokeDashoffset: L }, { strokeDashoffset: 0 }],
-          { duration: 520, easing: 'cubic-bezier(0.4,0,0.2,1)' }
-        );
-        this._thA.onfinish = () => { this._thA = null; flow(); };
-        if (dotEl) {
-          dotEl.setAttribute('opacity', '1');
-          var t0 = performance.now();
-          var tick = (now) => {
-            var t = Math.min(1, (now - t0) / 520);
-            var pt = null;
-            try { pt = path.getPointAtLength(L * t); } catch (e) {}
-            if (pt) { dotEl.setAttribute('cx', pt.x); dotEl.setAttribute('cy', pt.y); }
-            if (t < 1) { this._thRaf = requestAnimationFrame(tick); }
-            else { dotEl.setAttribute('opacity', '0'); this._thRaf = null; }
-          };
-          this._thRaf = requestAnimationFrame(tick);
-        }
+        this._pulseTimer = setInterval(pulseHub, dur);
       }
 
       _netCycle(dir) {
@@ -655,7 +642,7 @@ export function initEffects(copy: HomeContent): () => void {
         this.setState({ sel: n }, () => {
           this._applySel();
           this._mapFx(n);
-          this._threadDraw(true);
+          this._pulseChain(n);
         });
       }
 
@@ -706,7 +693,7 @@ export function initEffects(copy: HomeContent): () => void {
           this.setState({ sel: k }, () => {
             this._applySel();
             this._mapFx(k);
-            this._threadDraw(true);
+            this._pulseChain(k);
           });
         }
       };

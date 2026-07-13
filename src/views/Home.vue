@@ -126,10 +126,6 @@
 
         <p style="margin:0 0 clamp(1.8rem, 4vw, 2.6rem); font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:500; font-size:clamp(1.4rem, 2.7vw, 2.1rem); line-height:1.3; color:var(--ivory); max-width:28ch;">{{ t.record.pullQuote }}<span style="color:var(--accent);">.</span></p>
         <div id="map-wrap" style="position:relative; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap:clamp(1.8rem, 4.5vw, 3.5rem); align-items:center;">
-          <svg id="thread-svg" aria-hidden="true" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2; overflow:visible;">
-            <path id="thread-path" d="" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"></path>
-            <circle id="thread-dot" r="4" fill="var(--accent)" opacity="0"></circle>
-          </svg>
           <div id="network" style="min-width:0;">
             <p style="margin:0 0 0.8rem; display:flex; align-items:center; gap:0.55rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;"><span aria-hidden="true" style="width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pm-blink 2.6s ease-in-out infinite;"></span>{{ t.record.live }}</p>
             <!-- Circular operating map: PM hub at centre → inner ring of 4
@@ -486,6 +482,17 @@ onUnmounted(() => dispose && dispose())
 @media (max-width: 819px) {
   .pm-net-lbl { font-size: 20px; }
   .pm-net-hub { font-size: 23px; }
+  /* Enlarge & emphasize the operating map on mobile: break the graph out of the
+     text column to full viewport width and drop the height cap. The viewBox is
+     also tightened at runtime (_fitMap) to crop the surrounding whitespace. */
+  #network {
+    margin-left: calc(-1 * clamp(1.25rem, 5vw, 4rem));
+    margin-right: calc(-1 * clamp(1.25rem, 5vw, 4rem));
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+    box-sizing: border-box;
+  }
+  #network svg[viewBox] { max-height: none; }
 }
 
 /* Mobile (stacked hero): halve the flat-grey band between the intro badge and
