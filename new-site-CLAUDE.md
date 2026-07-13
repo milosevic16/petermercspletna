@@ -91,6 +91,7 @@ Human-readable copy lives in typed modules under `src/content/`, **never inline 
 
 ## Guardrails
 
+- **No `Co-Authored-By` trailers in commit messages.** Netlify's free plan allows one Git contributor on private repos and counts co-author trailers as contributors — a commit with one gets the deploy **blocked** ("unrecognized Git contributor"). Plain commit messages only.
 - `.gitignore` covers `node_modules/`, `dist/`, `.env`, `.env.*.local` — never commit build artifacts or secrets.
 - **A push to `main` auto-deploys to production** (Netlify builds from the connected repo), so verify locally first (`npm run build`) and don't push to `main` unless the user asks. Don't run destructive git commands (`reset --hard`, force-push) unless asked.
 - Don't run any `tools/` script marked one-shot.
