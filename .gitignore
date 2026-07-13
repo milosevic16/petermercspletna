@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment / secrets
+.env
+.env.*.local
+
+# Logs & OS cruft
+*.log
+.DS_Store
+
+# Local Claude Code settings (personal, not shared)
+.claude/settings.local.json
