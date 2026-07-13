@@ -126,7 +126,7 @@ export interface HomeContent {
     regarding: string
     /**
      * `key` is the stable ENGLISH topic string: it is the data-topic value,
-     * the hints lookup key, and the mail subject ("Website inquiry — <key>"),
+     * the hints lookup key, and the mail subject ("Peter Merc website — <key>"),
      * so the site owner's received data stays English for both languages.
      * Only `label` and `hint` localize.
      */

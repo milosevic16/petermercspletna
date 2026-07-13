@@ -912,7 +912,7 @@ export function initEffects(copy: HomeContent): () => void {
           onAir: this.state.onAir,
           isMobile: this.state.mobile,
           isDesktop: !this.state.mobile,
-          mailSubject: 'Website inquiry — ' + (this.state.topic || 'General'),
+          mailSubject: 'Peter Merc website — ' + (this.state.topic || 'General'),
           offAir: !this.state.onAir,
           msgHint: hints[this.state.topic] || copy.contact.msgHint,
           pickTopic: this.pickTopic,
@@ -996,7 +996,7 @@ export function initEffects(copy: HomeContent): () => void {
     // The subject stays ENGLISH (owner data) and is built from the topic key.
     wireWeb3Form(__fx, {
       root: '#contact-form',
-      subject: function (f) { return 'Website inquiry — ' + (f.topic || 'General'); },
+      subject: function (f) { return 'Peter Merc website — ' + (f.topic || 'General'); },
       page: 'Peter Merc — website contact',
       strings: copy.contact.formStates,
     })

@@ -44,7 +44,14 @@ export function wireWeb3Form(fx: Tracker, opts: Web3FormOpts): void {
   const collect = (): Record<string, string> => {
     const data: Record<string, string> = {}
     form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[name]').forEach((el) => {
-      data[el.name] = el.value
+      // Checkboxes/radios report a constant `.value` ("on") even when unchecked,
+      // so serialize them by `.checked` — otherwise the hidden honeypot checkbox
+      // always reads as filled and every real submission gets dropped as a bot.
+      if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
+        if (el.checked) data[el.name] = el.value
+      } else {
+        data[el.name] = el.value
+      }
     })
     return data
   }
