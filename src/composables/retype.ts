@@ -3,7 +3,7 @@
 // the document's FIRST viewport — the locale switch scrolls to top, and
 // measurement may happen before that scroll applies — walking #pm-root so the
 // persistent chrome (masthead nav) sweeps together with the remounted view.
-// Time-based (not frame-count), finishes in ~0.5s; skipped for
+// Time-based (not frame-count), finishes in ~0.65s; skipped for
 // prefers-reduced-motion and hidden tabs (rAF is suspended there, which would
 // leave the page blanked mid-sweep).
 
@@ -57,8 +57,8 @@ export function runLanguageRetype(): void {
   nodes.sort((a, b) => a.top - b.top)
   nodes.forEach((n) => { n.node.nodeValue = '' })
 
-  const STAGGER = 10 // ms between node starts, top-to-bottom
-  const SPEED = 0.25 // chars per ms (time-based: throttled frames still finish)
+  const STAGGER = 13.5 // ms between node starts, top-to-bottom
+  const SPEED = 0.185 // chars per ms (time-based: throttled frames still finish)
   const t0 = performance.now()
   let raf = 0
   const tick = (now: number) => {
