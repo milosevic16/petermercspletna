@@ -543,4 +543,11 @@ onUnmounted(() => dispose && dispose())
 #network g[data-net]:focus-visible circle { stroke: #D2453E; stroke-width: 2.5px; }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
+
+/* Mobile (stacked hero): halve the flat-grey band between the intro badge and
+   the portrait — the text cell's bottom padding. !important beats the inline
+   padding clamp on the cell. Desktop (side-by-side) is unaffected. */
+@media (max-width: 819px) {
+  #hero > div:first-child { padding-bottom: 1.25rem !important; }
+}
 </style>
