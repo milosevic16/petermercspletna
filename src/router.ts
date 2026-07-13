@@ -1,18 +1,25 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import type { Component } from 'vue'
 import { pages } from './pages'
+import { locale, localePath, LOCALES, type Locale } from './i18n/locale'
 
 // Lazy view modules, resolved to their default export so each is a valid
 // `() => Promise<Component>` route loader.
 const views = import.meta.glob<Component>('./views/*.vue', { import: 'default' })
 
-const routes: RouteRecordRaw[] = pages.map((p) => ({
-  path: '/' + p.slug,
-  name: p.name,
-  component: views[`./views/${p.name}.vue`],
-  meta: { title: p.title, description: p.description },
-}))
-// Unknown paths fall back to home.
+// Routes are page × locale: English unprefixed ('/'), Slovenian under '/sl'.
+// Head meta (title/description) comes from the content modules via useHead,
+// not from route meta.
+const routes: RouteRecordRaw[] = LOCALES.flatMap((l: Locale) =>
+  pages.map((p) => ({
+    path: localePath(l) + (p.slug ? (l === 'en' ? '' : '/') + p.slug : ''),
+    name: `${p.name}.${l}`,
+    component: views[`./views/${p.name}.vue`],
+    meta: { locale: l },
+  })),
+)
+// Unknown paths fall back to the locale's home.
+routes.push({ path: '/sl/:pathMatch(.*)*', redirect: '/sl' })
 routes.push({ path: '/:pathMatch(.*)*', redirect: '/' })
 
 // Offset for a fixed/sticky masthead; 0 when it scrolls with the page (this site).
@@ -57,4 +64,11 @@ export const router = createRouter({
     // Instant overrides the global `scroll-behavior: smooth` on route change.
     return { top: 0, behavior: 'instant' }
   },
+})
+
+// Keep the locale ref in lockstep with the route BEFORE the view renders, so
+// usePageContent/useHead resolve the right language on each navigation.
+router.beforeEach((to) => {
+  const l = (to.meta.locale as Locale | undefined) ?? 'en'
+  if (locale.value !== l) locale.value = l
 })

@@ -7,7 +7,7 @@
       href="#main"
       style="position:absolute; left:-9999px; top:0.75rem; z-index:100; background:#17181A; color:#ECE7DC; padding:0.7rem 1.1rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.85rem; text-decoration:none;"
       data-focus="left:0.75rem;"
-    >Skip to content</a>
+    >{{ c.skip }}</a>
     <Masthead />
     <slot />
     <Footer />
@@ -19,6 +19,10 @@ import { ref } from 'vue'
 import Masthead from './Masthead.vue'
 import Footer from './Footer.vue'
 import { useInlineStates } from '@/composables/useInlineStates'
+import { usePageContent } from '@/i18n/useContent'
+import chrome from '@/content/chrome'
+
+const c = usePageContent(chrome)
 
 // The skip link reveals itself on focus (style-focus -> data-focus).
 const skip = ref<HTMLElement | null>(null)

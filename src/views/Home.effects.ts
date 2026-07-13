@@ -7,9 +7,16 @@
 // are wired generically from the data-* hooks the extractor emitted (__wire).
 // Timers / listeners / observers / animations route through a tracker so they tear
 // down on route change. Edit THIS file directly from now on.
+//
+// i18n: all user-facing copy this file drives (entities, docket, topic hints,
+// fallbacks) comes in via the `copy` parameter — the current locale's
+// HomeContent (src/content/home.ts). The view remounts on locale change and
+// re-calls initEffects with the new language. The mail subject and topic keys
+// deliberately stay ENGLISH (owner receives English data for both languages).
 import { createTracker } from '@/composables/tracker'
+import type { HomeContent } from '@/content/home'
 
-export function initEffects(): () => void {
+export function initEffects(copy: HomeContent): () => void {
   const __fx = createTracker()
   const requestAnimationFrame = __fx.raf
   const cancelAnimationFrame = __fx.caf
@@ -48,26 +55,10 @@ export function initEffects(): () => void {
         try { this._reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
         var reduced = this._reduced;
     // (framework self-call removed: theme is baked into :root / #pm-root)
-        this._ents = {
-          pm: { tag: 'Principal', name: 'Peter Merc', role: 'Lawyer · investor · founder', desc: 'Every node routes through one desk in Ljubljana — counsel, capital and the occasional board seat, the same judgment applied three ways.', href: '' },
-          lemur: { tag: 'Founded', name: 'Lemur Legal', role: 'Founder & Managing Partner', desc: 'Specialist tech-law office: MiCA white papers, CASP licensing and the token opinions that get assets listed.', href: 'https://lemur.legal' },
-          suricate: { tag: 'Co-founded', name: 'Suricate Ventures', role: 'Co-founder & Managing Partner', desc: 'Early-stage venture fund backing fintech, gaming, health and logistics teams across the region.', href: 'https://suricate.ventures' },
-          blocksquare: { tag: 'Co-founded', name: 'Blocksquare', role: 'Co-founder & Chief Legal Officer', desc: 'Real-world-asset tokenization infrastructure — bringing property on-chain, compliantly.', href: 'https://blocksquare.io' },
-          bloctopus: { tag: 'Managing', name: 'Bloctopus Intelligence', role: 'Managing Partner', desc: 'Blockchain intelligence and crypto-asset recovery.', href: '' },
-          fintech: { tag: 'Founded', name: 'Fintech Factory', role: 'Founder', desc: 'Fintech consultancy — regulatory strategy for banks and startups.', href: '' },
-          thinktank: { tag: 'Board', name: 'Blockchain Think Tank Slovenia', role: 'Board member & initiator', desc: 'Policy work where the Slovenian rules get drafted.', href: '' },
-          faculty: { tag: 'Academic', name: 'Law Faculty, New University', role: 'Assistant Professor', desc: 'Ph.D. in law; teaching financial and technology law in Ljubljana.', href: 'https://www.nova-uni.si' }
-        };
-        this._docket = [
-          'MiCA white papers & CASP licensing',
-          'Token classification & listing opinions',
-          'RWA tokenization',
-          'Crypto taxation',
-          'Fund formation & venture deals',
-          'Regulatory strategy for fintechs',
-          'Panels, lectures & commentary',
-          'Board & policy work'
-        ];
+        // Copy comes from the locale's content module (entities keep their
+        // hrefs there too; extra fields like nodeLabel/aria are harmless).
+        this._ents = copy.record.ents;
+        this._docket = copy.docket.items;
 
         var mq = null;
         try { mq = window.matchMedia('(max-width: 819px)'); } catch (e) {}
@@ -837,13 +828,10 @@ export function initEffects(): () => void {
       };
 
       renderVals() {
-        var hints = {
-          'MiCA & licensing': 'Which market, which token, and when you need to be live.',
-          'Listing opinion': 'Which asset, which venue, and the timeline you are working against.',
-          'Venture & funds': 'Stage, round, and what you are building.',
-          'Speaking & media': 'Format, date, audience.',
-          'Something else': 'Two sentences is plenty — you will get next steps back.'
-        };
+        // Hints keyed by the stable ENGLISH topic key (= data-topic attr);
+        // the hint text itself is localized.
+        var hints = {};
+        copy.contact.topics.forEach(function (t) { hints[t.key] = t.hint; });
         var on = (this.props.showChyron === undefined || this.props.showChyron === null) ? true : !!this.props.showChyron;
         var ents = this._ents || {};
         var sel = ents[this.state.sel] || { tag: '', name: '', role: '', desc: '', href: '' };
@@ -851,9 +839,9 @@ export function initEffects(): () => void {
         return {
           showNav: !this.state.mobile,
           barOn: on && this.state.bar,
-          barLabel: this.state.label || 'On record',
+          barLabel: this.state.label || copy.bar.fallbackLabel,
           barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / 05',
-          docketText: docket[this.state.docket] || 'MiCA white papers & CASP licensing',
+          docketText: docket[this.state.docket] || copy.docket.items[0],
           docketIdx: this._pad(this.state.docket + 1) + ' / 08',
           dsRing: (this.props.docketStyle || 'ring') === 'ring',
           dsDial: (this.props.docketStyle || 'ring') === 'dial',
@@ -870,7 +858,7 @@ export function initEffects(): () => void {
           isDesktop: !this.state.mobile,
           mailSubject: 'Website inquiry — ' + (this.state.topic || 'General'),
           offAir: !this.state.onAir,
-          msgHint: hints[this.state.topic] || 'A few lines about what you have in mind is plenty.',
+          msgHint: hints[this.state.topic] || copy.contact.msgHint,
           pickTopic: this.pickTopic,
           airOn: this.airOn,
           airOff: this.airOff,

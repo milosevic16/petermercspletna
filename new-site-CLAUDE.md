@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## What this is
 
-**Peter Merc** — personal/marketing site for Peter Merc, Ph.D., crypto & fintech lawyer and venture investor in Ljubljana; **1 static page** (home) today. Vite + Vue 3 (TS) + vue-router + Tailwind SPA. Contact form via **Web3Forms** (submit wiring is a follow-up pass — the form markup is ported, the mailto/submit handler is not). All copy in a typed, **locale-ready content layer** scaffolded but not yet consumed (the ported view still holds inline copy). Deployed to **Netlify** from the connected GitHub repo `milosevic16/petermercspletna` — a push to `main` builds and ships. Site URL: _TBD — set once the Netlify domain is connected._
+**Peter Merc** — personal/marketing site for Peter Merc, Ph.D., crypto & fintech lawyer and venture investor in Ljubljana; **1 page (home), bilingual**: English at `/`, Slovenian at `/sl`. Vite + Vue 3 (TS) + vue-router + Tailwind SPA. Contact form via **Web3Forms** (submit wiring is a follow-up pass — the form markup is ported, the mailto/submit handler is not). All copy lives in the typed, **locale-keyed content layer** (`src/content/`); templates hold no prose. Deployed to **Netlify** from the connected GitHub repo `milosevic16/petermercspletna` — a push to `main` builds and ships. Live at `https://petermerc.netlify.app` (custom domain TBD).
 
 > During initial build-out this file is the **spec** — when a task first needs a described piece that doesn't exist yet, create it in this shape (not preemptively). Afterwards it is the **map**.
 
@@ -49,22 +49,17 @@ Assets: **37** self-hosted `woff2` (Spectral + Instrument Sans) in `public/fonts
 
 **Tailwind.** Preflight is **off** (the ported CSS provides the reset). `tailwind.config.js` maps tokens to the CSS custom properties. Use utilities for new layout; keep the bespoke CSS for existing sections.
 
-## Copy (locale-ready content layer)
+## Copy & i18n (ACTIVE — English + Slovenian)
 
-Human-readable copy lives in typed modules under `src/content/`, **never inline in `.vue` markup** — so text edits never touch layout, and adding a language later never touches a template. This copy indirection is the *only* piece of i18n built now; per-locale URLs are cheap to add later (see the end of this section) and deliberately aren't here yet.
+The site is bilingual: **English at `/`, Slovenian at `/sl`** (real per-locale routes, generated page × locale in `src/router.ts` from `pages.ts`; each route carries `meta.locale` and a `beforeEach` guard syncs the `locale` ref before the view renders). The masthead has an **EN | SL toggle** (plain `<a>`s via `localePath()`, hash-preserving, `aria-current`/`hreflang`/`lang` attributes, visible on mobile). Switching locale changes `$route.path` → the route-keyed `<router-view>` **remounts the view**, re-running `initEffects` with the new language's copy.
 
-- **Keyed by locale from day one, even with one language.** `src/i18n/locale.ts` is just `export type Locale = 'en'` + `export const locale = ref<Locale>('en')`. `src/content/types.ts`:
-  ```ts
-  import type { Locale } from '@/i18n/locale'
-  // Copy is keyed by locale even while there's only one. Widening Locale later
-  // makes every content module missing the new key fail typecheck — that's the
-  // "no untranslated strings" guarantee. Views never change.
-  export type Localized<T> = Record<Locale, T>
-  ```
-  Each page module default-exports a `Localized<PageContent>` — today only the `en` key — with a `meta: { title, description }` field for the head.
-- **Views read through the helper, never the raw object.** `usePageContent` (`src/i18n/useContent.ts`) = `computed(() => content[locale.value])`. In a view: `const t = usePageContent(home)`, template reads `{{ t.hero.kicker }}`. New pages use this from the start; a freshly ported page keeps its inline copy until you next touch it, then lift that copy into a module.
-- **Head/SEO.** `useHead(content)` at the top of `<script setup>` sets `document.title` + the meta description from the module's `meta` field (single-locale: no canonical/hreflang yet). A page still on inline copy may set `document.title` directly until migrated.
-- **Adding a second language later** (whenever "some site" needs it) is purely additive and touches **no view template**: widen `Locale` to `'en' | 'sl'`; add the `sl` key to each content module (typecheck lists exactly what's missing); add a locale toggle, a second set of routes with per-locale slugs, a `localePath()`/`lp()` href helper, and canonical/hreflang in `useHead`. The copy indirection above is the whole reason that stays additive — that's why it's here now.
+- **All human-readable copy lives in typed modules under `src/content/`** (`home.ts`, `chrome.ts`), keyed by locale — never inline in `.vue` markup. `src/i18n/locale.ts` has `Locale = 'en' | 'sl'`, `locale` ref, `LOCALES`, `localePath()`. `Localized<T> = Record<Locale, T>` (`src/content/types.ts`): a content module missing a locale key **fails typecheck** — the "no untranslated strings" guarantee.
+- **Views read through the helper, never the raw object.** `usePageContent` (`src/i18n/useContent.ts`) = `computed(() => content[locale.value])`. In a view: `const t = usePageContent(home)`, template reads `{{ t.hero.line1 }}`. Effects files receive the resolved copy as a parameter: `initEffects(t.value)`.
+- **Head/SEO.** `useHead(content)` in `<script setup>` sets `document.title`, meta description, `<html lang>`, the per-locale canonical, and `hreflang` alternates (en / sl / x-default). No view sets `document.title` directly.
+- **Owner data stays English by design.** Contact `topics[i].key` is the stable English string — it is the `data-topic` attribute, the hints lookup key, and the mail subject (`'Website inquiry — ' + key`); only `label`/`hint` localize. The future Web3Forms payload is therefore English for both languages.
+- **The Slovenian is a first draft** (marked for Peter's review — legal phrasing especially). Fix wording in `src/content/*.ts` only; templates never change for copy edits.
+- The boot veil in `index.html` is deliberately language-neutral ("PM", "PETER MERC.") — don't localize it; it paints before any JS.
+- **Adding a third language** stays additive: widen `Locale`, add the key to each content module (typecheck lists what's missing), done — routes/toggle/hreflang derive from `LOCALES`.
 
 ## Web3Forms
 
