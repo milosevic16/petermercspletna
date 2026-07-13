@@ -286,7 +286,7 @@ const home: Localized<HomeContent> = {
           role: 'Academia & policy',
           desc: 'Teaching financial and technology law at the New University, and policy work at Blockchain Think Tank Slovenia.',
           href: '',
-          nodeLabel: 'Lecturing & mentoring',
+          nodeLabel: 'Lecturing',
           aria: 'Lecturing and mentoring — Think Tank and New University',
         },
         suricate: {
@@ -614,7 +614,7 @@ const home: Localized<HomeContent> = {
           role: 'Akademsko delo in politike',
           desc: 'Predavanja finančnega in tehnološkega prava na Novi univerzi ter delo pri politikah v Blockchain Think Tank Slovenija.',
           href: '',
-          nodeLabel: 'Predavanja in mentorstvo',
+          nodeLabel: 'Predavanja',
           aria: 'Predavanja in mentorstvo — Think Tank in Nova univerza',
         },
         suricate: {
