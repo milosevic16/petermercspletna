@@ -1,0 +1,60 @@
+/* Generated once by tools/extract.mjs. Global chrome + resets + tokens.
+   Page-specific CSS lives in each view's <style scoped>. */
+
+/* Default design tokens — the chrome needs sane tokens before any view mounts.
+   Each view re-asserts its complete set at runtime via ROOT_VARS. */
+:root {
+  --paper: #ECE9E2;
+  --ink: #17181A;
+  --ink2: #5C594F;
+  --accent: #D2453E;
+  --graphite: #26282C;
+  --ivory: #ECE7DC;
+  --ivory2: #B4AEA1;
+  --line: #D5D0C3;
+}
+
+html { scroll-behavior: smooth; }
+
+body { margin: 0; background: #ECE9E2; color: #17181A; font-family: 'Spectral', Georgia, serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+::selection { background: #D2453E; color: #F5F2EA; }
+
+a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.22em; text-decoration-color: rgba(23,24,26,0.32); transition: text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1), color 0.16s cubic-bezier(0.4,0,0.2,1); }
+
+a:hover { text-decoration-color: #D2453E; }
+
+a:focus-visible, button:focus-visible { outline: 2px solid #D2453E; outline-offset: 3px; }
+
+input:focus, textarea:focus { outline: none; }
+
+@keyframes chyron-rise { from { transform: translateY(110%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@keyframes pm-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+
+@keyframes pm-slide { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
+
+@keyframes pm-settle { from { transform: scale(1.045); } to { transform: scale(1); } }
+
+@keyframes pm-float { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+
+@keyframes pm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+@keyframes pm-dash { to { stroke-dashoffset: 13; } }
+
+@keyframes pm-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.09); opacity: 0.5; } }
+
+@keyframes pm-wave { to { transform: translateX(-600px); } }
+
+@media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+
+/* viewport-split helpers: reproduce the builder's <sc-if isDesktop/isMobile> */
+.pm-desktop-only { display: contents; }
+.pm-mobile-only { display: none; }
+@media (max-width: 819px) {
+  .pm-desktop-only { display: none; }
+  .pm-mobile-only { display: contents; }
+}
