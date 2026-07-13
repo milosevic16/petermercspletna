@@ -393,9 +393,8 @@
           <input type="checkbox" name="botcheck" tabindex="-1" aria-hidden="true" style="display:none;">
           <div style="margin-top:1.6rem; display:flex; align-items:center; gap:1.3rem; flex-wrap:wrap;">
             <button id="contact-send" type="submit" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.06em; background:var(--accent); color:#F7F4EC; border:0; border-radius:0; padding:0.95rem 1.8rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="background:color-mix(in oklab, var(--accent) 86%, #000000); transform:translateY(-1px);">{{ t.contact.send }}</button>
-            <div data-if="sentNote" style="display:none">
-              <p role="status" style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; color:var(--ivory); animation:pm-slide 0.4s cubic-bezier(0.2,0.7,0.2,1) both;">{{ t.contact.sentNote }}</p>
-            </div>
+            <!-- The Web3Forms helper (wireWeb3Form) writes sending/success/error here. -->
+            <p class="js-form-status" role="status" aria-live="polite" style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; color:#B4AEA1;"></p>
           </div>
         </form>
       </div>

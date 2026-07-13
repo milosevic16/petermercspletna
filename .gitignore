@@ -4,9 +4,13 @@ node_modules/
 # Build output
 dist/
 
-# Environment / secrets
+# Environment / secrets — never commit real keys. The Web3Forms access key
+# lives in .env.local (local dev) and in Netlify's env vars (production);
+# .env.example is the committed, value-less template.
 .env
+.env.local
 .env.*.local
+!.env.example
 
 # Logs & OS cruft
 *.log

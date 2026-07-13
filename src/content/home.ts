@@ -141,7 +141,7 @@ export interface HomeContent {
     emailPlaceholder: string
     messageLabel: string
     send: string
-    sentNote: string
+    formStates: { sending: string; success: string; error: string; invalid: string }
   }
   bar: {
     aria: string
@@ -464,7 +464,12 @@ const home: Localized<HomeContent> = {
       emailPlaceholder: 'you@company.com',
       messageLabel: 'Message',
       send: 'Send message',
-      sentNote: 'Thanks — your message is on its way. I’ll be in touch.',
+      formStates: {
+        sending: 'Sending…',
+        success: 'Thanks — your message is on its way. I’ll be in touch.',
+        error: 'Something went wrong — please try again, or email me directly.',
+        invalid: 'Please add your name, a valid email and a message.',
+      },
     },
     bar: {
       aria: 'Page progress',
@@ -792,7 +797,12 @@ const home: Localized<HomeContent> = {
       emailPlaceholder: 'vi@podjetje.com',
       messageLabel: 'Sporočilo',
       send: 'Pošlji sporočilo',
-      sentNote: 'Hvala — vaše sporočilo je na poti. Kmalu se oglasim.',
+      formStates: {
+        sending: 'Pošiljam…',
+        success: 'Hvala — vaše sporočilo je na poti. Kmalu se oglasim.',
+        error: 'Nekaj je šlo narobe — poskusite znova ali mi pišite neposredno.',
+        invalid: 'Prosimo, dodajte ime, veljaven e-naslov in sporočilo.',
+      },
     },
     bar: {
       aria: 'Napredek strani',

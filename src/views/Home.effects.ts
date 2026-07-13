@@ -14,6 +14,7 @@
 // re-calls initEffects with the new language. The mail subject and topic keys
 // deliberately stay ENGLISH (owner receives English data for both languages).
 import { createTracker } from '@/composables/tracker'
+import { wireWeb3Form } from '@/composables/web3forms'
 import type { HomeContent } from '@/content/home'
 
 export function initEffects(copy: HomeContent): () => void {
@@ -956,11 +957,11 @@ export function initEffects(copy: HomeContent): () => void {
     }
 
     // ---- generic event + pseudo-state wiring (stands in for sc-camel-on-* / style-hover) ----
-    // `submit` IS wired now, to a neutral onSubmit placeholder (preventDefault
-    // only) so the prepared form does not reload; the Web3Forms adaptation fills
-    // in the actual POST. Scoped to the VIEW roots (main + progress bar) so
-    // chrome hovers, wired by SiteChrome/Masthead, are not double-bound.
-    const __EVMAP = { click: "click", keydown: "keydown", focus: "focusin", blur: "focusout", submit: "submit" }
+    // `submit` is NOT wired here — the contact form's submit is owned by
+    // wireWeb3Form (called at the end of this function). Scoped to the VIEW
+    // roots (main + progress bar) so chrome hovers, wired by SiteChrome/Masthead,
+    // are not double-bound.
+    const __EVMAP = { click: "click", keydown: "keydown", focus: "focusin", blur: "focusout" }
     function __viewRoots() {
       return [document.getElementById("main"), document.querySelector("[data-if=\"barOn\"]")].filter(Boolean)
     }
@@ -990,6 +991,15 @@ export function initEffects(copy: HomeContent): () => void {
     __c.componentDidMount()
     __render(__c)
     __fx.onDispose(function () { try { __c.componentWillUnmount() } catch (e) {} })
+
+    // Contact form → Web3Forms. Owns the form's submit (preventDefault + POST).
+    // The subject stays ENGLISH (owner data) and is built from the topic key.
+    wireWeb3Form(__fx, {
+      root: '#contact-form',
+      subject: function (f) { return 'Website inquiry — ' + (f.topic || 'General'); },
+      page: 'Peter Merc — website contact',
+      strings: copy.contact.formStates,
+    })
   } catch (e) { console.error("[effects] init failed", e) }
   return __fx.dispose
 }
