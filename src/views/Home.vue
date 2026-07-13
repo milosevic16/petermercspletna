@@ -132,69 +132,105 @@
           </svg>
           <div id="network" style="min-width:0;">
             <p style="margin:0 0 0.8rem; display:flex; align-items:center; gap:0.55rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;"><span aria-hidden="true" style="width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pm-blink 2.6s ease-in-out infinite;"></span>{{ t.record.live }}</p>
+            <!-- Circular operating map: PM hub at centre → inner ring of 4
+                 categories → outer ring of 7 leaves. Edge id = line-/flow-<childKey>;
+                 selection lights the whole path back to the hub (_applySel). -->
             <svg viewBox="0 0 560 480" role="group" :aria-label="t.record.networkAria" style="width:100%; height:auto; display:block; max-height:76svh;">
-              <line id="line-faculty" x1="280" y1="240" x2="280" y2="58" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-lemur" x1="280" y1="240" x2="122" y2="112" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-suricate" x1="280" y1="240" x2="446" y2="106" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-blocksquare" x1="280" y1="240" x2="502" y2="260" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-bloctopus" x1="280" y1="240" x2="412" y2="392" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-fintech" x1="280" y1="240" x2="152" y2="396" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-thinktank" x1="280" y1="240" x2="84" y2="262" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="flow-faculty" x1="280" y1="240" x2="280" y2="58" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-lemur" x1="280" y1="240" x2="122" y2="112" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-suricate" x1="280" y1="240" x2="446" y2="106" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-blocksquare" x1="280" y1="240" x2="502" y2="260" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-bloctopus" x1="280" y1="240" x2="412" y2="392" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-fintech" x1="280" y1="240" x2="152" y2="396" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-thinktank" x1="280" y1="240" x2="84" y2="262" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="line-investment" x1="280" y1="240" x2="280" y2="140" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-startup" x1="280" y1="240" x2="380" y2="240" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-advisory" x1="280" y1="240" x2="280" y2="340" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-lecture" x1="280" y1="240" x2="180" y2="240" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-suricate" x1="280" y1="140" x2="185" y2="76" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-ibex" x1="280" y1="140" x2="375" y2="76" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-lemur" x1="280" y1="340" x2="280" y2="430" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-faculty" x1="180" y1="240" x2="116" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="flow-investment" x1="280" y1="240" x2="280" y2="140" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-startup" x1="280" y1="240" x2="380" y2="240" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-advisory" x1="280" y1="240" x2="280" y2="340" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-lecture" x1="280" y1="240" x2="180" y2="240" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-suricate" x1="280" y1="140" x2="185" y2="76" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-ibex" x1="280" y1="140" x2="375" y2="76" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-lemur" x1="280" y1="340" x2="280" y2="430" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-faculty" x1="180" y1="240" x2="116" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
               <g id="fx-layer" aria-hidden="true" style="pointer-events:none;"></g>
 
               <g id="node-pm" data-net="pm" role="button" tabindex="0" :aria-label="t.record.ents.pm.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <circle cx="280" cy="240" r="36" fill="var(--accent)"></circle>
-                <circle cx="280" cy="240" r="44" fill="none" stroke="rgba(236,231,220,0.3)" stroke-width="1" style="animation:pm-pulse 3.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center;"></circle>
-                <text x="280" y="246" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:18px; font-weight:600; letter-spacing:0.08em; fill:#F4F1EA;">PM</text>
+                <circle cx="280" cy="240" r="32" fill="var(--accent)"></circle>
+                <circle cx="280" cy="240" r="40" fill="none" stroke="rgba(236,231,220,0.3)" stroke-width="1" style="animation:pm-pulse 3.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center;"></circle>
+                <text x="280" y="246" text-anchor="middle" class="pm-net-hub" style="letter-spacing:0.08em; fill:#F4F1EA;">PM</text>
               </g>
 
-              <g id="node-lemur" data-net="lemur" role="button" tabindex="0" :aria-label="t.record.ents.lemur.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.4s ease-in-out 0.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="122" cy="112" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="122" y="90" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
+              <g id="node-investment" data-net="investment" role="button" tabindex="0" :aria-label="t.record.ents.investment.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 5.2s ease-in-out 0.3s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="280" cy="140" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="280" y="118" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.investment.nodeLabel }}</text>
                 </g>
               </g>
+              <g id="node-startup" data-net="startup" role="button" tabindex="0" :aria-label="t.record.ents.startup.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 5.8s ease-in-out 0.9s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="380" cy="240" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="380" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.startup.nodeLabel }}</text>
+                </g>
+              </g>
+              <g id="node-advisory" data-net="advisory" role="button" tabindex="0" :aria-label="t.record.ents.advisory.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 4.9s ease-in-out 0.5s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="280" cy="340" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="280" y="318" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.advisory.nodeLabel }}</text>
+                </g>
+              </g>
+              <g id="node-lecture" data-net="lecture" role="button" tabindex="0" :aria-label="t.record.ents.lecture.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 6.2s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="180" cy="240" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="180" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.lecture.nodeLabel }}</text>
+                </g>
+              </g>
+
               <g id="node-suricate" data-net="suricate" role="button" tabindex="0" :aria-label="t.record.ents.suricate.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 6.1s ease-in-out 0.7s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="446" cy="106" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="446" y="84" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
+                  <circle cx="185" cy="76" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="185" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
                 </g>
               </g>
-              <g id="node-blocksquare" data-net="blocksquare" role="button" tabindex="0" :aria-label="t.record.ents.blocksquare.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 4.8s ease-in-out 1.1s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="502" cy="260" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="502" y="288" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.blocksquare.nodeLabel }}</text>
+              <g id="node-ibex" data-net="ibex" role="button" tabindex="0" :aria-label="t.record.ents.ibex.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 5.5s ease-in-out 1.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="375" cy="76" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="375" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.ibex.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-bloctopus" data-net="bloctopus" role="button" tabindex="0" :aria-label="t.record.ents.bloctopus.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.9s ease-in-out 0.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="412" cy="392" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="412" y="420" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.bloctopus.nodeLabel }}</text>
+                  <circle cx="445" cy="145" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="445" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.bloctopus.nodeLabel }}</text>
                 </g>
               </g>
-              <g id="node-fintech" data-net="fintech" role="button" tabindex="0" :aria-label="t.record.ents.fintech.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.1s ease-in-out 0.9s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="152" cy="396" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="152" y="424" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.fintech.nodeLabel }}</text>
+              <g id="node-blocksquare" data-net="blocksquare" role="button" tabindex="0" :aria-label="t.record.ents.blocksquare.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 4.8s ease-in-out 1.1s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="445" cy="335" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="445" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.blocksquare.nodeLabel }}</text>
+                </g>
+              </g>
+              <g id="node-lemur" data-net="lemur" role="button" tabindex="0" :aria-label="t.record.ents.lemur.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+                <g style="animation:pm-float 5.4s ease-in-out 0.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
+                  <circle cx="280" cy="430" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="280" y="410" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-thinktank" data-net="thinktank" role="button" tabindex="0" :aria-label="t.record.ents.thinktank.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 6.4s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="84" cy="262" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="84" y="290" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.thinktank.nodeLabel }}</text>
+                  <circle cx="116" cy="335" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="116" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.thinktank.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-faculty" data-net="faculty" role="button" tabindex="0" :aria-label="t.record.ents.faculty.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.6s ease-in-out 1.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="58" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="280" y="36" text-anchor="middle" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:13px; fill:#B4AEA1;">{{ t.record.ents.faculty.nodeLabel }}</text>
+                  <circle cx="116" cy="145" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="116" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.faculty.nodeLabel }}</text>
                 </g>
               </g>
             </svg>
@@ -214,7 +250,7 @@
             <div style="margin-top:1.6rem; display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
               <button type="button" data-on-click="netPrev" :aria-label="t.record.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
               <button type="button" data-on-click="netNext" :aria-label="t.record.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">02 / 08</span>
+              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">09 / 12</span>
               <em style="font-family:'Spectral', Georgia, serif; font-style:italic; font-size:0.85rem; color:#948E81;">{{ t.record.orTap }}</em>
             </div>
           </div>
@@ -440,6 +476,17 @@ onUnmounted(() => dispose && dispose())
 #network g[data-net]:focus-visible circle { stroke: #D2453E; stroke-width: 2.5px; }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
+
+/* Operating-map node labels. font-size is in SVG user units, so it scales down
+   with the whole svg; on mobile (narrow column) that got too small, so bump it
+   there. JS still sets each label's `fill` inline on selection. */
+.pm-net-lbl { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 13px; }
+.pm-net-cat { font-weight: 600; }
+.pm-net-hub { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 16px; font-weight: 600; }
+@media (max-width: 819px) {
+  .pm-net-lbl { font-size: 20px; }
+  .pm-net-hub { font-size: 23px; }
+}
 
 /* Mobile (stacked hero): halve the flat-grey band between the intro badge and
    the portrait — the text cell's bottom padding. !important beats the inline

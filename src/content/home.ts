@@ -5,13 +5,18 @@ import type { Localized } from './types'
 // rich text rendered with v-html. The Slovenian is a first draft — flagged
 // for Peter's review, especially the legal/regulatory phrasing.
 
+// The operating map is a 3-tier tree: pm → 4 categories → 7 leaves.
 export type EntityKey =
   | 'pm'
-  | 'lemur'
+  | 'investment'
+  | 'startup'
+  | 'advisory'
+  | 'lecture'
   | 'suricate'
-  | 'blocksquare'
+  | 'ibex'
   | 'bloctopus'
-  | 'fintech'
+  | 'blocksquare'
+  | 'lemur'
   | 'thinktank'
   | 'faculty'
 
@@ -248,14 +253,41 @@ const home: Localized<HomeContent> = {
           nodeLabel: '',
           aria: 'Peter Merc — principal',
         },
-        lemur: {
-          tag: 'Founded',
-          name: 'Lemur Legal',
-          role: 'Founder & Managing Partner',
-          desc: 'Specialist tech-law office: MiCA white papers, CASP licensing and the token opinions that get assets listed.',
-          href: 'https://lemur.legal',
-          nodeLabel: 'Lemur Legal',
-          aria: 'Lemur Legal',
+        investment: {
+          tag: 'Category',
+          name: 'Investment',
+          role: 'Venture & angel investing',
+          desc: 'Early-stage capital through Suricate Ventures and IBEX — backing the kind of founders I advise.',
+          href: '',
+          nodeLabel: 'Investment',
+          aria: 'Investment — Suricate Ventures and IBEX',
+        },
+        startup: {
+          tag: 'Category',
+          name: 'Startups',
+          role: 'Co-founder & operator',
+          desc: 'Building on-chain infrastructure and intelligence — co-founder at Blocksquare and Bloctopus.',
+          href: '',
+          nodeLabel: 'Startups',
+          aria: 'Startups — Bloctopus and Blocksquare',
+        },
+        advisory: {
+          tag: 'Category',
+          name: 'Advisory',
+          role: 'Legal & regulatory counsel',
+          desc: 'Specialist tech-law counsel through Lemur Legal — MiCA, licensing and the opinions that get assets listed.',
+          href: '',
+          nodeLabel: 'Advisory',
+          aria: 'Advisory — Lemur Legal',
+        },
+        lecture: {
+          tag: 'Category',
+          name: 'Lecturing & mentoring',
+          role: 'Academia & policy',
+          desc: 'Teaching financial and technology law at the New University, and policy work at Blockchain Think Tank Slovenia.',
+          href: '',
+          nodeLabel: 'Lecturing & mentoring',
+          aria: 'Lecturing and mentoring — Think Tank and New University',
         },
         suricate: {
           tag: 'Co-founded',
@@ -266,14 +298,14 @@ const home: Localized<HomeContent> = {
           nodeLabel: 'Suricate Ventures',
           aria: 'Suricate Ventures',
         },
-        blocksquare: {
-          tag: 'Co-founded',
-          name: 'Blocksquare',
-          role: 'Co-founder & Chief Legal Officer',
-          desc: 'Real-world-asset tokenization infrastructure — bringing property on-chain, compliantly.',
-          href: 'https://blocksquare.io',
-          nodeLabel: 'Blocksquare',
-          aria: 'Blocksquare',
+        ibex: {
+          tag: 'Investing',
+          name: 'IBEX',
+          role: 'Investor',
+          desc: 'Angel and venture investing alongside Suricate — details to confirm. ⚠',
+          href: '',
+          nodeLabel: 'IBEX',
+          aria: 'IBEX',
         },
         bloctopus: {
           tag: 'Managing',
@@ -284,14 +316,23 @@ const home: Localized<HomeContent> = {
           nodeLabel: 'Bloctopus',
           aria: 'Bloctopus Intelligence',
         },
-        fintech: {
+        blocksquare: {
+          tag: 'Co-founded',
+          name: 'Blocksquare',
+          role: 'Co-founder & Chief Legal Officer',
+          desc: 'Real-world-asset tokenization infrastructure — bringing property on-chain, compliantly.',
+          href: 'https://blocksquare.io',
+          nodeLabel: 'Blocksquare',
+          aria: 'Blocksquare',
+        },
+        lemur: {
           tag: 'Founded',
-          name: 'Fintech Factory',
-          role: 'Founder',
-          desc: 'Fintech consultancy — regulatory strategy for banks and startups.',
-          href: '',
-          nodeLabel: 'Fintech Factory',
-          aria: 'Fintech Factory',
+          name: 'Lemur Legal',
+          role: 'Founder & Managing Partner',
+          desc: 'Specialist tech-law office: MiCA white papers, CASP licensing and the token opinions that get assets listed.',
+          href: 'https://lemur.legal',
+          nodeLabel: 'Lemur Legal',
+          aria: 'Lemur Legal',
         },
         thinktank: {
           tag: 'Board',
@@ -540,14 +581,41 @@ const home: Localized<HomeContent> = {
           nodeLabel: '',
           aria: 'Peter Merc — nosilec',
         },
-        lemur: {
-          tag: 'Ustanovil',
-          name: 'Lemur Legal',
-          role: 'Ustanovitelj in vodilni partner',
-          desc: 'Specializirana pisarna za tehnološko pravo: beli papirji po MiCA, licenciranje CASP in mnenja o žetonih, s katerimi se sredstva uvrstijo na borze.',
-          href: 'https://lemur.legal',
-          nodeLabel: 'Lemur Legal',
-          aria: 'Lemur Legal',
+        investment: {
+          tag: 'Kategorija',
+          name: 'Naložbe',
+          role: 'Tvegani kapital in angelske naložbe',
+          desc: 'Kapital za zgodnje faze prek Suricate Ventures in IBEX — podpiram takšne ustanovitelje, kakršnim svetujem.',
+          href: '',
+          nodeLabel: 'Naložbe',
+          aria: 'Naložbe — Suricate Ventures in IBEX',
+        },
+        startup: {
+          tag: 'Kategorija',
+          name: 'Startupi',
+          role: 'Soustanovitelj in operativec',
+          desc: 'Gradnja verižne infrastrukture in forenzike — soustanovitelj pri Blocksquare in Bloctopus.',
+          href: '',
+          nodeLabel: 'Startupi',
+          aria: 'Startupi — Bloctopus in Blocksquare',
+        },
+        advisory: {
+          tag: 'Kategorija',
+          name: 'Svetovanje',
+          role: 'Pravno in regulatorno svetovanje',
+          desc: 'Specializirano tehnološko-pravno svetovanje prek Lemur Legal — MiCA, licenciranje in mnenja, s katerimi se sredstva uvrstijo.',
+          href: '',
+          nodeLabel: 'Svetovanje',
+          aria: 'Svetovanje — Lemur Legal',
+        },
+        lecture: {
+          tag: 'Kategorija',
+          name: 'Predavanja in mentorstvo',
+          role: 'Akademsko delo in politike',
+          desc: 'Predavanja finančnega in tehnološkega prava na Novi univerzi ter delo pri politikah v Blockchain Think Tank Slovenija.',
+          href: '',
+          nodeLabel: 'Predavanja in mentorstvo',
+          aria: 'Predavanja in mentorstvo — Think Tank in Nova univerza',
         },
         suricate: {
           tag: 'Soustanovil',
@@ -558,14 +626,14 @@ const home: Localized<HomeContent> = {
           nodeLabel: 'Suricate Ventures',
           aria: 'Suricate Ventures',
         },
-        blocksquare: {
-          tag: 'Soustanovil',
-          name: 'Blocksquare',
-          role: 'Soustanovitelj in glavni pravnik',
-          desc: 'Infrastruktura za tokenizacijo stvarnega premoženja — nepremičnine na verigi, skladno s predpisi.',
-          href: 'https://blocksquare.io',
-          nodeLabel: 'Blocksquare',
-          aria: 'Blocksquare',
+        ibex: {
+          tag: 'Naložbe',
+          name: 'IBEX',
+          role: 'Vlagatelj',
+          desc: 'Angelske in tvegane naložbe ob Suricate — podrobnosti za potrditev. ⚠',
+          href: '',
+          nodeLabel: 'IBEX',
+          aria: 'IBEX',
         },
         bloctopus: {
           tag: 'Vodi',
@@ -576,14 +644,23 @@ const home: Localized<HomeContent> = {
           nodeLabel: 'Bloctopus',
           aria: 'Bloctopus Intelligence',
         },
-        fintech: {
+        blocksquare: {
+          tag: 'Soustanovil',
+          name: 'Blocksquare',
+          role: 'Soustanovitelj in glavni pravnik',
+          desc: 'Infrastruktura za tokenizacijo stvarnega premoženja — nepremičnine na verigi, skladno s predpisi.',
+          href: 'https://blocksquare.io',
+          nodeLabel: 'Blocksquare',
+          aria: 'Blocksquare',
+        },
+        lemur: {
           tag: 'Ustanovil',
-          name: 'Fintech Factory',
-          role: 'Ustanovitelj',
-          desc: 'Fintech svetovanje — regulatorna strategija za banke in startupe.',
-          href: '',
-          nodeLabel: 'Fintech Factory',
-          aria: 'Fintech Factory',
+          name: 'Lemur Legal',
+          role: 'Ustanovitelj in vodilni partner',
+          desc: 'Specializirana pisarna za tehnološko pravo: beli papirji po MiCA, licenciranje CASP in mnenja o žetonih, s katerimi se sredstva uvrstijo na borze.',
+          href: 'https://lemur.legal',
+          nodeLabel: 'Lemur Legal',
+          aria: 'Lemur Legal',
         },
         thinktank: {
           tag: 'Odbor',

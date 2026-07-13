@@ -59,6 +59,34 @@ export function initEffects(copy: HomeContent): () => void {
         // hrefs there too; extra fields like nodeLabel/aria are harmless).
         this._ents = copy.record.ents;
         this._docket = copy.docket.items;
+        // The operating map is a 3-tier tree: pm → 4 categories → 7 leaves.
+        // _order is the cycle/browse order (depth-first); _paths maps each
+        // selectable node to the edge ids lighting its route back to the hub
+        // (edge id = the child key of that edge); _edges lists every edge.
+        this._order = ['pm', 'investment', 'suricate', 'ibex', 'startup', 'bloctopus', 'blocksquare', 'advisory', 'lemur', 'lecture', 'thinktank', 'faculty'];
+        this._paths = {
+          pm: [],
+          investment: ['investment'],
+          startup: ['startup'],
+          advisory: ['advisory'],
+          lecture: ['lecture'],
+          suricate: ['investment', 'suricate'],
+          ibex: ['investment', 'ibex'],
+          bloctopus: ['startup', 'bloctopus'],
+          blocksquare: ['startup', 'blocksquare'],
+          lemur: ['advisory', 'lemur'],
+          thinktank: ['lecture', 'thinktank'],
+          faculty: ['lecture', 'faculty']
+        };
+        this._edges = ['investment', 'startup', 'advisory', 'lecture', 'suricate', 'ibex', 'bloctopus', 'blocksquare', 'lemur', 'thinktank', 'faculty'];
+        // Parent of each node, for walking a node → … → hub chain (surge dot).
+        this._parent = {
+          investment: 'pm', startup: 'pm', advisory: 'pm', lecture: 'pm',
+          suricate: 'investment', ibex: 'investment',
+          bloctopus: 'startup', blocksquare: 'startup',
+          lemur: 'advisory',
+          thinktank: 'lecture', faculty: 'lecture'
+        };
 
         var mq = null;
         try { mq = window.matchMedia('(max-width: 819px)'); } catch (e) {}
@@ -373,8 +401,8 @@ export function initEffects(copy: HomeContent): () => void {
 
       _applySel() {
         var sel = this.state.sel;
-        var keys = ['pm', 'lemur', 'suricate', 'blocksquare', 'bloctopus', 'fintech', 'thinktank', 'faculty'];
-        keys.forEach((k) => {
+        var active = this._paths[sel] || [];
+        this._order.forEach((k) => {
           var is = k === sel;
           var g = document.getElementById('node-' + k);
           if (g && k !== 'pm') {
@@ -390,18 +418,18 @@ export function initEffects(copy: HomeContent): () => void {
             var ring = g.querySelectorAll('circle')[1];
             if (ring) ring.style.stroke = is ? 'var(--accent)' : 'rgba(236,231,220,0.3)';
           }
+        });
+        // Edges light the selected node's whole route back to the hub
+        // (leaf: hub→category + category→leaf; category: hub→category).
+        this._edges.forEach((k) => {
+          var on = active.indexOf(k) !== -1;
           var ln = document.getElementById('line-' + k);
           if (ln) {
-            ln.style.stroke = is ? 'var(--accent)' : 'rgba(236,231,220,0.25)';
-            ln.style.strokeWidth = is ? '2' : '1';
+            ln.style.stroke = on ? 'var(--accent)' : 'rgba(236,231,220,0.25)';
+            ln.style.strokeWidth = on ? '2' : '1';
           }
           var fl = document.getElementById('flow-' + k);
-          if (fl) fl.style.opacity = is && !this._reduced ? '0.95' : '0';
-          var r = document.getElementById('row-' + k);
-          if (r) {
-            r.style.borderLeftColor = is ? 'var(--accent)' : 'transparent';
-            r.style.background = is ? 'color-mix(in oklab, var(--graphite) 90%, #FFFFFF)' : 'transparent';
-          }
+          if (fl) fl.style.opacity = on && !this._reduced ? '0.95' : '0';
         });
       }
 
@@ -457,31 +485,56 @@ export function initEffects(copy: HomeContent): () => void {
         var inner = document.getElementById('net-panel-inner');
         var rows = inner ? Array.prototype.slice.call(inner.children) : [];
         var node = document.getElementById('node-' + key);
+        var hubC = document.querySelector('#node-pm circle');
+        var hx = hubC ? parseFloat(hubC.getAttribute('cx')) : 58;
+        var hy = hubC ? parseFloat(hubC.getAttribute('cy')) : 240;
         var c = node ? node.querySelector('circle') : null;
-        var cx = c ? parseFloat(c.getAttribute('cx')) : 280;
-        var cy = c ? parseFloat(c.getAttribute('cy')) : 240;
+        var cx = c ? parseFloat(c.getAttribute('cx')) : hx;
+        var cy = c ? parseFloat(c.getAttribute('cy')) : hy;
         var fx = document.getElementById('fx-layer');
         var NS = 'http://www.w3.org/2000/svg';
         if (mode === 'surge' && fx) {
+          // Chain of node centres from the selected node up to the hub, so the
+          // surge dot travels THROUGH the branches and intermediate node rather
+          // than flying straight to the centre.
+          var chain = [];
+          var pk = key, guard = 0;
+          while (pk && guard++ < 16) {
+            var pg = document.getElementById('node-' + pk);
+            var pc = pg ? pg.querySelector('circle') : null;
+            if (pc) chain.push({ x: parseFloat(pc.getAttribute('cx')), y: parseFloat(pc.getAttribute('cy')) });
+            if (pk === 'pm') break;
+            pk = this._parent[pk];
+          }
           var dot = document.createElementNS(NS, 'circle');
           dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '4.5');
           dot.setAttribute('fill', 'var(--accent)');
           fx.appendChild(dot);
-          if (dot.animate) {
-            var an = __fx.anim(dot, 
-              [{ transform: 'translate(0,0)', opacity: 1 }, { transform: 'translate(' + (280 - cx) + 'px,' + (240 - cy) + 'px)', opacity: 0.9 }],
-              { duration: 440, easing: 'cubic-bezier(0.5,0,0.7,0.4)' }
-            );
-            an.onfinish = () => {
-              dot.remove();
-              var hub = document.querySelector('#node-pm circle');
-              if (hub && hub.animate) {
-                hub.style.transformBox = 'fill-box'; hub.style.transformOrigin = 'center';
-                __fx.anim(hub, [{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 380, easing: ease });
-              }
-            };
-          } else { dot.remove(); }
-          var dx = cx < 280 ? -16 : 16;
+          var pulseHub = () => {
+            var hub = document.querySelector('#node-pm circle');
+            if (hub && hub.animate) {
+              hub.style.transformBox = 'fill-box'; hub.style.transformOrigin = 'center';
+              __fx.anim(hub, [{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 380, easing: ease });
+            }
+          };
+          if (dot.animate && chain.length >= 2) {
+            var start = chain[0];
+            // cumulative segment lengths → distance-proportional keyframe offsets,
+            // so the dot glides at a constant speed along the branches.
+            var cum = [0], total = 0;
+            for (var si = 1; si < chain.length; si++) {
+              total += Math.hypot(chain[si].x - chain[si - 1].x, chain[si].y - chain[si - 1].y);
+              cum.push(total);
+            }
+            var kf = chain.map((w, i) => ({
+              transform: 'translate(' + (w.x - start.x).toFixed(1) + 'px,' + (w.y - start.y).toFixed(1) + 'px)',
+              opacity: i === chain.length - 1 ? 0.9 : 1,
+              offset: total ? cum[i] / total : (i / (chain.length - 1))
+            }));
+            var an = __fx.anim(dot, kf, { duration: Math.round(200 + total * 1.5), easing: 'cubic-bezier(0.4,0,0.2,1)' });
+            an.onfinish = () => { dot.remove(); pulseHub(); };
+          } else { dot.remove(); if (chain.length) pulseHub(); }
+          var dx = cx < hx ? -16 : 16;
           rows.forEach((r, i) => {
             if (r.animate) __fx.anim(r, 
               [{ opacity: 0, transform: 'translateX(' + dx + 'px)' }, { opacity: 1, transform: 'none' }],
@@ -546,6 +599,9 @@ export function initEffects(copy: HomeContent): () => void {
         var stacked = pr.top > wr.top + wr.height * 0.55 && pr.left < wr.left + wr.width * 0.2;
         if (stacked) { ex = pr.left - wr.left + 24; }
         svg.setAttribute('viewBox', '0 0 ' + wr.width.toFixed(0) + ' ' + wr.height.toFixed(0));
+        // Smooth S-curve from the selected node to the panel anchor (same as
+        // the original radial map). `stacked` = the mobile layout where the
+        // panel sits below the map rather than beside it.
         var mx = (ex - sx) * 0.45;
         var d;
         if (stacked) {
@@ -593,7 +649,7 @@ export function initEffects(copy: HomeContent): () => void {
       }
 
       _netCycle(dir) {
-        var order = ['pm', 'lemur', 'suricate', 'blocksquare', 'bloctopus', 'fintech', 'thinktank', 'faculty'];
+        var order = this._order;
         var i = order.indexOf(this.state.sel);
         var n = order[(i + dir + order.length) % order.length];
         this.setState({ sel: n }, () => {
@@ -868,7 +924,7 @@ export function initEffects(copy: HomeContent): () => void {
           stopProp: this.stopProp,
           netPrev: this.netPrev,
           netNext: this.netNext,
-          netIdx: this._pad(['pm', 'lemur', 'suricate', 'blocksquare', 'bloctopus', 'fintech', 'thinktank', 'faculty'].indexOf(this.state.sel) + 1) + ' / 08',
+          netIdx: this._pad((this._order || []).indexOf(this.state.sel) + 1) + ' / ' + this._pad((this._order || []).length),
           toggleCounsel: this.toggleCounsel,
           toggleInvestor: this.toggleInvestor,
           toggleVoice: this.toggleVoice,
