@@ -32,6 +32,12 @@ if (boot) {
       void main.offsetWidth
       main.style.animation = ''
     }
+    // The user can't scroll while the veil locks the page, so any non-zero
+    // position here is a stray restore (browser or router) — reveal at the
+    // top unless a hash deep link owns the position.
+    if (!window.location.hash && window.scrollY > 0) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    }
     document.documentElement.classList.remove('pm-booting')
     window.setTimeout(() => boot.remove(), 1400) // after the exit transition
   })

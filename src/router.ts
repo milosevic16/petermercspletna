@@ -26,7 +26,7 @@ function headerOffset(): number {
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior(to, _from, savedPosition) {
+  scrollBehavior(to, from, savedPosition) {
     if (to.hash) {
       // Poll (not rAF — background tabs throttle it) until the target exists,
       // the header spacer (if any) has laid out, and fonts have loaded, so the
@@ -48,7 +48,12 @@ export const router = createRouter({
         poll()
       })
     }
-    if (savedPosition) return savedPosition
+    // Initial navigation (page load / reload): vue-router passes the pre-reload
+    // position from history.state.scroll as savedPosition — restoring it would
+    // reveal the boot veil onto the middle of the page. An intro site always
+    // starts at the top; only in-app back/forward keeps savedPosition.
+    const isInitialNavigation = from.matched.length === 0
+    if (savedPosition && !isInitialNavigation) return savedPosition
     // Instant overrides the global `scroll-behavior: smooth` on route change.
     return { top: 0, behavior: 'instant' }
   },

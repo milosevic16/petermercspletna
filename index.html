@@ -87,6 +87,12 @@
     </style>
   </head>
   <body>
+    <!-- Before first paint: disable native scroll restoration so a reload can't
+         restore mid-page under the boot veil. The router owns scrolling (and
+         intentionally starts initial navigations at the top). -->
+    <script>
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+    </script>
     <div id="boot" role="presentation" aria-hidden="true">
       <div class="boot-figure">
         <!-- the operating map, clockwise from the top: faculty, suricate,
