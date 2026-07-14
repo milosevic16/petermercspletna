@@ -164,7 +164,7 @@ export function initEffects(copy: HomeContent): () => void {
         onScroll();
         this._c.push(() => window.removeEventListener('scroll', onScroll));
 
-        var onResize = () => { this._refreshOffs(); onScroll(); this._fitMap(); };
+        var onResize = () => { this._refreshOffs(); onScroll(); this._fitMap(); this._fitPanelAll(); };
         __fx.on(window, 'resize', onResize);
         __fx.on(window, 'load', onResize);
         this._c.push(() => window.removeEventListener('resize', onResize));
@@ -361,7 +361,8 @@ export function initEffects(copy: HomeContent): () => void {
         // Size the operating map to its content on mobile (re-fit once web fonts
         // load, since label widths — and thus the crop — depend on them).
         this._fitMap();
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this._fitMap());
+        this._fitPanelAll();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._fitMap(); this._fitPanelAll(); });
       }
 
       componentDidUpdate(prevProps) {
@@ -486,22 +487,49 @@ export function initEffects(copy: HomeContent): () => void {
       // Point the panel title at the selected project's site (new tab); when we
       // don't have a URL yet, it's a placeholder that stays put until we do.
       _applyNameLink() {
-        var a = document.getElementById('net-name');
-        if (!a) return;
         var sel = (this._ents || {})[this.state.sel] || {};
         var href = sel.href || '';
-        if (href) {
-          a.setAttribute('href', href);
-          a.setAttribute('target', '_blank');
-          a.setAttribute('rel', 'noopener');
-          a.removeAttribute('data-placeholder');
-          a.removeAttribute('title');
-        } else {
-          a.setAttribute('href', '#');
-          a.removeAttribute('target');
-          a.setAttribute('data-placeholder', 'true');
-          a.setAttribute('title', 'Link coming soon');
-        }
+        ['net-name', 'net-visit'].forEach((id) => {
+          var a = document.getElementById(id);
+          if (!a) return;
+          if (href) {
+            a.setAttribute('href', href);
+            a.setAttribute('target', '_blank');
+            a.setAttribute('rel', 'noopener');
+            a.removeAttribute('data-placeholder');
+            a.removeAttribute('title');
+          } else {
+            a.setAttribute('href', '#');
+            a.removeAttribute('target');
+            a.setAttribute('data-placeholder', 'true');
+            a.setAttribute('title', 'Link coming soon');
+          }
+        });
+      }
+
+      // Reserve the tallest dossier's height so the ‹/› controls below the panel
+      // stay put as you browse. Measured across every selectable node for the
+      // current locale + width (runs on mount / resize / web-font load).
+      _fitPanelAll() {
+        var inner = document.getElementById('net-panel-inner');
+        var nameEl = document.getElementById('net-name');
+        var roleEl = document.querySelector('#net-panel-inner [data-bind="selRole"]');
+        var descEl = document.querySelector('#net-panel-inner [data-bind="selDesc"]');
+        if (!inner || !nameEl || !roleEl || !descEl) return;
+        if (inner.offsetWidth < 40) return;   // not laid out yet; a later call catches it
+        var ents = this._ents || {};
+        var save = { n: nameEl.textContent, r: roleEl.textContent, d: descEl.textContent };
+        inner.style.minHeight = '0px';
+        var max = 0;
+        (this._order || []).forEach((k) => {
+          var e = ents[k];
+          if (!e) return;
+          nameEl.textContent = e.name; roleEl.textContent = e.role; descEl.textContent = e.desc;
+          var h = inner.offsetHeight;
+          if (h > max) max = h;
+        });
+        nameEl.textContent = save.n; roleEl.textContent = save.r; descEl.textContent = save.d;
+        if (max) inner.style.minHeight = max + 'px';
       }
 
       // Fit the operating map on mobile by cropping the viewBox to the graph's
