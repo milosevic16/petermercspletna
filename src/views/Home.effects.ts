@@ -330,6 +330,31 @@ export function initEffects(copy: HomeContent): () => void {
           __fx.on(frm, 'input', onInp);
           this._c.push(() => frm.removeEventListener('input', onInp));
         }
+        // Media strip: deal each newly-snapped card in as you swipe/scroll it
+        // (also covers the prev/next buttons, which scroll the strip).
+        var mstrip = document.getElementById('media-strip');
+        if (mstrip) {
+          this._mediaIdx = 0;
+          var onMStrip = () => {
+            // Debounce to the moment the swipe/scroll comes to rest, so the card
+            // settles once it snaps rather than bouncing mid-drag.
+            if (this._mediaT) clearTimeout(this._mediaT);
+            this._mediaT = setTimeout(() => {
+              var kids = mstrip.children;
+              if (!kids.length) return;
+              var step = kids[0].getBoundingClientRect().width + 22;
+              if (step < 40) return;
+              var idx = Math.max(0, Math.min(kids.length - 1, Math.round(mstrip.scrollLeft / step)));
+              if (idx !== this._mediaIdx) {
+                var dir = idx > this._mediaIdx ? 1 : -1;
+                this._mediaIdx = idx;
+                this._mediaSettle(kids[idx], dir);
+              }
+            }, 90);
+          };
+          __fx.on(mstrip, 'scroll', onMStrip, { passive: true });
+          this._c.push(() => mstrip.removeEventListener('scroll', onMStrip));
+        }
         // All "What I do" dossiers start closed (no auto-open).
 
         requestAnimationFrame(() => { this._applySel(); this._pulseChain(this.state.sel); });
@@ -719,25 +744,24 @@ export function initEffects(copy: HomeContent): () => void {
 
       _mediaScroll(dir) {
         var s = document.getElementById('media-strip');
-        if (!s) return;
-        var cards = Array.prototype.slice.call(s.children);
-        if (!cards.length) return;
-        var step = cards[0].getBoundingClientRect().width + 22; // card + 1.4rem gap
+        if (!s || !s.children.length) return;
+        var step = s.children[0].getBoundingClientRect().width + 22; // card + 1.4rem gap
         var cur = Math.round(s.scrollLeft / step);
-        var target = Math.max(0, Math.min(cards.length - 1, cur + dir));
+        var target = Math.max(0, Math.min(s.children.length - 1, cur + dir));
+        // The scroll listener (componentDidMount) deals the card in once the strip
+        // snaps — same path for a swipe or these buttons.
         s.scrollTo({ left: target * step, behavior: this._reduced ? 'auto' : 'smooth' });
-        // Mobile: deal the incoming card in like a shuffled card (slide + tilt +
-        // a small overshoot that settles).
-        if (!this._reduced && this.state.mobile) {
-          var el = cards[target];
-          if (el && el.animate) {
-            __fx.anim(el, [
-              { transform: 'translateX(' + (dir * 32) + 'px) rotate(' + (dir * 4) + 'deg) scale(0.9)', opacity: 0.3, offset: 0 },
-              { transform: 'translateX(' + (dir * -5) + 'px) rotate(' + (dir * -0.8) + 'deg) scale(1.02)', opacity: 1, offset: 0.68 },
-              { transform: 'none', opacity: 1, offset: 1 }
-            ], { duration: 540, easing: 'cubic-bezier(0.2,0.7,0.2,1)' });
-          }
-        }
+      }
+
+      // A card "settling" into place (scale + a slight shuffle tilt) — no
+      // translateX, so it complements the swipe/scroll that already slid it in.
+      _mediaSettle(el, dir) {
+        if (this._reduced || !this.state.mobile || !el || !el.animate) return;
+        __fx.anim(el, [
+          { transform: 'scale(0.9) rotate(' + (dir * 3.5) + 'deg)', opacity: 0.45, offset: 0 },
+          { transform: 'scale(1.025) rotate(' + (dir * -0.7) + 'deg)', opacity: 1, offset: 0.66 },
+          { transform: 'none', opacity: 1, offset: 1 }
+        ], { duration: 500, easing: 'cubic-bezier(0.2,0.7,0.2,1)' });
       }
 
       mediaPrev = () => this._mediaScroll(-1);
