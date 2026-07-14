@@ -63,7 +63,11 @@ export function initEffects(copy: HomeContent): () => void {
         // _order is the cycle/browse order (depth-first); _paths maps each
         // selectable node to the edge ids lighting its route back to the hub
         // (edge id = the child key of that edge); _edges lists every edge.
-        this._order = ['pm', 'investment', 'suricate', 'ibex', 'startup', 'bloctopus', 'blocksquare', 'advisory', 'lemur', 'lecture', 'thinktank', 'faculty'];
+        // Every paintable node (for _applySel colouring, incl. the categories).
+        this._nodes = ['pm', 'investment', 'suricate', 'ibex', 'startup', 'bloctopus', 'blocksquare', 'advisory', 'lemur', 'lecture', 'thinktank', 'faculty'];
+        // Categories are structural only (not clickable), so the prev/next cycle
+        // visits just the hub and the 7 leaf projects.
+        this._order = ['pm', 'suricate', 'ibex', 'bloctopus', 'blocksquare', 'lemur', 'thinktank', 'faculty'];
         this._paths = {
           pm: [],
           investment: ['investment'],
@@ -406,8 +410,12 @@ export function initEffects(copy: HomeContent): () => void {
       _applySel() {
         var sel = this.state.sel;
         var active = this._paths[sel] || [];
-        this._order.forEach((k) => {
-          var is = k === sel;
+        // Every node on the route sel → … → hub takes the accent, so selecting a
+        // project reddens its section (category) dot too, not just the leaf.
+        var accent = {}, pk = sel, guard = 0;
+        while (pk && guard++ < 16) { accent[pk] = true; if (pk === 'pm') break; pk = this._parent[pk]; }
+        (this._nodes || this._order).forEach((k) => {
+          var is = !!accent[k];
           var g = document.getElementById('node-' + k);
           if (g && k !== 'pm') {
             var c = g.querySelector('circle');
@@ -420,7 +428,7 @@ export function initEffects(copy: HomeContent): () => void {
           }
           if (g && k === 'pm') {
             var ring = g.querySelectorAll('circle')[1];
-            if (ring) ring.style.stroke = is ? 'var(--accent)' : 'rgba(236,231,220,0.3)';
+            if (ring) ring.style.stroke = (k === sel) ? 'var(--accent)' : 'rgba(236,231,220,0.3)';
           }
         });
         // Edges light the selected node's whole route back to the hub
@@ -435,6 +443,28 @@ export function initEffects(copy: HomeContent): () => void {
           var fl = document.getElementById('flow-' + k);
           if (fl) fl.style.opacity = on && !this._reduced ? '0.95' : '0';
         });
+        this._applyNameLink();
+      }
+
+      // Point the panel title at the selected project's site (new tab); when we
+      // don't have a URL yet, it's a placeholder that stays put until we do.
+      _applyNameLink() {
+        var a = document.getElementById('net-name');
+        if (!a) return;
+        var sel = (this._ents || {})[this.state.sel] || {};
+        var href = sel.href || '';
+        if (href) {
+          a.setAttribute('href', href);
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
+          a.removeAttribute('data-placeholder');
+          a.removeAttribute('title');
+        } else {
+          a.setAttribute('href', '#');
+          a.removeAttribute('target');
+          a.setAttribute('data-placeholder', 'true');
+          a.setAttribute('title', 'Link coming soon');
+        }
       }
 
       // Fit the operating map on mobile by cropping the viewBox to the graph's
@@ -696,6 +726,11 @@ export function initEffects(copy: HomeContent): () => void {
             this._pulseChain(k);
           });
         }
+      };
+
+      nameClick = (e) => {
+        // Placeholder title (no site yet) shouldn't navigate — just sit there.
+        if (e.currentTarget.getAttribute('data-placeholder') === 'true') e.preventDefault();
       };
 
       netKey = (e) => {

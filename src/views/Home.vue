@@ -162,70 +162,70 @@
                 <text x="280" y="246" text-anchor="middle" class="pm-net-hub" style="letter-spacing:0.08em; fill:#F4F1EA;">PM</text>
               </g>
 
-              <g id="node-investment" data-net="investment" role="button" tabindex="0" :aria-label="t.record.ents.investment.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+              <g id="node-investment" role="img" :aria-label="t.record.ents.investment.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 5.2s ease-in-out 0.3s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="140" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="280" cy="140" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="280" y="118" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.investment.nodeLabel }}</text>
                 </g>
               </g>
-              <g id="node-startup" data-net="startup" role="button" tabindex="0" :aria-label="t.record.ents.startup.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+              <g id="node-startup" role="img" :aria-label="t.record.ents.startup.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 5.8s ease-in-out 0.9s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="380" cy="240" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="380" cy="240" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="380" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.startup.nodeLabel }}</text>
                 </g>
               </g>
-              <g id="node-advisory" data-net="advisory" role="button" tabindex="0" :aria-label="t.record.ents.advisory.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+              <g id="node-advisory" role="img" :aria-label="t.record.ents.advisory.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 4.9s ease-in-out 0.5s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="340" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="280" cy="340" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="280" y="318" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.advisory.nodeLabel }}</text>
                 </g>
               </g>
-              <g id="node-lecture" data-net="lecture" role="button" tabindex="0" :aria-label="t.record.ents.lecture.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
+              <g id="node-lecture" role="img" :aria-label="t.record.ents.lecture.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 6.2s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="180" cy="240" r="13" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="180" cy="240" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="180" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.lecture.nodeLabel }}</text>
                 </g>
               </g>
 
               <g id="node-suricate" data-net="suricate" role="button" tabindex="0" :aria-label="t.record.ents.suricate.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 6.1s ease-in-out 0.7s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="185" cy="76" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="185" cy="76" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="185" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-ibex" data-net="ibex" role="button" tabindex="0" :aria-label="t.record.ents.ibex.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.5s ease-in-out 1.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="375" cy="76" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="375" cy="76" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="375" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.ibex.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-bloctopus" data-net="bloctopus" role="button" tabindex="0" :aria-label="t.record.ents.bloctopus.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.9s ease-in-out 0.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="445" cy="145" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="445" cy="145" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="445" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.bloctopus.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-blocksquare" data-net="blocksquare" role="button" tabindex="0" :aria-label="t.record.ents.blocksquare.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 4.8s ease-in-out 1.1s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="445" cy="335" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="445" cy="335" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="445" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.blocksquare.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-lemur" data-net="lemur" role="button" tabindex="0" :aria-label="t.record.ents.lemur.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.4s ease-in-out 0.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="430" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="280" cy="430" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="280" y="410" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-thinktank" data-net="thinktank" role="button" tabindex="0" :aria-label="t.record.ents.thinktank.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 6.4s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="116" cy="335" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="116" cy="335" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="116" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.thinktank.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-faculty" data-net="faculty" role="button" tabindex="0" :aria-label="t.record.ents.faculty.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.6s ease-in-out 1.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="116" cy="145" r="9" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="116" cy="145" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
                   <text x="116" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.faculty.nodeLabel }}</text>
                 </g>
               </g>
@@ -236,17 +236,14 @@
             <span id="net-rule-fill" aria-hidden="true" style="position:absolute; top:-1px; left:0; width:9rem; border-top:2px solid var(--accent); transform-origin:left;"></span>
             <div id="net-panel-inner">
               <span style="display:inline-block; border:1px solid rgba(236,231,220,0.3); color:#B4AEA1; padding:0.28rem 0.6rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;" data-bind="selTag">{{ t.record.ents.lemur.tag }}</span>
-              <h3 id="net-name" style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em; color:var(--ivory);" data-bind="selName">{{ t.record.ents.lemur.name }}</h3>
+              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent);">{{ t.record.ents.lemur.name }}</a></h3>
               <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);" data-bind="selRole">{{ t.record.ents.lemur.role }}</p>
               <p style="margin:0.9rem 0 0; font-size:0.99rem; line-height:1.62; color:var(--ivory2);" data-bind="selDesc">{{ t.record.ents.lemur.desc }}</p>
-              <div data-if="hasLink" style="display:contents">
-                <p style="margin:1rem 0 0;"><a :href="t.record.ents.lemur.href" data-bind-href="selHref" target="_blank" rel="noopener" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ivory); text-decoration-color:rgba(236,231,220,0.4);">{{ t.record.visit }}</a></p>
-              </div>
             </div>
             <div style="margin-top:1.6rem; display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
               <button type="button" data-on-click="netPrev" :aria-label="t.record.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
               <button type="button" data-on-click="netNext" :aria-label="t.record.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">09 / 12</span>
+              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">06 / 08</span>
               <em style="font-family:'Spectral', Georgia, serif; font-style:italic; font-size:0.85rem; color:#948E81;">{{ t.record.orTap }}</em>
             </div>
           </div>
