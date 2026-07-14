@@ -241,7 +241,7 @@
               <p style="margin:0.9rem 0 0; font-size:0.99rem; line-height:1.62; color:var(--ivory2);" data-bind="selDesc">{{ t.record.ents.lemur.desc }}</p>
               <p style="margin:1.05rem 0 0;"><a id="net-visit" data-on-click="nameClick" href="https://lemur.legal" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:0.45em; min-height:44px; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ivory); text-decoration-color:rgba(236,231,220,0.4); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent);">{{ t.record.visit }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></a></p>
             </div>
-            <div style="margin-top:1.6rem; display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+            <div id="net-controls" style="display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
               <button type="button" data-on-click="netPrev" :aria-label="t.record.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
               <button type="button" data-on-click="netNext" :aria-label="t.record.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">06 / 08</span>
@@ -485,6 +485,14 @@ onUnmounted(() => dispose && dispose())
     text-decoration-color: var(--accent);
     filter: drop-shadow(0 0 4px rgba(210, 69, 62, 0.8)) drop-shadow(0 0 12px rgba(210, 69, 62, 0.6)) drop-shadow(0 0 26px rgba(210, 69, 62, 0.4));
   }
+}
+
+/* Node-panel ‹/› controls. Position is kept stable by the reserved panel
+   min-height; on mobile, tighten the top gap so they sit closer to the dossier
+   instead of floating far below it. */
+#net-controls { margin-top: 1.6rem; }
+@media (max-width: 819px) {
+  #net-controls { margin-top: 0.55rem; }
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }

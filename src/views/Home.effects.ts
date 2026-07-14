@@ -350,7 +350,7 @@ export function initEffects(copy: HomeContent): () => void {
                 this._mediaIdx = idx;
                 this._mediaSettle(kids[idx], dir);
               }
-            }, 90);
+            }, 55);
           };
           __fx.on(mstrip, 'scroll', onMStrip, { passive: true });
           this._c.push(() => mstrip.removeEventListener('scroll', onMStrip));
@@ -786,10 +786,10 @@ export function initEffects(copy: HomeContent): () => void {
       _mediaSettle(el, dir) {
         if (this._reduced || !this.state.mobile || !el || !el.animate) return;
         __fx.anim(el, [
-          { transform: 'scale(0.9) rotate(' + (dir * 3.5) + 'deg)', opacity: 0.45, offset: 0 },
-          { transform: 'scale(1.025) rotate(' + (dir * -0.7) + 'deg)', opacity: 1, offset: 0.66 },
+          { transform: 'scale(0.95) rotate(' + (dir * 2.5) + 'deg)', opacity: 0.5, offset: 0 },
+          { transform: 'scale(1.012) rotate(' + (dir * -0.4) + 'deg)', opacity: 1, offset: 0.62 },
           { transform: 'none', opacity: 1, offset: 1 }
-        ], { duration: 500, easing: 'cubic-bezier(0.2,0.7,0.2,1)' });
+        ], { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
       }
 
       mediaPrev = () => this._mediaScroll(-1);
