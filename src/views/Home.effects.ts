@@ -151,6 +151,8 @@ export function initEffects(copy: HomeContent): () => void {
               }
               var fill = document.getElementById('bar-fill');
               if (fill) fill.style.transform = 'scaleX(' + f.toFixed(4) + ')';
+              var knob = document.getElementById('bar-knob');
+              if (knob) knob.style.left = (f * 100).toFixed(2) + '%';
               if (seg !== this.state.part) this.setState({ part: seg });
             }
             var want = sy > h * 0.55;
@@ -416,13 +418,23 @@ export function initEffects(copy: HomeContent): () => void {
         while (pk && guard++ < 16) { accent[pk] = true; if (pk === 'pm') break; pk = this._parent[pk]; }
         (this._nodes || this._order).forEach((k) => {
           var is = !!accent[k];
+          var isCat = this._parent[k] === 'pm';   // the 4 sections
           var g = document.getElementById('node-' + k);
           if (g && k !== 'pm') {
             var c = g.querySelector('circle');
             var t = g.querySelector('text');
             if (c) {
-              c.style.fill = is ? 'var(--accent)' : '#3A3D43';
-              c.style.stroke = is ? 'var(--accent)' : '#948E81';
+              if (isCat) {
+                // sections: borderless grey dot; a red OUTLINE (not a red fill)
+                // only when their project is selected.
+                c.style.fill = '#3A3D43';
+                c.style.stroke = is ? 'var(--accent)' : 'none';
+                c.style.strokeWidth = is ? '2' : '0';
+              } else {
+                // leaves (projects): fill red when selected.
+                c.style.fill = is ? 'var(--accent)' : '#3A3D43';
+                c.style.stroke = is ? 'var(--accent)' : '#948E81';
+              }
             }
             if (t) t.style.fill = is ? '#ECE7DC' : '#B4AEA1';
           }
@@ -708,9 +720,24 @@ export function initEffects(copy: HomeContent): () => void {
       _mediaScroll(dir) {
         var s = document.getElementById('media-strip');
         if (!s) return;
-        var card = s.firstElementChild;
-        var w = card ? card.getBoundingClientRect().width + 22 : 360;
-        s.scrollBy({ left: dir * w, behavior: this._reduced ? 'auto' : 'smooth' });
+        var cards = Array.prototype.slice.call(s.children);
+        if (!cards.length) return;
+        var step = cards[0].getBoundingClientRect().width + 22; // card + 1.4rem gap
+        var cur = Math.round(s.scrollLeft / step);
+        var target = Math.max(0, Math.min(cards.length - 1, cur + dir));
+        s.scrollTo({ left: target * step, behavior: this._reduced ? 'auto' : 'smooth' });
+        // Mobile: deal the incoming card in like a shuffled card (slide + tilt +
+        // a small overshoot that settles).
+        if (!this._reduced && this.state.mobile) {
+          var el = cards[target];
+          if (el && el.animate) {
+            __fx.anim(el, [
+              { transform: 'translateX(' + (dir * 32) + 'px) rotate(' + (dir * 4) + 'deg) scale(0.9)', opacity: 0.3, offset: 0 },
+              { transform: 'translateX(' + (dir * -5) + 'px) rotate(' + (dir * -0.8) + 'deg) scale(1.02)', opacity: 1, offset: 0.68 },
+              { transform: 'none', opacity: 1, offset: 1 }
+            ], { duration: 540, easing: 'cubic-bezier(0.2,0.7,0.2,1)' });
+          }
+        }
       }
 
       mediaPrev = () => this._mediaScroll(-1);

@@ -417,7 +417,7 @@ const home: Localized<HomeContent> = {
         { seg: 'Seg 02', title: 'Token classification, and the opinions that get assets listed' },
         { seg: 'Seg 03', title: 'Crypto taxation in Slovenia' },
       ],
-      linkLabel: 'lemur.legal/blog ↗',
+      linkLabel: 'lemur.legal/blog',
       note: '⚠ Topic lines shown — swap in final article titles, links and the LinkedIn destination before publishing.',
     },
     contact: {
@@ -463,7 +463,7 @@ const home: Localized<HomeContent> = {
       toConfirm: '⚠ to confirm',
       subjectLabel: 'Subject',
       messageLabel: 'Message',
-      send: 'Open the draft in my mail app ↗',
+      send: 'Open the draft in my mail app',
       sentNote: 'Draft opened — press send there to deliver it ✓',
     },
     bar: {
@@ -745,7 +745,7 @@ const home: Localized<HomeContent> = {
         { seg: 'Seg 02', title: 'Klasifikacija žetonov in mnenja, s katerimi se sredstva uvrstijo' },
         { seg: 'Seg 03', title: 'Obdavčitev kriptovalut v Sloveniji' },
       ],
-      linkLabel: 'lemur.legal/blog ↗',
+      linkLabel: 'lemur.legal/blog',
       note: '⚠ Prikazane so tematske vrstice — pred objavo zamenjajte s končnimi naslovi člankov, povezavami in LinkedIn destinacijo.',
     },
     contact: {
@@ -791,7 +791,7 @@ const home: Localized<HomeContent> = {
       toConfirm: '⚠ za potrditev',
       subjectLabel: 'Zadeva',
       messageLabel: 'Sporočilo',
-      send: 'Odpri osnutek v mojem poštnem odjemalcu ↗',
+      send: 'Odpri osnutek v mojem poštnem odjemalcu',
       sentNote: 'Osnutek odprt — tam pritisnite pošlji, da ga dostavite ✓',
     },
     bar: {

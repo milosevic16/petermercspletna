@@ -164,25 +164,25 @@
 
               <g id="node-investment" role="img" :aria-label="t.record.ents.investment.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 5.2s ease-in-out 0.3s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="140" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="280" cy="140" r="10" fill="#3A3D43"></circle>
                   <text x="280" y="118" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.investment.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-startup" role="img" :aria-label="t.record.ents.startup.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 5.8s ease-in-out 0.9s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="380" cy="240" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="380" cy="240" r="10" fill="#3A3D43"></circle>
                   <text x="380" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.startup.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-advisory" role="img" :aria-label="t.record.ents.advisory.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 4.9s ease-in-out 0.5s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="340" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="280" cy="340" r="10" fill="#3A3D43"></circle>
                   <text x="280" y="318" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.advisory.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-lecture" role="img" :aria-label="t.record.ents.lecture.aria" style="pointer-events:none;">
                 <g style="animation:pm-float 6.2s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="180" cy="240" r="10" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <circle cx="180" cy="240" r="10" fill="#3A3D43"></circle>
                   <text x="180" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.lecture.nodeLabel }}</text>
                 </g>
               </g>
@@ -236,7 +236,7 @@
             <span id="net-rule-fill" aria-hidden="true" style="position:absolute; top:-1px; left:0; width:9rem; border-top:2px solid var(--accent); transform-origin:left;"></span>
             <div id="net-panel-inner">
               <span style="display:inline-block; border:1px solid rgba(236,231,220,0.3); color:#B4AEA1; padding:0.28rem 0.6rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;" data-bind="selTag">{{ t.record.ents.lemur.tag }}</span>
-              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent);">{{ t.record.ents.lemur.name }}</a></h3>
+              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1), color 0.16s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent); color:color-mix(in oklab, var(--ivory) 58%, var(--accent));">{{ t.record.ents.lemur.name }}</a></h3>
               <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);" data-bind="selRole">{{ t.record.ents.lemur.role }}</p>
               <p style="margin:0.9rem 0 0; font-size:0.99rem; line-height:1.62; color:var(--ivory2);" data-bind="selDesc">{{ t.record.ents.lemur.desc }}</p>
             </div>
@@ -270,7 +270,7 @@
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ card.kicker }}</span>
               <span style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.22rem; line-height:1.3; color:var(--ivory);">{{ card.title }}</span>
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; line-height:1.5; color:var(--ivory2);">{{ card.desc }}</span>
-              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.cta }} <span aria-hidden="true">↗</span></span>
+              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
             </div>
           </a>
         </div>
@@ -333,7 +333,7 @@
           <a v-for="(s, si) in t.writing.segments" :key="s.seg" :data-reveal="si" href="https://lemur.legal/blog" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid var(--line); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
             <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent); font-variant-numeric:tabular-nums;">{{ s.seg }}</span>
             <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3;">{{ s.title }}</span>
-            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ t.writing.linkLabel }}</span>
+            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ t.writing.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
           </a>
         </div>
         <p style="margin:1.1rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.writing.note }}</p>
@@ -382,7 +382,7 @@
           </div>
           <input type="checkbox" name="botcheck" tabindex="-1" aria-hidden="true" style="display:none;">
           <div style="margin-top:1.6rem; display:flex; align-items:center; gap:1.3rem; flex-wrap:wrap;">
-            <button id="contact-send" type="submit" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.06em; background:var(--accent); color:#F7F4EC; border:0; border-radius:0; padding:0.95rem 1.8rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="background:color-mix(in oklab, var(--accent) 86%, #000000); transform:translateY(-1px);">{{ t.contact.send }}</button>
+            <button id="contact-send" type="submit" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.06em; background:var(--accent); color:#F7F4EC; border:0; border-radius:0; padding:0.95rem 1.8rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="background:color-mix(in oklab, var(--accent) 86%, #000000); transform:translateY(-1px);">{{ t.contact.send }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.45em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
             <div data-if="sentNote" style="display:none">
               <p role="status" style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; color:var(--ivory); animation:pm-slide 0.4s cubic-bezier(0.2,0.7,0.2,1) both;">{{ t.contact.sentNote }}</p>
             </div>
@@ -395,11 +395,12 @@
     <div role="navigation" :aria-label="t.bar.aria" style="position:fixed; left:0; right:0; bottom:0; z-index:70; height:46px; display:flex; align-items:stretch; background:var(--graphite); border-top:1px solid rgba(236,231,220,0.14); box-shadow:0 -8px 26px rgba(15,16,18,0.22); animation:chyron-rise 0.4s cubic-bezier(0.2,0.7,0.2,1) both; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);">
       <div style="flex:0 0 clamp(10rem, 26vw, 16rem); box-sizing:border-box; display:flex; align-items:center; gap:0.65rem; padding:0 1rem; border-right:1px solid rgba(236,231,220,0.12); min-width:0; overflow:hidden;">
         <span id="bar-dot" aria-hidden="true" style="width:0.45rem; height:0.45rem; border-radius:50%; background:var(--accent); flex:none;"></span>
-        <span style="overflow:hidden; min-width:0;"><span id="bar-label" style="display:inline-block; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; color:var(--ivory); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" data-bind="barLabel">{{ t.bar.fallbackLabel }}</span></span>
+        <span style="display:flex; align-items:center; overflow:hidden; min-width:0;"><span id="bar-label" style="display:block; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; line-height:1.1; color:var(--ivory); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" data-bind="barLabel">{{ t.bar.fallbackLabel }}</span></span>
       </div>
       <div style="flex:1; position:relative; min-width:3rem;">
-        <span aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:rgba(236,231,220,0.16);"></span>
-        <span id="bar-fill" aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
+        <span aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:rgba(236,231,220,0.14);"></span>
+        <span id="bar-fill" aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
+        <span id="bar-knob" aria-hidden="true" style="position:absolute; top:50%; left:0; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 28%, transparent), 0 0 9px 1px color-mix(in oklab, var(--accent) 55%, transparent);"></span>
         <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + ji * 20 + '%; width:20%; box-sizing:border-box; background:transparent; border:0;' + (ji > 0 ? ' border-left:1px solid rgba(236,231,220,0.2);' : '') + ' padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
       </div>
       <div style="flex:0 0 6.6rem; box-sizing:border-box; display:flex; align-items:center; justify-content:flex-end; gap:0.45rem; padding:0 1rem; border-left:1px solid rgba(236,231,220,0.12);">
