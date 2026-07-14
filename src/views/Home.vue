@@ -236,7 +236,7 @@
             <span id="net-rule-fill" aria-hidden="true" style="position:absolute; top:-1px; left:0; width:9rem; border-top:2px solid var(--accent); transform-origin:left;"></span>
             <div id="net-panel-inner">
               <span style="display:inline-block; border:1px solid rgba(236,231,220,0.3); color:#B4AEA1; padding:0.28rem 0.6rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;" data-bind="selTag">{{ t.record.ents.lemur.tag }}</span>
-              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1), text-shadow 0.2s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent); text-shadow:0 0 18px color-mix(in oklab, var(--accent) 55%, transparent);">{{ t.record.ents.lemur.name }}</a></h3>
+              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1), filter 0.3s ease;">{{ t.record.ents.lemur.name }}</a></h3>
               <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);" data-bind="selRole">{{ t.record.ents.lemur.role }}</p>
               <p style="margin:0.9rem 0 0; font-size:0.99rem; line-height:1.62; color:var(--ivory2);" data-bind="selDesc">{{ t.record.ents.lemur.desc }}</p>
               <div data-if="hasLink" style="display:contents">
@@ -471,6 +471,23 @@ onUnmounted(() => dispose && dispose())
 #network g[data-net] { outline: none; }
 
 #network g[data-net]:focus-visible circle { stroke: #D2453E; stroke-width: 2.5px; }
+
+/* Panel title link: a soft red cloud (layered drop-shadow) blooms around the
+   title on hover. Applied to the element itself (reliable), and gated with
+   @media (hover: hover) so it never sticks on a touch tap. */
+#net-name {
+  display: inline-block;
+  /* Base = the same shadows but transparent, so hovering interpolates colour only.
+     Transitioning from `filter: none` sticks at the zeroed start in Chrome, which
+     is why the glow never appeared. */
+  filter: drop-shadow(0 0 5px transparent) drop-shadow(0 0 15px transparent) drop-shadow(0 0 28px transparent);
+}
+@media (hover: hover) {
+  #net-name:hover {
+    text-decoration-color: var(--accent);
+    filter: drop-shadow(0 0 5px rgba(210, 69, 62, 0.62)) drop-shadow(0 0 15px rgba(210, 69, 62, 0.45)) drop-shadow(0 0 28px rgba(210, 69, 62, 0.3));
+  }
+}
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
 
