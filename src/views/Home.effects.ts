@@ -66,9 +66,10 @@ export function initEffects(copy: HomeContent): () => void {
         // (edge id = the child key of that edge); _edges lists every edge.
         // Every paintable node (for _applySel colouring, incl. the categories).
         this._nodes = ['pm', 'investment', 'suricate', 'ibex', 'startup', 'bloctopus', 'blocksquare', 'advisory', 'lemur', 'lecture', 'thinktank', 'faculty'];
-        // Categories are structural only (not clickable), so the prev/next cycle
-        // visits just the hub and the 7 leaf projects.
-        this._order = ['pm', 'suricate', 'ibex', 'bloctopus', 'blocksquare', 'lemur', 'thinktank', 'faculty'];
+        // Categories are structural (not clickable), and the PM hub is skipped by
+        // the prev/next cycle (it stays directly clickable) — so ‹/› visit just
+        // the 7 leaf projects.
+        this._order = ['suricate', 'ibex', 'bloctopus', 'blocksquare', 'lemur', 'thinktank', 'faculty'];
         this._paths = {
           pm: [],
           investment: ['investment'],
@@ -1025,7 +1026,7 @@ export function initEffects(copy: HomeContent): () => void {
           stopProp: this.stopProp,
           netPrev: this.netPrev,
           netNext: this.netNext,
-          netIdx: this._pad((this._order || []).indexOf(this.state.sel) + 1) + ' / ' + this._pad((this._order || []).length),
+          netIdx: ((this._order || []).indexOf(this.state.sel) < 0 ? '—' : this._pad((this._order || []).indexOf(this.state.sel) + 1)) + ' / ' + this._pad((this._order || []).length),
           toggleCounsel: this.toggleCounsel,
           toggleInvestor: this.toggleInvestor,
           toggleVoice: this.toggleVoice,
