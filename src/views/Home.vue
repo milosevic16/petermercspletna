@@ -140,7 +140,7 @@
               <line id="line-ibex" x1="280" y1="340" x2="375" y2="404" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
               <line id="line-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
               <line id="line-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-lemur" x1="280" y1="140" x2="280" y2="50" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
+              <line id="line-lemur" x1="280" y1="140" x2="280" y2="76" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
               <line id="line-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
               <line id="line-faculty" x1="180" y1="240" x2="116" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
               <line id="flow-investment" x1="280" y1="240" x2="280" y2="340" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
@@ -151,7 +151,7 @@
               <line id="flow-ibex" x1="280" y1="340" x2="375" y2="404" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
               <line id="flow-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
               <line id="flow-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-lemur" x1="280" y1="140" x2="280" y2="50" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+              <line id="flow-lemur" x1="280" y1="140" x2="280" y2="76" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
               <line id="flow-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
               <line id="flow-faculty" x1="180" y1="240" x2="116" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
 
@@ -189,13 +189,13 @@
               <g id="node-suricate" data-net="suricate" role="button" tabindex="0" :aria-label="t.record.ents.suricate.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 6.1s ease-in-out 0.7s infinite alternate; transform-box:fill-box; transform-origin:center;">
                   <circle cx="185" cy="404" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="185" y="384" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
+                  <text x="185" y="434" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-ibex" data-net="ibex" role="button" tabindex="0" :aria-label="t.record.ents.ibex.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.5s ease-in-out 1.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
                   <circle cx="375" cy="404" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="375" y="384" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.ibex.nodeLabel }}</text>
+                  <text x="375" y="434" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.ibex.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-bloctopus" data-net="bloctopus" role="button" tabindex="0" :aria-label="t.record.ents.bloctopus.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
@@ -212,8 +212,8 @@
               </g>
               <g id="node-lemur" data-net="lemur" role="button" tabindex="0" :aria-label="t.record.ents.lemur.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
                 <g style="animation:pm-float 5.4s ease-in-out 0.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="50" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="280" y="30" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
+                  <circle cx="280" cy="76" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
+                  <text x="280" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
                 </g>
               </g>
               <g id="node-thinktank" data-net="thinktank" role="button" tabindex="0" :aria-label="t.record.ents.thinktank.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
@@ -353,7 +353,7 @@
         <form id="contact-form" data-reveal="2" data-on-submit="onSubmit" data-on-focus="airOn" data-on-blur="airOff" style="margin-top:clamp(2rem, 4.5vw, 3rem); max-width:56rem;">
           <div style="display:flex; flex-wrap:wrap; gap:0.4rem 1.3rem; align-items:baseline; margin-bottom:1.4rem;">
             <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ t.contact.regarding }}</span>
-            <button v-for="(topic, ti) in t.contact.topics" :key="topic.key" :id="'chip-' + ti" type="button" :data-topic="topic.key" aria-pressed="false" data-on-click="pickTopic" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; font-weight:500; letter-spacing:0.04em; background:transparent; color:var(--ivory2); border:0; border-bottom:1px dashed rgba(236,231,220,0.35); border-radius:0; padding:0.5rem 0.15rem; min-height:40px; cursor:pointer; transition:color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="color:var(--ivory); border-bottom-color:var(--ivory);">{{ topic.label }}</button>
+            <button v-for="(topic, ti) in t.contact.topics" :key="topic.key" :id="'chip-' + ti" type="button" class="pm-chip" :data-topic="topic.key" aria-pressed="false" data-on-click="pickTopic" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; font-weight:500; letter-spacing:0.04em; background:transparent; border-radius:0; padding:0.5rem 0.15rem; min-height:40px; cursor:pointer; transition:color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">{{ topic.label }}</button>
           </div>
           <!-- The selected Regarding choice (stable English key) is mirrored here
                by pickTopic, so it submits to Web3Forms as the `topic` field. -->
@@ -405,7 +405,7 @@
         <span aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:rgba(236,231,220,0.14);"></span>
         <span id="bar-fill" aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
         <span id="bar-knob" aria-hidden="true" style="position:absolute; top:50%; left:0; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 28%, transparent), 0 0 9px 1px color-mix(in oklab, var(--accent) 55%, transparent);"></span>
-        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + ji * 20 + '%; width:20%; box-sizing:border-box; background:transparent; border:0;' + (ji > 0 ? ' border-left:1px solid rgba(236,231,220,0.2);' : '') + ' padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
+        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" class="pm-bar-jump" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + ji * 20 + '%; width:20%; box-sizing:border-box; background:transparent; border:0; padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
       </div>
       <div style="flex:0 0 6.6rem; box-sizing:border-box; display:flex; align-items:center; justify-content:flex-end; gap:0.45rem; padding:0 1rem; border-left:1px solid rgba(236,231,220,0.12);">
         <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.6rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.bar.partLabel }}</span>
@@ -496,6 +496,27 @@ onUnmounted(() => dispose && dispose())
 #net-controls { margin-top: 1.6rem; }
 @media (max-width: 819px) {
   #net-controls { margin-top: 0.55rem; }
+}
+
+/* Contact 'Regarding' chips: the selected chip (aria-pressed) stays accent and
+   never reverts on mouse-leave; hover only affects the unselected chips, and only
+   on hover-capable devices so it can't stick on a touch tap. */
+.pm-chip { color: var(--ivory2); border: 0; border-bottom: 1px dashed rgba(236, 231, 220, 0.35); }
+.pm-chip[aria-pressed="true"] { color: var(--accent); border-bottom-color: var(--accent); border-bottom-style: solid; }
+@media (hover: hover) {
+  .pm-chip:not([aria-pressed="true"]):hover { color: var(--ivory); border-bottom-color: var(--ivory); }
+}
+
+/* Progress-bar section dividers: half-height, vertically centred so they cross the
+   central fill line rather than spanning the whole bar. */
+.pm-bar-jump + .pm-bar-jump::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background: rgba(236, 231, 220, 0.2);
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }

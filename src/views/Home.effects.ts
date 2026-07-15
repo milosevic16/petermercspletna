@@ -288,7 +288,7 @@ export function initEffects(copy: HomeContent): () => void {
                     tlLn.style.transform = tlWrap.id === 'tl-v' ? 'scaleY(1)' : 'scaleX(1)';
                   }
                 });
-              }, { rootMargin: '0px 0px -15% 0px' });
+              }, { rootMargin: '0px 0px -40% 0px' });
               tio.observe(tlWrap);
               this._c.push(() => tio.disconnect());
             }, 60);
@@ -960,14 +960,12 @@ export function initEffects(copy: HomeContent): () => void {
       };
 
       _applyChips() {
+        // The selected/hover styling is CSS-driven off aria-pressed (see .pm-chip),
+        // so a selected chip keeps its accent even after the mouse leaves.
         for (var i = 0; i < 5; i++) {
           var c = document.getElementById('chip-' + i);
           if (!c) continue;
-          var is = (c.getAttribute('data-topic') || '') === this.state.topic;
-          c.setAttribute('aria-pressed', is ? 'true' : 'false');
-          c.style.color = is ? 'var(--accent)' : 'var(--ivory2)';
-          c.style.borderBottomColor = is ? 'var(--accent)' : 'rgba(236,231,220,0.35)';
-          c.style.borderBottomStyle = is ? 'solid' : 'dashed';
+          c.setAttribute('aria-pressed', (c.getAttribute('data-topic') || '') === this.state.topic ? 'true' : 'false');
         }
         this._updateSignal();
       }

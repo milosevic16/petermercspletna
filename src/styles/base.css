@@ -38,7 +38,9 @@ input:focus, textarea:focus { outline: none; }
 
 @keyframes pm-settle { from { transform: scale(1.045); } to { transform: scale(1); } }
 
-@keyframes pm-float { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+/* Ambient node drift. Kept to 1px so the travelling pulse — which targets the
+   node's static centre — arrives visually centred rather than up to 3px high. */
+@keyframes pm-float { from { transform: translateY(0); } to { transform: translateY(-1px); } }
 
 @keyframes pm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
