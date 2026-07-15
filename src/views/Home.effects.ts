@@ -69,7 +69,8 @@ export function initEffects(copy: HomeContent): () => void {
         // Categories are structural (not clickable), and the PM hub is skipped by
         // the prev/next cycle (it stays directly clickable) — so ‹/› visit just
         // the 7 leaf projects.
-        this._order = ['suricate', 'ibex', 'bloctopus', 'blocksquare', 'lemur', 'thinktank', 'faculty'];
+        // Clockwise from Lemur (now top) → right → bottom → left.
+        this._order = ['lemur', 'bloctopus', 'blocksquare', 'ibex', 'suricate', 'thinktank', 'faculty'];
         this._paths = {
           pm: [],
           investment: ['investment'],
@@ -692,7 +693,9 @@ export function initEffects(copy: HomeContent): () => void {
           total += Math.hypot(chain[si].x - chain[si - 1].x, chain[si].y - chain[si - 1].y);
           cum.push(total);
         }
-        var dur = Math.round(950 + total * 2.6);
+        // A slight dwell at each intermediate (section) node before it moves on.
+        var dwellEach = 0.11, mids = Math.max(0, chain.length - 2), travelFrac = 1 - dwellEach * mids;
+        var dur = Math.round((950 + total * 2.6) / travelFrac);
         var g = document.createElementNS(NS, 'g');
         g.style.pointerEvents = 'none';
         var halo = document.createElementNS(NS, 'circle');
@@ -703,10 +706,14 @@ export function initEffects(copy: HomeContent): () => void {
         core.setAttribute('fill', 'var(--accent)');
         g.appendChild(halo); g.appendChild(core);
         fx.appendChild(g);
-        var moveKf = chain.map((w, i) => ({
-          transform: 'translate(' + (w.x - start.x).toFixed(1) + 'px,' + (w.y - start.y).toFixed(1) + 'px)',
-          offset: total ? cum[i] / total : (i / (chain.length - 1))
-        }));
+        var moveKf = [];
+        var accHold = 0;
+        chain.forEach((w, i) => {
+          var tf = 'translate(' + (w.x - start.x).toFixed(1) + 'px,' + (w.y - start.y).toFixed(1) + 'px)';
+          var travelOff = (total ? cum[i] / total : (i / (chain.length - 1))) * travelFrac;
+          moveKf.push({ transform: tf, offset: +(travelOff + accHold).toFixed(4) });
+          if (i > 0 && i < chain.length - 1) { accHold += dwellEach; moveKf.push({ transform: tf, offset: +(travelOff + accHold).toFixed(4) }); }
+        });
         // fade in as it leaves the node, fade out as it merges into the hub
         var fadeKf = [
           { opacity: 0, offset: 0 },
