@@ -354,6 +354,9 @@
             <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ t.contact.regarding }}</span>
             <button v-for="(topic, ti) in t.contact.topics" :key="topic.key" :id="'chip-' + ti" type="button" :data-topic="topic.key" aria-pressed="false" data-on-click="pickTopic" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; font-weight:500; letter-spacing:0.04em; background:transparent; color:var(--ivory2); border:0; border-bottom:1px dashed rgba(236,231,220,0.35); border-radius:0; padding:0.5rem 0.15rem; min-height:40px; cursor:pointer; transition:color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="color:var(--ivory); border-bottom-color:var(--ivory);">{{ topic.label }}</button>
           </div>
+          <!-- The selected Regarding choice (stable English key) is mirrored here
+               by pickTopic, so it submits to Web3Forms as the `topic` field. -->
+          <input id="cf-topic" type="hidden" name="topic" value="">
           <div style="background:color-mix(in oklab, var(--graphite) 91%, #FFFFFF); border:1px solid rgba(236,231,220,0.14); border-top:3px solid var(--accent); box-shadow:0 16px 40px rgba(15,16,18,0.25);">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:0.85rem 1.25rem; border-bottom:1px solid rgba(236,231,220,0.12);">
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#D6D1C5;">{{ t.contact.newMessage }}</span>
@@ -369,12 +372,12 @@
               </span>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:0.3rem 1.2rem; align-items:baseline; padding:0.8rem 1.25rem; border-bottom:1px solid rgba(236,231,220,0.12);">
-              <span style="flex:0 0 5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.contact.toLabel }}</span>
-              <span style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-size:1.02rem; color:var(--ivory);">{{ t.contact.toName }} <span style="color:var(--ivory2);">&lt;<span style="border-bottom:1px dashed #6B665C;">peter@lemur.legal</span>&gt;</span> <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.72rem; color:#948E81;">{{ t.contact.toConfirm }}</span></span>
+              <label for="cf-name" style="flex:0 0 5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.contact.nameLabel }}</label>
+              <input id="cf-name" name="name" type="text" autocomplete="name" :placeholder="t.contact.namePlaceholder" style="flex:1 1 16rem; min-width:0; background:transparent; border:0; border-radius:0; padding:0.1rem 0; font-family:'Spectral', Georgia, serif; font-size:1.02rem; color:var(--ivory);">
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:0.3rem 1.2rem; align-items:baseline; padding:0.8rem 1.25rem; border-bottom:1px solid rgba(236,231,220,0.12);">
-              <span style="flex:0 0 5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.contact.subjectLabel }}</span>
-              <span id="mail-subject" style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.02rem; color:var(--ivory);" data-bind="mailSubject">Website inquiry — General</span>
+              <label for="cf-email" style="flex:0 0 5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.contact.emailLabel }}</label>
+              <input id="cf-email" name="email" type="email" autocomplete="email" :placeholder="t.contact.emailPlaceholder" style="flex:1 1 16rem; min-width:0; background:transparent; border:0; border-radius:0; padding:0.1rem 0; font-family:'Spectral', Georgia, serif; font-size:1.02rem; color:var(--ivory);">
             </div>
             <div style="padding:0.9rem 1.25rem 1.1rem;">
               <label for="cf-message" style="display:block; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.contact.messageLabel }}</label>
@@ -383,10 +386,9 @@
           </div>
           <input type="checkbox" name="botcheck" tabindex="-1" aria-hidden="true" style="display:none;">
           <div style="margin-top:1.6rem; display:flex; align-items:center; gap:1.3rem; flex-wrap:wrap;">
-            <button id="contact-send" type="submit" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.06em; background:var(--accent); color:#F7F4EC; border:0; border-radius:0; padding:0.95rem 1.8rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="background:color-mix(in oklab, var(--accent) 86%, #000000); transform:translateY(-1px);">{{ t.contact.send }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.45em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
-            <div data-if="sentNote" style="display:none">
-              <p role="status" style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; color:var(--ivory); animation:pm-slide 0.4s cubic-bezier(0.2,0.7,0.2,1) both;">{{ t.contact.sentNote }}</p>
-            </div>
+            <button id="contact-send" type="submit" style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.06em; background:var(--accent); color:#F7F4EC; border:0; border-radius:0; padding:0.95rem 1.8rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="background:color-mix(in oklab, var(--accent) 86%, #000000); transform:translateY(-1px);">{{ t.contact.send }}</button>
+            <!-- The Web3Forms helper (wireWeb3Form) writes sending/success/error here. -->
+            <p class="js-form-status" role="status" aria-live="polite" style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; color:#B4AEA1;"></p>
           </div>
         </form>
       </div>

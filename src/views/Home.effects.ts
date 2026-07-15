@@ -14,6 +14,7 @@
 // re-calls initEffects with the new language. The mail subject and topic keys
 // deliberately stay ENGLISH (owner receives English data for both languages).
 import { createTracker } from '@/composables/tracker'
+import { wireWeb3Form } from '@/composables/web3forms'
 import type { HomeContent } from '@/content/home'
 
 export function initEffects(copy: HomeContent): () => void {
@@ -924,17 +925,18 @@ export function initEffects(copy: HomeContent): () => void {
         }
       }
 
+      // Prepared for the Web3Forms backend but NOT yet wired to it. For now the
+      // submit is neutralised (no page reload) and the little press animation
+      // plays. The Web3Forms adaptation step replaces the body below with the
+      // POST to https://api.web3forms.com/submit (access_key + the named fields
+      // name/email/message/topic + botcheck honeypot) via a wireWeb3Form helper
+      // — see CLAUDE.md "Web3Forms". The mail subject stays English there.
       onSubmit = (e) => {
         e.preventDefault();
-        var addr = this.props.contactEmail || 'peter@lemur.legal';
-        var msgEl = document.getElementById('cf-message');
-        var msg = msgEl ? msgEl.value.trim() : '';
-        var subj = 'Website inquiry — ' + (this.state.topic || 'General');
-        try { window.location.href = 'mailto:' + addr + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(msg); } catch (err) {}
-        this.setState({ sent: true });
+        // TODO(web3forms): submit the form to Web3Forms and set { sent: true } on success.
         var b = document.getElementById('contact-send');
         if (b && b.animate) {
-          __fx.anim(b, 
+          __fx.anim(b,
             [{ transform: 'none' }, { transform: 'translateY(2px)' }, { transform: 'none' }],
             { duration: 200, easing: 'ease-out' }
           );
@@ -944,11 +946,9 @@ export function initEffects(copy: HomeContent): () => void {
       pickTopic = (e) => {
         var t = e.currentTarget.getAttribute('data-topic') || '';
         this.setState({ topic: t }, () => this._applyChips());
-        var ta = document.getElementById('cf-message');
-        if (ta && (ta.value === '' || (ta.value.indexOf('Re: ') === 0 && ta.value.length < 64))) {
-          ta.value = 'Re: ' + t + ' — ';
-          ta.focus();
-        }
+        // Mirror the choice (stable English key) into the hidden submittable field.
+        var hid = document.getElementById('cf-topic');
+        if (hid) hid.value = t;
       };
 
       _applyChips() {
@@ -1013,7 +1013,7 @@ export function initEffects(copy: HomeContent): () => void {
           onAir: this.state.onAir,
           isMobile: this.state.mobile,
           isDesktop: !this.state.mobile,
-          mailSubject: 'Website inquiry — ' + (this.state.topic || 'General'),
+          mailSubject: 'Peter Merc website — ' + (this.state.topic || 'General'),
           offAir: !this.state.onAir,
           msgHint: hints[this.state.topic] || copy.contact.msgHint,
           pickTopic: this.pickTopic,
@@ -1058,9 +1058,10 @@ export function initEffects(copy: HomeContent): () => void {
     }
 
     // ---- generic event + pseudo-state wiring (stands in for sc-camel-on-* / style-hover) ----
-    // NOTE: submit is intentionally NOT wired — form submit is the Web3Forms follow-up pass.
-    // Scoped to the VIEW roots (main + progress bar) so chrome hovers, wired by
-    // SiteChrome/Masthead, are not double-bound.
+    // `submit` is NOT wired here — the contact form's submit is owned by
+    // wireWeb3Form (called at the end of this function). Scoped to the VIEW
+    // roots (main + progress bar) so chrome hovers, wired by SiteChrome/Masthead,
+    // are not double-bound.
     const __EVMAP = { click: "click", keydown: "keydown", focus: "focusin", blur: "focusout" }
     // Only wire pointer-hover states where the primary input can actually hover.
     // On touch, `mouseenter` fires on tap but `mouseleave` never does, so a
@@ -1095,6 +1096,15 @@ export function initEffects(copy: HomeContent): () => void {
     __c.componentDidMount()
     __render(__c)
     __fx.onDispose(function () { try { __c.componentWillUnmount() } catch (e) {} })
+
+    // Contact form → Web3Forms. Owns the form's submit (preventDefault + POST).
+    // The subject stays ENGLISH (owner data) and is built from the topic key.
+    wireWeb3Form(__fx, {
+      root: '#contact-form',
+      subject: function (f) { return 'Peter Merc website — ' + (f.topic || 'General'); },
+      page: 'Peter Merc — website contact',
+      strings: copy.contact.formStates,
+    })
   } catch (e) { console.error("[effects] init failed", e) }
   return __fx.dispose
 }

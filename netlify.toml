@@ -4,6 +4,12 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # The Web3Forms access key is public-by-design (it ships in the client bundle
+  # so the browser can POST to Web3Forms). It's set as a Netlify env var, not
+  # committed; this tells Netlify's secret scanner it's intentionally public so
+  # it doesn't flag it and block the deploy. If the smart detector still flags a
+  # UUID, add SECRETS_SCAN_ENABLED = "false".
+  SECRETS_SCAN_OMIT_KEYS = "VITE_WEB3FORMS_KEY"
 
 # SPA rewrite: every path serves index.html so client-side routes and deep links
 # resolve (status 200 = rewrite, not redirect). Without this, /contact 404s on reload.

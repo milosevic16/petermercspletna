@@ -126,7 +126,7 @@ export interface HomeContent {
     regarding: string
     /**
      * `key` is the stable ENGLISH topic string: it is the data-topic value,
-     * the hints lookup key, and the mail subject ("Website inquiry — <key>"),
+     * the hints lookup key, and the mail subject ("Peter Merc website — <key>"),
      * so the site owner's received data stays English for both languages.
      * Only `label` and `hint` localize.
      */
@@ -135,13 +135,13 @@ export interface HomeContent {
     newMessage: string
     onAir: string
     standby: string
-    toLabel: string
-    toName: string
-    toConfirm: string
-    subjectLabel: string
+    nameLabel: string
+    namePlaceholder: string
+    emailLabel: string
+    emailPlaceholder: string
     messageLabel: string
     send: string
-    sentNote: string
+    formStates: { sending: string; success: string; error: string; invalid: string }
   }
   bar: {
     aria: string
@@ -425,7 +425,7 @@ const home: Localized<HomeContent> = {
       chyron: 'Contact',
       headline: 'If what you’re building runs ahead of the rulebook, we should talk',
       intro:
-        'Pick a topic and fill in the draft below — the button opens the finished email in your own mail app. Nothing sends from this page.',
+        'Pick a topic, add your details and a few lines, then send — I read every message myself and reply.',
       regarding: 'Regarding',
       topics: [
         {
@@ -455,16 +455,21 @@ const home: Localized<HomeContent> = {
         },
       ],
       msgHint: 'A few lines about what you have in mind is plenty.',
-      newMessage: 'New message — draft',
+      newMessage: 'New message',
       onAir: 'On air',
       standby: 'Standby',
-      toLabel: 'To',
-      toName: 'Peter Merc',
-      toConfirm: '',
-      subjectLabel: 'Subject',
+      nameLabel: 'Name',
+      namePlaceholder: 'Your name',
+      emailLabel: 'Email',
+      emailPlaceholder: 'you@company.com',
       messageLabel: 'Message',
-      send: 'Open the draft in my mail app',
-      sentNote: 'Draft opened — press send there to deliver it ✓',
+      send: 'Send message',
+      formStates: {
+        sending: 'Sending…',
+        success: 'Thanks — your message is on its way. I’ll be in touch.',
+        error: 'Something went wrong — please try again, or email me directly.',
+        invalid: 'Please add your name, a valid email and a message.',
+      },
     },
     bar: {
       aria: 'Page progress',
@@ -753,7 +758,7 @@ const home: Localized<HomeContent> = {
       chyron: 'Kontakt',
       headline: 'Če to, kar gradite, prehiteva pravila, se morava pogovoriti',
       intro:
-        'Izberite temo in izpolnite osnutek spodaj — gumb odpre pripravljeno e-pošto v vašem poštnem odjemalcu. S te strani se ne pošlje nič.',
+        'Izberite temo, dodajte svoje podatke in nekaj vrstic ter pošljite — vsako sporočilo preberem osebno in odgovorim.',
       regarding: 'Glede',
       topics: [
         {
@@ -783,16 +788,21 @@ const home: Localized<HomeContent> = {
         },
       ],
       msgHint: 'Nekaj vrstic o tem, kaj imate v mislih, povsem zadošča.',
-      newMessage: 'Novo sporočilo — osnutek',
+      newMessage: 'Novo sporočilo',
       onAir: 'V etru',
       standby: 'V pripravljenosti',
-      toLabel: 'Za',
-      toName: 'Peter Merc',
-      toConfirm: '',
-      subjectLabel: 'Zadeva',
+      nameLabel: 'Ime',
+      namePlaceholder: 'Vaše ime',
+      emailLabel: 'E-pošta',
+      emailPlaceholder: 'vi@podjetje.com',
       messageLabel: 'Sporočilo',
-      send: 'Odpri osnutek v mojem poštnem odjemalcu',
-      sentNote: 'Osnutek odprt — tam pritisnite pošlji, da ga dostavite ✓',
+      send: 'Pošlji sporočilo',
+      formStates: {
+        sending: 'Pošiljam…',
+        success: 'Hvala — vaše sporočilo je na poti. Kmalu se oglasim.',
+        error: 'Nekaj je šlo narobe — poskusite znova ali mi pišite neposredno.',
+        invalid: 'Prosimo, dodajte ime, veljaven e-naslov in sporočilo.',
+      },
     },
     bar: {
       aria: 'Napredek strani',
