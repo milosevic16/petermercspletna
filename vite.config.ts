@@ -15,7 +15,10 @@ const config: UserConfig & { ssgOptions?: ViteSSGOptions } = {
   // Static Site Generation (vite-ssg): pre-render every route to real HTML so
   // crawlers and AI/LLM retrieval get the full page from the server.
   ssgOptions: {
-    dirStyle: 'nested', // '/sl' -> dist/sl/index.html (served at /sl by Netlify)
+    // 'flat' => dist/sl.html, which Netlify serves at /sl with a clean 200.
+    // 'nested' (dist/sl/index.html) makes Netlify 301 /sl -> /sl/, so our
+    // canonical/hreflang (/sl, no trailing slash) would point at a redirect.
+    dirStyle: 'flat',
     concurrency: 1, // render routes sequentially — the locale ref is a module
     // singleton, so parallel renders could interleave and cross-render languages.
     crittersOptions: false, // keep the CSS pipeline identical to the SPA build
