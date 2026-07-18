@@ -790,7 +790,7 @@ const home: Localized<HomeContent> = {
       msgHint: 'Nekaj vrstic o tem, kaj imate v mislih, povsem zadošča.',
       newMessage: 'Novo sporočilo',
       onAir: 'V pripravljenosti',
-      standby: 'V pripravljenosti',
+      standby: 'V mirovanju',
       nameLabel: 'Ime',
       namePlaceholder: 'Vaše ime',
       emailLabel: 'E-pošta',

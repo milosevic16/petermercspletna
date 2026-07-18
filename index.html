@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Icons + theme colour: relative paths, so they follow the domain
+         automatically (no dependency on the absolute SITE_ORIGIN). -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#26282C" />
     <!-- title, description, canonical, hreflang, Open Graph and JSON-LD are
          emitted per-locale by useHead (@unhead/vue) and baked into the static
          HTML at build time (vite-ssg) — this is the single source of truth. -->

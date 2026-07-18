@@ -1,0 +1,13 @@
+{
+  "name": "Peter Merc",
+  "short_name": "Peter Merc",
+  "description": "Peter Merc — crypto & fintech lawyer and venture investor in Ljubljana.",
+  "icons": [
+    { "src": "/favicon-32.png", "type": "image/png", "sizes": "32x32" },
+    { "src": "/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" }
+  ],
+  "theme_color": "#26282C",
+  "background_color": "#26282C",
+  "display": "browser",
+  "start_url": "/"
+}

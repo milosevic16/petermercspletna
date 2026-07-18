@@ -12,6 +12,14 @@ interface WithMeta {
 // `window.location` (undefined at build) — it's the production origin.
 // Update this if the site moves to a custom domain.
 const SITE_ORIGIN = 'https://petermerc.netlify.app'
+// Share card (1200x630) + the real portrait for the Person entity. Both absolute
+// (social scrapers need absolute URLs); they ride on SITE_ORIGIN like the rest.
+const OG_IMAGE = SITE_ORIGIN + '/og.jpg'
+const PORTRAIT_IMAGE = SITE_ORIGIN + '/assets/b56f58c1.jpg'
+const OG_ALT: Record<Locale, string> = {
+  en: 'Peter Merc — crypto & fintech lawyer and venture investor, Ljubljana',
+  sl: 'Peter Merc — pravnik za kripto in fintech ter vlagatelj tveganega kapitala, Ljubljana',
+}
 
 // Stable, locale-specific facts for the Person structured data. Only verifiable
 // public facts already shown on the page — name, role, firm, Ljubljana, links.
@@ -45,6 +53,7 @@ export function useHead<T extends WithMeta>(content: Localized<T>): void {
         url,
         address: { '@type': 'PostalAddress', addressLocality: 'Ljubljana', addressCountry: 'SI' },
         worksFor: { '@type': 'Organization', name: 'Lemur Legal', url: 'https://lemur.legal' },
+        image: PORTRAIT_IMAGE,
         knowsAbout: KNOWS_ABOUT[l],
         sameAs: ['https://www.linkedin.com/in/petermerc/', 'https://lemur.legal'],
       }
@@ -60,9 +69,20 @@ export function useHead<T extends WithMeta>(content: Localized<T>): void {
           { property: 'og:url', content: url },
           { property: 'og:locale', content: l === 'sl' ? 'sl_SI' : 'en_US' },
           { property: 'og:locale:alternate', content: l === 'sl' ? 'en_US' : 'sl_SI' },
-          { name: 'twitter:card', content: 'summary' },
+          { property: 'og:image', content: OG_IMAGE },
+          { property: 'og:image:secure_url', content: OG_IMAGE },
+          { property: 'og:image:type', content: 'image/jpeg' },
+          { property: 'og:image:width', content: '1200' },
+          { property: 'og:image:height', content: '630' },
+          { property: 'og:image:alt', content: OG_ALT[l] },
+          { property: 'profile:first_name', content: 'Peter' },
+          { property: 'profile:last_name', content: 'Merc' },
+          { property: 'profile:username', content: 'petermerc' },
+          { name: 'twitter:card', content: 'summary_large_image' },
           { name: 'twitter:title', content: c.meta.title },
           { name: 'twitter:description', content: c.meta.description },
+          { name: 'twitter:image', content: OG_IMAGE },
+          { name: 'twitter:image:alt', content: OG_ALT[l] },
         ],
         link: [
           { rel: 'canonical', href: url },

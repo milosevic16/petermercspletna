@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Peter Merc">
+  <!-- Operating-map hub mark: the site's signature motif (red PM hub + ring +
+       satellites on graphite). Pure geometry, no text/fonts, so it renders
+       identically as a browser SVG favicon and when rasterised to PNG. -->
+  <rect width="64" height="64" rx="14" fill="#26282C"/>
+  <g stroke="#948E81" stroke-width="1.4" opacity="0.55">
+    <line x1="32" y1="32" x2="32" y2="13"/>
+    <line x1="32" y1="32" x2="49" y2="23"/>
+    <line x1="32" y1="32" x2="47" y2="48"/>
+    <line x1="32" y1="32" x2="15" y2="43"/>
+    <line x1="32" y1="32" x2="17" y2="19"/>
+  </g>
+  <g fill="#3A3D43" stroke="#948E81" stroke-width="1.4">
+    <circle cx="32" cy="13" r="3.3"/>
+    <circle cx="49" cy="23" r="3.3"/>
+    <circle cx="47" cy="48" r="3.3"/>
+    <circle cx="15" cy="43" r="3.3"/>
+    <circle cx="17" cy="19" r="3.3"/>
+  </g>
+  <circle cx="32" cy="32" r="13.5" fill="none" stroke="#ECE7DC" stroke-opacity="0.35" stroke-width="1.6"/>
+  <circle cx="32" cy="32" r="10.5" fill="#D2453E"/>
+</svg>
