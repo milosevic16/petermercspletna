@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite-ssg build",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b"
   },
@@ -15,12 +15,15 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@unhead/ssr": "^1.11.20",
+    "@unhead/vue": "^1.11.20",
     "@vitejs/plugin-vue": "^5.2.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.6.3",
     "vite": "^5.4.11",
+    "vite-ssg": "^0.23.8",
     "vue-tsc": "^2.1.10"
   }
 }

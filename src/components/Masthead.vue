@@ -83,7 +83,7 @@ useInlineStates(root) // reproduce the nav-link / button hover states
 // Current section hash, so the language toggle keeps the visitor's place
 // (/#contact → /sl#contact). In-page anchor clicks fire hashchange (the SPA
 // interceptor lets #hash links through to the browser).
-const currentHash = ref(window.location.hash)
+const currentHash = ref(typeof window !== 'undefined' ? window.location.hash : '')
 const syncHash = () => { currentHash.value = window.location.hash }
 onMounted(() => window.addEventListener('hashchange', syncHash))
 onUnmounted(() => window.removeEventListener('hashchange', syncHash))

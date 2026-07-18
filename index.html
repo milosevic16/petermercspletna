@@ -3,11 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Peter Merc — crypto &amp; fintech lawyer · venture investor</title>
-    <meta
-      name="description"
-      content="Peter Merc, Ph.D. — tech &amp; crypto lawyer and venture investor in Ljubljana. Founder of Lemur Legal, managing partner at Suricate Ventures, co-founder of Blocksquare and Bloctopus Intelligence."
-    />
+    <!-- title, description, canonical, hreflang, Open Graph and JSON-LD are
+         emitted per-locale by useHead (@unhead/vue) and baked into the static
+         HTML at build time (vite-ssg) — this is the single source of truth. -->
+    <!-- If JS is disabled but CSS renders, drop the boot veil so the
+         server-rendered content is visible rather than sitting behind it. -->
+    <noscript>
+      <style>
+        html.pm-booting { overflow: auto !important; }
+        #boot { display: none !important; }
+      </style>
+    </noscript>
     <style>
       /* ---- boot veil -------------------------------------------------------
          First-paint intro: inline static HTML+CSS only (no JS, fonts or images)
