@@ -9,7 +9,7 @@
       data-no-retype=""
       style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.12rem; letter-spacing:0.01em; color:#FBFAF7; text-decoration:none;"
     >Peter Merc<span style="color:var(--accent);">.</span></a>
-    <div style="display:flex; align-items:center; gap:clamp(1.1rem, 2.5vw, 2.2rem);">
+    <div class="pm-actions" style="display:flex; align-items:center; gap:clamp(1.1rem, 2.5vw, 2.2rem);">
       <!-- nav shows on desktop, hides ≤819px -->
       <div class="pm-desktop-only">
         <nav :aria-label="c.navAria" style="display:flex; align-items:center; gap:clamp(1.1rem, 2vw, 1.9rem);">
@@ -62,7 +62,8 @@
       </nav>
       <a
         href="#contact"
-        style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.86rem; font-weight:500; color:#FBFAF7; text-decoration:none; border:1px solid rgba(251,250,247,0.65); padding:0.6rem 1.15rem; min-height:44px; box-sizing:border-box; display:inline-flex; align-items:center; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);"
+        class="pm-cta"
+        style="font-family:'Instrument Sans', Arial, sans-serif; font-weight:500; color:#FBFAF7; text-decoration:none; border:1px solid rgba(251,250,247,0.65); box-sizing:border-box; display:inline-flex; align-items:center; white-space:nowrap; transition:background 0.18s cubic-bezier(0.4,0,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);"
         data-hover="background:#FBFAF7; color:#17181A; border-color:#FBFAF7;"
       >{{ c.cta }}</a>
     </div>
@@ -110,4 +111,18 @@ onUnmounted(() => window.removeEventListener('hashchange', syncHash))
 }
 .lang-link:hover { color: #fbfaf7; }
 .lang-link.active { color: #fbfaf7; border-bottom-color: var(--accent); }
+
+/* "Get in touch" button. Its size lives here (not inline) so the media query
+   can shrink it on small phones — the longer Slovenian label ("Stopite v stik")
+   was tipping the header over its width and wrapping the button to a 2nd line.
+   min-height stays 44px for the tap target. */
+.pm-cta { font-size: 0.86rem; padding: 0.6rem 1.15rem; min-height: 44px; }
+@media (max-width: 480px) {
+  /* Tighten the row so brand + EN|SL toggle + CTA stay on one line even with
+     the longer Slovenian label, down to 320px. !important beats the header's
+     inline clamp() padding and the actions' inline gap. */
+  #site-head { padding-left: 1rem !important; padding-right: 1rem !important; column-gap: 0.4rem !important; }
+  .pm-actions { gap: 0.6rem !important; }
+  .pm-cta { font-size: 0.8rem; padding: 0.5rem 0.7rem; }
+}
 </style>

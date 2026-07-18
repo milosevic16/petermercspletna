@@ -177,7 +177,7 @@ const home: Localized<HomeContent> = {
       line2: 'The people I back don’t.',
       line3: 'I close the gap',
       badgeName: 'Peter Merc',
-      badgeRole: 'Ph.D. in law · founder · investor — Ljubljana',
+      badgeRole: 'legal counsel · investor · mentor · evaluator · lecturer',
       imgAlt: 'Peter Merc — black-and-white studio portrait',
     },
     docket: {
@@ -584,7 +584,7 @@ const home: Localized<HomeContent> = {
       line2: 'Ljudje, ki jih podpiram, pa ne.',
       line3: 'Jaz zapiram vrzel',
       badgeName: 'Peter Merc',
-      badgeRole: 'doktor prava · ustanovitelj · vlagatelj — Ljubljana',
+      badgeRole: 'pravni svetovalec · vlagatelj · mentor · ocenjevalec · predavatelj',
       imgAlt: 'Peter Merc — črno-beli studijski portret',
     },
     docket: {
