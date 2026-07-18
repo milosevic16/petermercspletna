@@ -32,18 +32,35 @@ export interface EntityCopy {
   aria: string
 }
 
-interface BriefRow {
-  label: string
-  value: string
+/** One categorized bullet inside a role: UPPERCASE key → detail, optional link. */
+interface FacetItem {
+  key: string
+  detail: string
+  /** if present, `detail` renders as an external link. */
+  href?: string
 }
 
-interface Brief {
-  title: string
-  tagline: string
-  /** Feeds the sticky progress-bar label via [data-chyron]. */
-  chyron: string
+/** One role. A single-role entry has one; a paired entry has two (subsections). */
+interface FacetSubsection {
+  /** shown as a small accent header only when the entry has 2+ subsections. */
+  subLabel: string
+  /** short "focus — position @ orgs" line under the subLabel. */
+  credential: string
   paragraphHtml: string
-  rows: BriefRow[]
+  list: FacetItem[]
+}
+
+/** One expandable entry in the "What I do" accordion. */
+interface FacetEntry {
+  /** selector-safe slug — builds ids btn-<key>/brief-<key>/ico-<key> and data-brief. */
+  key: string
+  /** bold, always-visible entry label, e.g. 'Counsel & Supervisor'. */
+  label: string
+  /** always-visible one-liner shown next to the label when collapsed. */
+  credential: string
+  /** feeds the sticky progress-bar label via [data-chyron]. */
+  chyron: string
+  subsections: FacetSubsection[]
 }
 
 interface MediaCard {
@@ -74,10 +91,7 @@ export interface HomeContent {
   facets: {
     eyebrow: string
     hint: string
-    counsel: Brief
-    investor: Brief
-    voice: Brief & { quoteWords: string[] }
-    founder: Brief
+    entries: FacetEntry[]
   }
   record: {
     eyebrow: string
@@ -182,59 +196,133 @@ const home: Localized<HomeContent> = {
     },
     facets: {
       eyebrow: 'What I do',
-      hint: 'open a line to read the brief',
-      counsel: {
-        title: 'Counsel',
-        tagline: 'crypto & fintech law — MiCA, licensing, listing opinions',
-        chyron: 'Counsel — crypto & fintech law',
-        paragraphHtml:
-          'MiCA white papers and licensing, token classification, the legal opinions that get assets listed. Years in bank supervision and capital markets before any of this had a rulebook — now I help write the filings my clients live by.',
-        rows: [
-          { label: 'White papers', value: 'MiCA-compliant drafting and notification' },
-          { label: 'Licensing', value: 'CASP authorisation across the EU' },
-          { label: 'Opinions', value: 'Token classification for exchange listings' },
-          { label: 'Background', value: 'Central-bank supervision and capital markets' },
-        ],
-      },
-      investor: {
-        title: 'Investor',
-        tagline: 'early-stage venture — co-founder & managing partner, Suricate',
-        chyron: 'Investor — Suricate Ventures',
-        paragraphHtml:
-          'Co-founder and managing partner of an early-stage fund backing fintech, gaming, health and logistics teams. I invest in the kind of founders I advise, which keeps the advice honest.',
-        rows: [
-          { label: 'Fund', value: 'Suricate Ventures, early-stage' },
-          { label: 'Sectors', value: 'Fintech, gaming, health, logistics' },
-          { label: 'Stage', value: 'Pre-seed and seed' },
-          { label: 'Edge', value: 'Legal depth on regulated markets' },
-        ],
-      },
-      voice: {
-        title: 'Voice',
-        tagline: 'media & stages — the one who gets called when rules shift',
-        chyron: 'Voice — media & stages',
-        quoteWords: ['When', 'the', 'regulation', 'shifts,', 'I’m', 'who', 'gets', 'called', 'to', 'explain', 'it'],
-        paragraphHtml:
-          'A regular translator of EU crypto rules for Slovenian and international press, and a panelist where the token questions actually get asked.',
-        rows: [
-          { label: 'Formats', value: 'TV and print commentary, panels, keynotes' },
-          { label: 'Topics', value: 'MiCA, crypto taxation, tokenization' },
-          { label: 'Teaching', value: 'Assistant Professor, New University Ljubljana' },
-        ],
-      },
-      founder: {
-        title: 'Founder',
-        tagline: 'built what I counsel — Lemur, Blocksquare, Bloctopus',
-        chyron: 'Founder — builder, not just adviser',
-        paragraphHtml:
-          'I’ve built what I counsel: <a href="https://lemur.legal" target="_blank" rel="noopener">Lemur Legal</a>, <strong style="font-weight:600;">Suricate Ventures</strong>, and co-founded <strong style="font-weight:600;">Blocksquare</strong> (real-world-asset tokenization) and <strong style="font-weight:600;">Bloctopus Intelligence</strong>. Board member, Blockchain Think Tank Slovenia.',
-        rows: [
-          { label: 'Lemur Legal', value: 'Specialist tech-law office, Ljubljana' },
-          { label: 'Blocksquare', value: 'Real-world-asset tokenization infrastructure' },
-          { label: 'Bloctopus', value: 'Blockchain intelligence and crypto recovery' },
-          { label: 'Fintech Factory', value: 'Fintech consultancy' },
-        ],
-      },
+      hint: 'open a line to read the detail',
+      entries: [
+        {
+          key: 'counsel',
+          label: 'Counsel & Supervisor',
+          credential: 'crypto, fintech & tech law · compliance · financial supervision',
+          chyron: 'Counsel — crypto & fintech law',
+          subsections: [
+            {
+              subLabel: 'Counsel',
+              credential: 'crypto, fintech & tech law — managing partner @ Lemur Legal, head of compliance @ GateHub',
+              paragraphHtml:
+                'Technology rarely waits for regulation. I advise founders, financial institutions and technology companies where law, finance and emerging technology intersect — from MiCA, PSD2 and DORA to token launches, contracts and regulatory strategy. Move fast and break things, with me in the support role.',
+              list: [
+                { key: 'Licensing', detail: 'PSD2 and MiCA (CASP authorisation), AML' },
+                { key: 'White papers', detail: 'MiCA-compliant drafting and notification' },
+                { key: 'Contracts', detail: 'Licensing agreements, IPR protection, EULA, SW development agreements' },
+                { key: 'Compliance', detail: 'Acting as an external regulatory compliance officer' },
+                { key: 'Intellectual property', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+              ],
+            },
+            {
+              subLabel: 'Supervisor',
+              credential: 'financial supervision — supervisory board @ JonatanMars Invest',
+              paragraphHtml:
+                'In regulated finance, growth must be matched by sound governance. As President of the Supervisory Board at JonatanMars Invest, a regulated asset management and brokerage company, I provide strategic oversight of management, governance, risk and regulatory compliance. I bring experience from banking, capital markets, fintech and corporate law to the boardroom, helping ensure that ambitious business decisions are supported by robust controls and long-term accountability.',
+              list: [
+                { key: 'Board', detail: 'President of the Supervisory Board @ JonatanMars Invest' },
+                { key: 'Oversight', detail: 'Management, governance, risk and regulatory compliance' },
+                { key: 'Background', detail: 'Banking, capital markets, fintech and corporate law' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'investor',
+          label: 'Investor',
+          credential: 'early-stage venture capital — Suricate Ventures & IBEX Equity Partners',
+          chyron: 'Investor — venture capital',
+          subsections: [
+            {
+              subLabel: 'Investor',
+              credential: 'early-stage venture capital — managing partner @ Suricate Ventures & IBEX Equity Partners',
+              paragraphHtml:
+                'As an angel investor, I back exceptional individuals and early ideas directly. As Managing Partner at Suricate Ventures, a generalist micro-VC, I invest across technology sectors and help founders navigate the realities of building and scaling a company. At IBEX Equity Partners, our focus is on defence technology, dual-use innovation and technologies with strategic relevance. For me, investing is not only about providing capital — it is about smart money: sharing experience, opening doors and helping strong teams turn bold ideas into enduring companies.',
+              list: [
+                { key: 'Fund #1', detail: 'Suricate Ventures — early-stage, industry agnostic' },
+                { key: 'Fund #2', detail: 'IBEX Defence Fund — early-stage, defence-tech & dual-use' },
+                { key: 'Angel', detail: 'Pre-seed and seed investments in tech startups' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'founder',
+          label: 'Founder',
+          credential: 'DLT, RWA tokenization & forensics — Blocksquare & Bloctopus Intelligence',
+          chyron: 'Founder — deep-tech ventures',
+          subsections: [
+            {
+              subLabel: 'Founder',
+              credential: 'co-founder @ Blocksquare & Bloctopus Intelligence',
+              paragraphHtml:
+                'I have co-founded two deep-tech ventures. <strong style="font-weight:600;">Blocksquare</strong> provides a turn-key, regulatory-compliant solution for real-estate tokenization. <strong style="font-weight:600;">Bloctopus Intelligence</strong> is the crypto forensics and crypto recovery business.',
+              list: [
+                { key: 'Blocksquare', detail: 'Real-world-asset (real estate) tokenization infrastructure, DLT' },
+                { key: 'Bloctopus', detail: 'Blockchain intelligence and crypto recovery, forensics services' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'mentor',
+          label: 'Mentor & Evaluator',
+          credential: 'startup mentoring · deep-tech & defence evaluation',
+          chyron: 'Mentor & Evaluator',
+          subsections: [
+            {
+              subLabel: 'Mentor',
+              credential: 'IP, legal & investment readiness — mentor @ Start:Up Slovenia',
+              paragraphHtml:
+                'Founders rarely need theory. They need clarity on what to do next. I mentor startups on intellectual property, legal strategy, investment readiness and business development. Drawing on my experience as a founder, investor and legal counsel, I help teams identify critical risks, strengthen their business model and prepare for investors, partners and international growth.',
+              list: [
+                { key: 'Mentor', detail: 'Start:Up Slovenia mentor profile', href: 'https://www.startup.si/en-us/startup-map/mentors/peter-merc' },
+              ],
+            },
+            {
+              subLabel: 'Evaluator',
+              credential: 'deep-tech, defence-tech & dual-use — external evaluator',
+              paragraphHtml:
+                'As an external evaluator for NATO DIANA, Horizon Europe and other innovation programmes, I assess deep-tech, defence-tech and dual-use projects from commercial, strategic and investment perspectives. I evaluate the strength of the team, market potential, scalability, business model and the project’s ability to deliver meaningful results. A good evaluator does not simply score a proposal — they identify whether an ambitious idea can become a credible and impactful venture.',
+              list: [
+                { key: 'NATO DIANA', detail: 'External commercial evaluator for defence and dual-use proposals' },
+                { key: 'Horizon Europe', detail: 'External evaluator for deep-tech proposals (fintech, DLT, AI)' },
+                { key: 'Other', detail: 'External evaluator @ Research and Innovation Foundation (Cyprus), EIC Accelerator' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'lecturer',
+          label: 'Lecturer & Voice',
+          credential: 'assistant professor · media & stages',
+          chyron: 'Lecturer & Voice',
+          subsections: [
+            {
+              subLabel: 'Lecturer',
+              credential: 'assistant professor — Alma Mater Europaea, EMUNI, New University, GEA College',
+              paragraphHtml:
+                'Assistant Professor lecturing on digital and technology law, web economics, entrepreneurship, digital-finance regulation and public-sector digitalization at Alma Mater Europaea, EMUNI University, New University (Nova univerza) and GEA College.',
+              list: [
+                { key: 'Alma Mater', detail: 'Fundamentals of Entrepreneurship; Web Economics and Business Models; Digital Finance and Law of Financial Markets; Legal Aspects of Modern Digital Finance' },
+                { key: 'EMUNI', detail: 'Regulatory Framework for Digital Technologies; Risk Management in the Digital Age' },
+                { key: 'New University', detail: 'Digitalization of Public Administration' },
+                { key: 'GEA College', detail: 'Legal and regulatory compliance aspects of Web 3.0 projects' },
+              ],
+            },
+            {
+              subLabel: 'Voice',
+              credential: 'media & stages',
+              paragraphHtml:
+                'Through media appearances, conference stages, panels and podcasts, I explain developments in technology, finance, regulation and venture capital in a clear and practical way. I contribute as a speaker, commentator and moderator, connecting technical detail with the broader business and societal context.',
+              list: [],
+            },
+          ],
+        },
+      ],
     },
     record: {
       eyebrow: 'The operating map',
@@ -515,59 +603,133 @@ const home: Localized<HomeContent> = {
     },
     facets: {
       eyebrow: 'Kaj počnem',
-      hint: 'odprite vrstico in preberite povzetek',
-      counsel: {
-        title: 'Svetovalec',
-        tagline: 'kripto in fintech pravo — MiCA, licenciranje, mnenja za uvrstitve',
-        chyron: 'Svetovalec — kripto in fintech pravo',
-        paragraphHtml:
-          'Beli papirji po MiCA in licenciranje, klasifikacija žetonov, pravna mnenja, s katerimi se sredstva uvrstijo na borze. Leta v bančnem nadzoru in na kapitalskih trgih, še preden je vse to imelo pravila — danes pomagam pisati vloge, po katerih živijo moje stranke.',
-        rows: [
-          { label: 'Beli papirji', value: 'Priprava in notifikacija skladno z MiCA' },
-          { label: 'Licenciranje', value: 'Dovoljenja CASP po vsej EU' },
-          { label: 'Mnenja', value: 'Klasifikacija žetonov za uvrstitve na borze' },
-          { label: 'Ozadje', value: 'Nadzor centralne banke in kapitalski trgi' },
-        ],
-      },
-      investor: {
-        title: 'Vlagatelj',
-        tagline: 'zgodnje naložbe — soustanovitelj in vodilni partner, Suricate',
-        chyron: 'Vlagatelj — Suricate Ventures',
-        paragraphHtml:
-          'Soustanovitelj in vodilni partner sklada za zgodnje faze, ki podpira ekipe s področij fintecha, iger, zdravja in logistike. Vlagam v takšne ustanovitelje, kakršnim svetujem — in to ohranja nasvete iskrene.',
-        rows: [
-          { label: 'Sklad', value: 'Suricate Ventures, zgodnje faze' },
-          { label: 'Sektorji', value: 'Fintech, igre, zdravje, logistika' },
-          { label: 'Faza', value: 'Pre-seed in seed' },
-          { label: 'Prednost', value: 'Pravna globina na reguliranih trgih' },
-        ],
-      },
-      voice: {
-        title: 'Glas',
-        tagline: 'mediji in odri — tisti, ki ga pokličejo, ko se pravila spremenijo',
-        chyron: 'Glas — mediji in odri',
-        quoteWords: ['Ko', 'se', 'regulativa', 'premakne,', 'pokličejo', 'mene,', 'da', 'jo', 'razložim'],
-        paragraphHtml:
-          'Redni prevajalec evropskih kripto pravil za slovenske in mednarodne medije ter panelist tam, kjer se vprašanja o žetonih zares zastavljajo.',
-        rows: [
-          { label: 'Formati', value: 'TV in tiskani komentarji, paneli, predavanja' },
-          { label: 'Teme', value: 'MiCA, obdavčitev kriptovalut, tokenizacija' },
-          { label: 'Poučevanje', value: 'Docent, Nova univerza v Ljubljani' },
-        ],
-      },
-      founder: {
-        title: 'Ustanovitelj',
-        tagline: 'zgradil, kar svetujem — Lemur, Blocksquare, Bloctopus',
-        chyron: 'Ustanovitelj — graditelj, ne le svetovalec',
-        paragraphHtml:
-          'Zgradil sem, kar svetujem: <a href="https://lemur.legal" target="_blank" rel="noopener">Lemur Legal</a>, <strong style="font-weight:600;">Suricate Ventures</strong>, soustanovil pa <strong style="font-weight:600;">Blocksquare</strong> (tokenizacija stvarnega premoženja) in <strong style="font-weight:600;">Bloctopus Intelligence</strong>. Član odbora, Blockchain Think Tank Slovenija.',
-        rows: [
-          { label: 'Lemur Legal', value: 'Specializirana pisarna za tehnološko pravo, Ljubljana' },
-          { label: 'Blocksquare', value: 'Infrastruktura za tokenizacijo stvarnega premoženja' },
-          { label: 'Bloctopus', value: 'Blockchain forenzika in povrnitev kripto sredstev' },
-          { label: 'Fintech Factory', value: 'Fintech svetovanje' },
-        ],
-      },
+      hint: 'odprite vrstico in preberite podrobnosti',
+      entries: [
+        {
+          key: 'counsel',
+          label: 'Svetovalec in nadzornik',
+          credential: 'kripto, fintech in tehnološko pravo · skladnost · finančni nadzor',
+          chyron: 'Svetovalec — kripto in fintech pravo',
+          subsections: [
+            {
+              subLabel: 'Svetovalec',
+              credential: 'kripto, fintech in tehnološko pravo — vodilni partner @ Lemur Legal, vodja skladnosti @ GateHub',
+              paragraphHtml:
+                'Tehnologija le redko počaka na regulativo. Svetujem ustanoviteljem, finančnim institucijam in tehnološkim podjetjem tam, kjer se prepletajo pravo, finance in nastajajoče tehnologije — od MiCA, PSD2 in DORA do izdaj žetonov, pogodb in regulativne strategije. »Move fast and break things«, z mano v podporni vlogi.',
+              list: [
+                { key: 'Licenciranje', detail: 'PSD2 in MiCA (dovoljenje CASP), AML' },
+                { key: 'Beli papirji', detail: 'Priprava in notifikacija skladno z MiCA' },
+                { key: 'Pogodbe', detail: 'Licenčne pogodbe, zaščita IP, EULA, pogodbe o razvoju programske opreme' },
+                { key: 'Skladnost', detail: 'Delovanje kot zunanji pooblaščenec za regulativno skladnost' },
+                { key: 'Intelektualna lastnina', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+              ],
+            },
+            {
+              subLabel: 'Nadzornik',
+              credential: 'finančni nadzor — nadzorni svet @ JonatanMars Invest',
+              paragraphHtml:
+                'V regulirani finančni panogi mora rast spremljati zdravo upravljanje. Kot predsednik nadzornega sveta v družbi JonatanMars Invest, regulirani družbi za upravljanje premoženja in borzno posredovanje, zagotavljam strateški nadzor nad vodenjem, upravljanjem, tveganji in regulativno skladnostjo. V sejno sobo prinašam izkušnje iz bančništva, kapitalskih trgov, fintecha in gospodarskega prava ter pomagam zagotoviti, da ambiciozne poslovne odločitve podpirajo trdni kontrolni mehanizmi in dolgoročna odgovornost.',
+              list: [
+                { key: 'Nadzorni svet', detail: 'Predsednik nadzornega sveta @ JonatanMars Invest' },
+                { key: 'Nadzor', detail: 'Vodenje, upravljanje, tveganja in regulativna skladnost' },
+                { key: 'Ozadje', detail: 'Bančništvo, kapitalski trgi, fintech in gospodarsko pravo' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'investor',
+          label: 'Vlagatelj',
+          credential: 'naložbe v zgodnjih fazah — Suricate Ventures in IBEX Equity Partners',
+          chyron: 'Vlagatelj — tvegani kapital',
+          subsections: [
+            {
+              subLabel: 'Vlagatelj',
+              credential: 'naložbe v zgodnjih fazah — vodilni partner @ Suricate Ventures in IBEX Equity Partners',
+              paragraphHtml:
+                'Kot poslovni angel neposredno podpiram izjemne posameznike in zgodnje ideje. Kot vodilni partner v skladu Suricate Ventures, generalističnem mikroskladu tveganega kapitala, vlagam v različne tehnološke panoge in ustanoviteljem pomagam pri izzivih graditve in rasti podjetja. V skladu IBEX Equity Partners je naš fokus obrambna tehnologija, dvonamenske inovacije in tehnologije s strateškim pomenom. Vlaganje zame ni le zagotavljanje kapitala — je pametni kapital: deljenje izkušenj, odpiranje vrat in pomoč močnim ekipam, da pogumne ideje spremenijo v trajna podjetja.',
+              list: [
+                { key: 'Sklad #1', detail: 'Suricate Ventures — zgodnje faze, panožno nevtralen' },
+                { key: 'Sklad #2', detail: 'IBEX Defence Fund — zgodnje faze, obrambne in dvonamenske tehnologije' },
+                { key: 'Angel', detail: 'Pred-semenske in semenske naložbe v tehnološke startupe' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'founder',
+          label: 'Ustanovitelj',
+          credential: 'DLT, tokenizacija RWA in forenzika — Blocksquare in Bloctopus Intelligence',
+          chyron: 'Ustanovitelj — globokotehnološka podjetja',
+          subsections: [
+            {
+              subLabel: 'Ustanovitelj',
+              credential: 'soustanovitelj @ Blocksquare in Bloctopus Intelligence',
+              paragraphHtml:
+                'Soustanovil sem dve globokotehnološki (deep-tech) podjetji. <strong style="font-weight:600;">Blocksquare</strong> ponuja celovito, regulativno skladno rešitev za tokenizacijo nepremičnin. <strong style="font-weight:600;">Bloctopus Intelligence</strong> je podjetje za kripto forenziko in povrnitev kripto sredstev.',
+              list: [
+                { key: 'Blocksquare', detail: 'Infrastruktura za tokenizacijo stvarnega premoženja (nepremičnin), DLT' },
+                { key: 'Bloctopus', detail: 'Blockchain obveščanje in povrnitev kripto sredstev, forenzične storitve' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'mentor',
+          label: 'Mentor in ocenjevalec',
+          credential: 'mentoriranje startupov · ocenjevanje deep-tech in obrambnih projektov',
+          chyron: 'Mentor in ocenjevalec',
+          subsections: [
+            {
+              subLabel: 'Mentor',
+              credential: 'IP, pravo in pripravljenost na naložbe — mentor @ Start:Up Slovenija',
+              paragraphHtml:
+                'Ustanovitelji redko potrebujejo teorijo. Potrebujejo jasnost o naslednjem koraku. Startupe mentoriram na področjih intelektualne lastnine, pravne strategije, pripravljenosti na naložbe in razvoja poslovanja. Na podlagi izkušenj ustanovitelja, vlagatelja in pravnega svetovalca ekipam pomagam prepoznati ključna tveganja, okrepiti poslovni model ter se pripraviti na vlagatelje, partnerje in mednarodno rast.',
+              list: [
+                { key: 'Mentor', detail: 'Profil mentorja Start:Up Slovenija', href: 'https://www.startup.si/en-us/startup-map/mentors/peter-merc' },
+              ],
+            },
+            {
+              subLabel: 'Ocenjevalec',
+              credential: 'deep-tech, obrambne in dvonamenske tehnologije — zunanji ocenjevalec',
+              paragraphHtml:
+                'Kot zunanji ocenjevalec za NATO DIANA, Horizon Europe in druge inovacijske programe ocenjujem globokotehnološke, obrambne in dvonamenske projekte s komercialnega, strateškega in naložbenega vidika. Ocenjujem moč ekipe, tržni potencial, skalabilnost, poslovni model in sposobnost projekta, da doseže pomembne rezultate. Dober ocenjevalec predloga ne le točkuje — prepozna, ali lahko ambiciozna ideja postane verodostojno in vplivno podjetje.',
+              list: [
+                { key: 'NATO DIANA', detail: 'Zunanji komercialni ocenjevalec za obrambne in dvonamenske predloge' },
+                { key: 'Horizon Europe', detail: 'Zunanji ocenjevalec za globokotehnološke predloge (fintech, DLT, UI)' },
+                { key: 'Drugo', detail: 'Zunanji ocenjevalec @ Research and Innovation Foundation (Ciper), EIC Accelerator' },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'lecturer',
+          label: 'Predavatelj in glas',
+          credential: 'docent · mediji in odri',
+          chyron: 'Predavatelj in glas',
+          subsections: [
+            {
+              subLabel: 'Predavatelj',
+              credential: 'docent — Alma Mater Europaea, EMUNI, Nova univerza, GEA College',
+              paragraphHtml:
+                'Docent, ki predava digitalno in tehnološko pravo, spletno ekonomijo, podjetništvo, regulativo digitalnih financ in digitalizacijo javnega sektorja na Alma Mater Europaea, Univerzi EMUNI, Novi univerzi in GEA College.',
+              list: [
+                { key: 'Alma Mater', detail: 'Temelji podjetništva; Spletna ekonomija in poslovni modeli; Digitalne finance in pravo finančnih trgov; Pravni vidiki sodobnih digitalnih financ' },
+                { key: 'EMUNI', detail: 'Regulativni okvir za digitalne tehnologije; Upravljanje tveganj v digitalni dobi' },
+                { key: 'Nova univerza', detail: 'Digitalizacija javne uprave' },
+                { key: 'GEA College', detail: 'Pravni in regulativni vidiki skladnosti projektov Web 3.0' },
+              ],
+            },
+            {
+              subLabel: 'Glas',
+              credential: 'mediji in odri',
+              paragraphHtml:
+                'Prek medijskih nastopov, konferenčnih odrov, panelov in podkastov razumljivo in praktično pojasnjujem dogajanje v tehnologiji, financah, regulativi in tveganem kapitalu. Sodelujem kot govorec, komentator in moderator ter povezujem tehnične podrobnosti s širšim poslovnim in družbenim kontekstom.',
+              list: [],
+            },
+          ],
+        },
+      ],
     },
     record: {
       eyebrow: 'Operativni zemljevid',

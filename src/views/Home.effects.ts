@@ -837,21 +837,26 @@ export function initEffects(copy: HomeContent): () => void {
         }
       };
 
-      toggleCounsel = () => this._toggle('counsel');
-      toggleInvestor = () => this._toggle('investor');
-      toggleVoice = () => this._toggle('voice');
-      toggleFounder = () => this._toggle('founder');
+      // One generic accordion handler for every "What I do" entry — reads the
+      // entry key off the clicked button (same pattern as `jump`), so the view
+      // can drive all rows from a single v-for.
+      toggleEntry = (e) => {
+        var key = e && e.currentTarget && e.currentTarget.getAttribute('data-key');
+        if (key) this._toggle(key);
+      };
 
       _toggle(key) {
         this._twStop();
         this._open = this._open === key ? null : key;
         var open = this._open;
-        ['counsel', 'investor', 'voice', 'founder'].forEach((k) => {
-          var p = document.getElementById('brief-' + k);
+        // Data-driven: every collapsible panel carries [data-brief]="<key>".
+        var panels = document.querySelectorAll('[data-brief]');
+        Array.prototype.forEach.call(panels, (pnl) => {
+          var k = pnl.getAttribute('data-brief');
           var b = document.getElementById('btn-' + k);
           var ic = document.getElementById('ico-' + k);
           var is = open === k;
-          if (p) p.style.gridTemplateRows = is ? '1fr' : '0fr';
+          pnl.style.gridTemplateRows = is ? '1fr' : '0fr';
           if (b) b.setAttribute('aria-expanded', is ? 'true' : 'false');
           if (ic) {
             ic.style.transform = is ? 'rotate(45deg)' : 'none';
@@ -859,15 +864,6 @@ export function initEffects(copy: HomeContent): () => void {
             ic.style.borderColor = is ? 'var(--accent)' : 'var(--ink2)';
           }
         });
-        if (open === 'voice' && !this._reduced) {
-          var ws = document.querySelectorAll('#brief-voice [data-qw]');
-          Array.prototype.forEach.call(ws, (w, i) => {
-            if (w.animate) __fx.anim(w, 
-              [{ transform: 'translateY(115%)' }, { transform: 'none' }],
-              { duration: 460, delay: 160 + i * 42, easing: 'cubic-bezier(0.2,0.7,0.2,1)', fill: 'backwards' }
-            );
-          });
-        }
         if (open) this._briefFx(open);
         if (this._refreshOffs) setTimeout(this._refreshOffs, 550);
       }
@@ -1032,10 +1028,7 @@ export function initEffects(copy: HomeContent): () => void {
           netPrev: this.netPrev,
           netNext: this.netNext,
           netIdx: ((this._order || []).indexOf(this.state.sel) < 0 ? '—' : this._pad((this._order || []).indexOf(this.state.sel) + 1)) + ' / ' + this._pad((this._order || []).length),
-          toggleCounsel: this.toggleCounsel,
-          toggleInvestor: this.toggleInvestor,
-          toggleVoice: this.toggleVoice,
-          toggleFounder: this.toggleFounder,
+          toggleEntry: this.toggleEntry,
           jump: this.jump,
           selectNet: this.selectNet,
           netKey: this.netKey,

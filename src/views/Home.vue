@@ -49,66 +49,26 @@
           <em style="font-family:'Spectral', Georgia, serif; font-weight:400; font-style:italic; font-size:0.9rem; color:var(--ink2);">{{ t.facets.hint }}</em>
         </h2>
 
-        <article id="counsel" :data-chyron="t.facets.counsel.chyron" data-reveal="0" style="margin:0;">
-          <button id="btn-counsel" type="button" data-on-click="toggleCounsel" aria-expanded="false" aria-controls="brief-counsel" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
-            <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ t.facets.counsel.title }}</strong>
-            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ t.facets.counsel.tagline }}</em>
-            <span id="ico-counsel" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
+        <article
+          v-for="(entry, i) in t.facets.entries"
+          :key="entry.key"
+          :id="entry.key"
+          :data-chyron="entry.chyron"
+          :data-reveal="i"
+          :style="i === t.facets.entries.length - 1 ? 'margin:0; border-bottom:1px solid var(--line);' : 'margin:0;'">
+          <button :id="'btn-' + entry.key" type="button" data-on-click="toggleEntry" :data-key="entry.key" aria-expanded="false" :aria-controls="'brief-' + entry.key" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
+            <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ entry.label }}</strong>
+            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ entry.credential }}</em>
+            <span :id="'ico-' + entry.key" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
           </button>
-          <div id="brief-counsel" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
+          <div :id="'brief-' + entry.key" :data-brief="entry.key" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
             <div style="overflow:hidden; min-height:0;">
               <div style="padding:0.2rem 0.2rem 1.4rem; max-width:62ch;">
-                <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="t.facets.counsel.paragraphHtml"></p>
-                <div v-for="row in t.facets.counsel.rows" :key="row.label" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ row.label }}</span><span style="flex:1 1 16rem; font-size:0.98rem; color:#34332E;">{{ row.value }}</span></div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article id="investor" :data-chyron="t.facets.investor.chyron" data-reveal="1" style="margin:0;">
-          <button id="btn-investor" type="button" data-on-click="toggleInvestor" aria-expanded="false" aria-controls="brief-investor" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
-            <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ t.facets.investor.title }}</strong>
-            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ t.facets.investor.tagline }}</em>
-            <span id="ico-investor" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
-          </button>
-          <div id="brief-investor" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
-            <div style="overflow:hidden; min-height:0;">
-              <div style="padding:0.2rem 0.2rem 1.4rem; max-width:62ch;">
-                <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="t.facets.investor.paragraphHtml"></p>
-                <div v-for="row in t.facets.investor.rows" :key="row.label" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ row.label }}</span><span style="flex:1 1 12rem; font-size:0.98rem; color:#34332E;">{{ row.value }}</span></div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article id="voice" :data-chyron="t.facets.voice.chyron" data-reveal="2" style="margin:0;">
-          <button id="btn-voice" type="button" data-on-click="toggleVoice" aria-expanded="false" aria-controls="brief-voice" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
-            <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ t.facets.voice.title }}</strong>
-            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ t.facets.voice.tagline }}</em>
-            <span id="ico-voice" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
-          </button>
-          <div id="brief-voice" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
-            <div style="overflow:hidden; min-height:0;">
-              <div style="padding:0.4rem 0.2rem 1.4rem; max-width:62ch;">
-                <p id="voice-quote" style="margin:0 0 0.9rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:500; font-size:clamp(1.3rem, 2.2vw, 1.7rem); line-height:1.35; color:var(--ink); max-width:26ch;"><template v-for="(w, wi) in t.facets.voice.quoteWords" :key="wi"><span style="display:inline-block; overflow:hidden; padding-bottom:0.12em; margin-bottom:-0.12em;"><span data-qw="" style="display:inline-block;">{{ w }}<span v-if="wi === t.facets.voice.quoteWords.length - 1" id="voice-period" style="display:inline-block; color:var(--accent); font-style:normal;">.</span></span></span>{{ ' ' }}</template></p>
-                <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="t.facets.voice.paragraphHtml"></p>
-                  <div v-for="row in t.facets.voice.rows" :key="row.label" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ row.label }}</span><span style="flex:1 1 12rem; font-size:0.98rem; color:#34332E;">{{ row.value }}</span></div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article id="founder" :data-chyron="t.facets.founder.chyron" data-reveal="3" style="margin:0; border-bottom:1px solid var(--line);">
-          <button id="btn-founder" type="button" data-on-click="toggleFounder" aria-expanded="false" aria-controls="brief-founder" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
-            <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ t.facets.founder.title }}</strong>
-            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ t.facets.founder.tagline }}</em>
-            <span id="ico-founder" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
-          </button>
-          <div id="brief-founder" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
-            <div style="overflow:hidden; min-height:0;">
-              <div style="padding:0.2rem 0.2rem 1.4rem; max-width:62ch;">
-                <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="t.facets.founder.paragraphHtml"></p>
-                <div v-for="row in t.facets.founder.rows" :key="row.label" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ row.label }}</span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;">{{ row.value }}</span></div>
+                <div v-for="(sub, si) in entry.subsections" :key="si" :style="si > 0 ? 'margin-top:1.5rem; padding-top:1.2rem; border-top:1px solid var(--line);' : ''">
+                  <h3 v-if="entry.subsections.length > 1" style="margin:0 0 0.55rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.35rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ sub.subLabel }}<span style="font-family:'Spectral', Georgia, serif; text-transform:none; letter-spacing:0; font-style:italic; font-weight:400; font-size:0.92rem; color:var(--ink2);">{{ sub.credential }}</span></h3>
+                  <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="sub.paragraphHtml"></p>
+                  <div v-for="item in sub.list" :key="item.key" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ item.key }}</span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;"><a v-if="item.href" :href="item.href" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:2px;">{{ item.detail }}</a><template v-else>{{ item.detail }}</template></span></div>
+                </div>
               </div>
             </div>
           </div>
