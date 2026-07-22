@@ -5,31 +5,21 @@ import type { Localized } from './types'
 // rich text rendered with v-html. The Slovenian is a first draft — flagged
 // for Peter's review, especially the legal/regulatory phrasing.
 
-// The operating map is a 3-tier tree: pm → 4 categories → 7 leaves.
-export type EntityKey =
-  | 'pm'
-  | 'investment'
-  | 'startup'
-  | 'advisory'
-  | 'lecture'
-  | 'suricate'
-  | 'ibex'
-  | 'bloctopus'
-  | 'blocksquare'
-  | 'lemur'
-  | 'thinktank'
-  | 'faculty'
-
-export interface EntityCopy {
-  tag: string
-  name: string
-  role: string
+// The operating map is a zoomable radial tree: PM hub → 5 categories → orgs →
+// (for IBEX and Lemur) sub-orgs. Every node's label + description ships in the
+// server HTML; the zoom/drill interaction is layered on client-side.
+export interface MapNode {
+  /** selector-safe slug — builds #node-<key> and drives the interaction. */
+  key: string
+  /** short label shown at the node. */
+  label: string
+  /** dossier heading; falls back to `label` when omitted. */
+  name?: string
+  /** dossier description (also shown under leaf nodes on desktop). */
   desc: string
-  /** External link; same across locales, '' = no link (hides "Visit"). */
-  href: string
-  /** Short label under the SVG node (pm's "PM" hub text stays static). */
-  nodeLabel: string
-  aria: string
+  /** external link; omitted/'' = no "Visit" link. */
+  href?: string
+  children?: MapNode[]
 }
 
 /** One categorized bullet inside a role: UPPERCASE key → detail, optional link. */
@@ -101,11 +91,12 @@ export interface HomeContent {
     pullQuote: string
     live: string
     networkAria: string
-    ents: Record<EntityKey, EntityCopy>
     visit: string
-    prevAria: string
-    nextAria: string
-    orTap: string
+    backLabel: string
+    /** PM hub. */
+    hub: { label: string; name: string; desc: string; href: string }
+    /** The five categories (each with orgs; IBEX and Lemur have sub-orgs). */
+    tree: MapNode[]
   }
   media: {
     eyebrow: string
@@ -328,123 +319,49 @@ const home: Localized<HomeContent> = {
       eyebrow: 'The operating map',
       chyron: 'Track record',
       aside: 'all verifiable',
-      pullQuote: 'Seven hats, one desk — everything routes through Ljubljana',
-      live: 'Live — tap a node to open its dossier',
-      networkAria: 'Peter Merc’s company network',
-      ents: {
-        pm: {
-          tag: 'Principal',
-          name: 'Peter Merc',
-          role: 'Lawyer · investor · founder',
-          desc: 'Every node routes through one desk in Ljubljana — counsel, capital and the occasional board seat, the same judgment applied three ways.',
-          href: 'https://www.linkedin.com/in/petermerc/',
-          nodeLabel: '',
-          aria: 'Peter Merc — principal',
-        },
-        investment: {
-          tag: 'Category',
-          name: 'Investment',
-          role: 'Venture & angel investing',
-          desc: 'Early-stage capital through Suricate Ventures and IBEX — backing the kind of founders I advise.',
-          href: '',
-          nodeLabel: 'Investment',
-          aria: 'Investment — Suricate Ventures and IBEX',
-        },
-        startup: {
-          tag: 'Category',
-          name: 'Startups',
-          role: 'Co-founder & operator',
-          desc: 'Building on-chain infrastructure and intelligence — co-founder at Blocksquare and Bloctopus.',
-          href: '',
-          nodeLabel: 'Startups',
-          aria: 'Startups — Bloctopus and Blocksquare',
-        },
-        advisory: {
-          tag: 'Category',
-          name: 'Advisory',
-          role: 'Legal & regulatory counsel',
-          desc: 'Specialist tech-law counsel through Lemur Legal — MiCA, licensing and the opinions that get assets listed.',
-          href: '',
-          nodeLabel: 'Advisory',
-          aria: 'Advisory — Lemur Legal',
-        },
-        lecture: {
-          tag: 'Category',
-          name: 'Lecturing & mentoring',
-          role: 'Academia & policy',
-          desc: 'Teaching financial and technology law at the New University, and policy work at Blockchain Think Tank Slovenia.',
-          href: '',
-          nodeLabel: 'Lecturing',
-          aria: 'Lecturing and mentoring — Think Tank and New University',
-        },
-        suricate: {
-          tag: 'Co-founded',
-          name: 'Suricate Ventures',
-          role: 'Co-founder & Managing Partner',
-          desc: 'Early-stage venture fund backing fintech, gaming, health and logistics teams across the region.',
-          href: 'https://suricate.ventures',
-          nodeLabel: 'Suricate Ventures',
-          aria: 'Suricate Ventures',
-        },
-        ibex: {
-          tag: 'Investing',
-          name: 'IBEX',
-          role: 'Investor',
-          desc: 'Angel and venture investing alongside Suricate — details to confirm. ⚠',
-          href: '',
-          nodeLabel: 'IBEX',
-          aria: 'IBEX',
-        },
-        bloctopus: {
-          tag: 'Managing',
-          name: 'Bloctopus Intelligence',
-          role: 'Managing Partner',
-          desc: 'Blockchain intelligence and crypto-asset recovery.',
-          href: '',
-          nodeLabel: 'Bloctopus',
-          aria: 'Bloctopus Intelligence',
-        },
-        blocksquare: {
-          tag: 'Co-founded',
-          name: 'Blocksquare',
-          role: 'Co-founder & Chief Legal Officer',
-          desc: 'Real-world-asset tokenization infrastructure — bringing property on-chain, compliantly.',
-          href: 'https://blocksquare.io',
-          nodeLabel: 'Blocksquare',
-          aria: 'Blocksquare',
-        },
-        lemur: {
-          tag: 'Founded',
-          name: 'Lemur Legal',
-          role: 'Founder & Managing Partner',
-          desc: 'Specialist tech-law office: MiCA white papers, CASP licensing and the token opinions that get assets listed.',
-          href: 'https://lemur.legal',
-          nodeLabel: 'Lemur Legal',
-          aria: 'Lemur Legal',
-        },
-        thinktank: {
-          tag: 'Board',
-          name: 'Blockchain Think Tank Slovenia',
-          role: 'Board member & initiator',
-          desc: 'Policy work where the Slovenian rules get drafted.',
-          href: '',
-          nodeLabel: 'Think Tank',
-          aria: 'Blockchain Think Tank Slovenia',
-        },
-        faculty: {
-          tag: 'Academic',
-          name: 'Law Faculty, New University',
-          role: 'Assistant Professor',
-          desc: 'Ph.D. in law; teaching financial and technology law in Ljubljana.',
-          href: 'https://www.nova-uni.si',
-          nodeLabel: 'Law Faculty',
-          aria: 'Law Faculty, New University Ljubljana',
-        },
-      },
+      pullQuote: 'Five practices, one desk — everything routes through Ljubljana',
+      live: 'Live — tap a node to open its branch',
+      networkAria: 'Peter Merc’s operating map — practices and organisations',
       visit: 'Visit',
-      prevAria: 'Previous — cycle the map',
-      nextAria: 'Next — cycle the map',
-      orTap: '— or tap any node',
+      backLabel: 'Back to top',
+      hub: {
+        label: 'PM',
+        name: 'Peter Merc',
+        desc: 'Counsel, capital, governance, teaching and evaluation — five practices run from one desk in Ljubljana. Open a branch to explore.',
+        href: 'https://www.linkedin.com/in/petermerc/',
+      },
+      tree: [
+        { key: 'vc', label: 'Venture Capital', desc: 'Early-stage venture capital — backing exceptional founders directly and through two funds.', children: [
+          { key: 'ibex', label: 'IBEX', name: 'IBEX Equity Partners', desc: 'Defence technology, dual-use innovation and technologies with strategic relevance.', children: [
+            { key: 'ibex-eq', label: 'IBEX Equity Fund', desc: 'Early-stage equity fund.' },
+            { key: 'ibex-da', label: 'IBEX Defence Accelerator', desc: 'Accelerator for defence and dual-use ventures.' },
+          ] },
+          { key: 'suricate', label: 'Suricate Ventures', desc: 'Managing partner of a generalist micro-VC investing across technology sectors.', href: 'https://suricate.ventures' },
+        ] },
+        { key: 'startups', label: 'Startups', desc: 'Two deep-tech ventures co-founded from the ground up.', children: [
+          { key: 'bloctopus', label: 'Bloctopus', name: 'Bloctopus Intelligence', desc: 'Crypto forensics and crypto recovery.' },
+          { key: 'blocksquare', label: 'Blocksquare', desc: 'Turn-key, regulatory-compliant real-estate tokenization infrastructure (DLT).', href: 'https://blocksquare.io' },
+        ] },
+        { key: 'advisory', label: 'Advisory & Supervision', desc: 'Crypto & fintech legal counsel and financial-sector governance.', children: [
+          { key: 'lemur', label: 'Lemur Legal', desc: 'Managing partner — crypto, fintech & tech law.', href: 'https://lemur.legal', children: [
+            { key: 'moja', label: 'Moja znamka', desc: 'Trademark and brand-protection service.', href: 'https://mojaznamka.si' },
+          ] },
+          { key: 'gatehub', label: 'GateHub', desc: 'Head of compliance — external regulatory compliance officer.', href: 'https://gatehub.net' },
+          { key: 'jonatan', label: 'JonatanMars Invest', desc: 'President of the Supervisory Board — regulated asset management and brokerage.' },
+        ] },
+        { key: 'lecturing', label: 'Lecturing', desc: 'Assistant professor of digital and technology law across four institutions.', children: [
+          { key: 'emuni', label: 'EMUNI', name: 'EMUNI University', desc: 'Regulatory framework for digital technologies; risk management in the digital age.' },
+          { key: 'alma', label: 'Alma Mater Europaea', desc: 'Entrepreneurship, web economics, digital finance and financial-markets law.' },
+          { key: 'newuni', label: 'New University', name: 'New University (Nova univerza)', desc: 'Digitalization of public administration.' },
+          { key: 'gea', label: 'GEA College', desc: 'Legal and regulatory compliance for Web 3.0 projects.' },
+        ] },
+        { key: 'mentoring', label: 'Mentoring & Evaluating', desc: 'Startup mentoring and deep-tech / defence project evaluation.', children: [
+          { key: 'nato', label: 'NATO DIANA', desc: 'External commercial evaluator — defence and dual-use proposals.' },
+          { key: 'horizon', label: 'Horizon Europe', desc: 'External evaluator — deep-tech proposals (fintech, DLT, AI).' },
+          { key: 'rif', label: 'Research and Innovation Foundation (Cyprus)', name: 'Research and Innovation Foundation', desc: 'External evaluator, Cyprus.' },
+          { key: 'startup-si', label: 'Start:Up Slovenia', desc: 'Mentor — IP, legal strategy and investment readiness.', href: 'https://www.startup.si/en-us/startup-map/mentors/peter-merc' },
+        ] },
+      ],
     },
     media: {
       eyebrow: 'On record — media',
@@ -735,123 +652,49 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Operativni zemljevid',
       chyron: 'Dosedanje delo',
       aside: 'vse preverljivo',
-      pullQuote: 'Sedem klobukov, ena miza — vse poti vodijo skozi Ljubljano',
-      live: 'V živo — tapnite vozlišče in odprite dosje',
-      networkAria: 'Mreža podjetij Petra Merca',
-      ents: {
-        pm: {
-          tag: 'Nosilec',
-          name: 'Peter Merc',
-          role: 'Pravnik · vlagatelj · ustanovitelj',
-          desc: 'Vsako vozlišče vodi skozi eno mizo v Ljubljani — svetovanje, kapital in tu in tam sedež v odboru; ista presoja, uporabljena na tri načine.',
-          href: 'https://www.linkedin.com/in/petermerc/',
-          nodeLabel: '',
-          aria: 'Peter Merc — nosilec',
-        },
-        investment: {
-          tag: 'Kategorija',
-          name: 'Naložbe',
-          role: 'Tvegani kapital in angelske naložbe',
-          desc: 'Kapital za zgodnje faze prek Suricate Ventures in IBEX — podpiram takšne ustanovitelje, kakršnim svetujem.',
-          href: '',
-          nodeLabel: 'Naložbe',
-          aria: 'Naložbe — Suricate Ventures in IBEX',
-        },
-        startup: {
-          tag: 'Kategorija',
-          name: 'Startupi',
-          role: 'Soustanovitelj in operativec',
-          desc: 'Gradnja verižne infrastrukture in forenzike — soustanovitelj pri Blocksquare in Bloctopus.',
-          href: '',
-          nodeLabel: 'Startupi',
-          aria: 'Startupi — Bloctopus in Blocksquare',
-        },
-        advisory: {
-          tag: 'Kategorija',
-          name: 'Svetovanje',
-          role: 'Pravno in regulatorno svetovanje',
-          desc: 'Specializirano tehnološko-pravno svetovanje prek Lemur Legal — MiCA, licenciranje in mnenja, s katerimi se sredstva uvrstijo.',
-          href: '',
-          nodeLabel: 'Svetovanje',
-          aria: 'Svetovanje — Lemur Legal',
-        },
-        lecture: {
-          tag: 'Kategorija',
-          name: 'Predavanja in mentorstvo',
-          role: 'Akademsko delo in politike',
-          desc: 'Predavanja finančnega in tehnološkega prava na Novi univerzi ter delo pri politikah v Blockchain Think Tank Slovenija.',
-          href: '',
-          nodeLabel: 'Predavanja',
-          aria: 'Predavanja in mentorstvo — Think Tank in Nova univerza',
-        },
-        suricate: {
-          tag: 'Soustanovil',
-          name: 'Suricate Ventures',
-          role: 'Soustanovitelj in vodilni partner',
-          desc: 'Sklad tveganega kapitala za zgodnje faze, ki v regiji podpira ekipe s področij fintecha, iger, zdravja in logistike.',
-          href: 'https://suricate.ventures',
-          nodeLabel: 'Suricate Ventures',
-          aria: 'Suricate Ventures',
-        },
-        ibex: {
-          tag: 'Naložbe',
-          name: 'IBEX',
-          role: 'Vlagatelj',
-          desc: 'Angelske in tvegane naložbe ob Suricate — podrobnosti za potrditev. ⚠',
-          href: '',
-          nodeLabel: 'IBEX',
-          aria: 'IBEX',
-        },
-        bloctopus: {
-          tag: 'Vodi',
-          name: 'Bloctopus Intelligence',
-          role: 'Vodilni partner',
-          desc: 'Blockchain forenzika in povrnitev kripto sredstev.',
-          href: '',
-          nodeLabel: 'Bloctopus',
-          aria: 'Bloctopus Intelligence',
-        },
-        blocksquare: {
-          tag: 'Soustanovil',
-          name: 'Blocksquare',
-          role: 'Soustanovitelj in glavni pravnik',
-          desc: 'Infrastruktura za tokenizacijo stvarnega premoženja — nepremičnine na verigi, skladno s predpisi.',
-          href: 'https://blocksquare.io',
-          nodeLabel: 'Blocksquare',
-          aria: 'Blocksquare',
-        },
-        lemur: {
-          tag: 'Ustanovil',
-          name: 'Lemur Legal',
-          role: 'Ustanovitelj in vodilni partner',
-          desc: 'Specializirana pisarna za tehnološko pravo: beli papirji po MiCA, licenciranje CASP in mnenja o žetonih, s katerimi se sredstva uvrstijo na borze.',
-          href: 'https://lemur.legal',
-          nodeLabel: 'Lemur Legal',
-          aria: 'Lemur Legal',
-        },
-        thinktank: {
-          tag: 'Odbor',
-          name: 'Blockchain Think Tank Slovenija',
-          role: 'Član odbora in pobudnik',
-          desc: 'Delo pri politikah, kjer nastajajo slovenska pravila.',
-          href: '',
-          nodeLabel: 'Think Tank',
-          aria: 'Blockchain Think Tank Slovenija',
-        },
-        faculty: {
-          tag: 'Akademsko',
-          name: 'Pravna fakulteta, Nova univerza',
-          role: 'Docent',
-          desc: 'Doktor prava; predava finančno in tehnološko pravo v Ljubljani.',
-          href: 'https://www.nova-uni.si',
-          nodeLabel: 'Pravna fakulteta',
-          aria: 'Pravna fakulteta, Nova univerza v Ljubljani',
-        },
-      },
+      pullQuote: 'Pet področij, ena miza — vse poti vodijo skozi Ljubljano',
+      live: 'V živo — tapnite vozlišče in odprite vejo',
+      networkAria: 'Operativni zemljevid Petra Merca — področja in organizacije',
       visit: 'Obišči',
-      prevAria: 'Prejšnje — kroženje po zemljevidu',
-      nextAria: 'Naslednje — kroženje po zemljevidu',
-      orTap: '— ali tapnite katerokoli vozlišče',
+      backLabel: 'Nazaj na vrh',
+      hub: {
+        label: 'PM',
+        name: 'Peter Merc',
+        desc: 'Svetovanje, kapital, upravljanje, predavanja in ocenjevanje — pet področij, ki jih vodim z ene mize v Ljubljani. Odprite vejo za več.',
+        href: 'https://www.linkedin.com/in/petermerc/',
+      },
+      tree: [
+        { key: 'vc', label: 'Tvegani kapital', desc: 'Naložbe tveganega kapitala v zgodnjih fazah — neposredno in prek dveh skladov.', children: [
+          { key: 'ibex', label: 'IBEX', name: 'IBEX Equity Partners', desc: 'Obrambna tehnologija, dvonamenske inovacije in tehnologije s strateškim pomenom.', children: [
+            { key: 'ibex-eq', label: 'IBEX Equity Fund', desc: 'Sklad lastniškega kapitala za zgodnje faze.' },
+            { key: 'ibex-da', label: 'IBEX Defence Accelerator', desc: 'Pospeševalnik za obrambne in dvonamenske projekte.' },
+          ] },
+          { key: 'suricate', label: 'Suricate Ventures', desc: 'Vodilni partner generalističnega mikrosklada tveganega kapitala, ki vlaga v različne tehnološke panoge.', href: 'https://suricate.ventures' },
+        ] },
+        { key: 'startups', label: 'Startupi', desc: 'Dve soustanovljeni globokotehnološki (deep-tech) podjetji.', children: [
+          { key: 'bloctopus', label: 'Bloctopus', name: 'Bloctopus Intelligence', desc: 'Kripto forenzika in povrnitev kripto sredstev.' },
+          { key: 'blocksquare', label: 'Blocksquare', desc: 'Celovita, regulativno skladna infrastruktura za tokenizacijo nepremičnin (DLT).', href: 'https://blocksquare.io' },
+        ] },
+        { key: 'advisory', label: 'Svetovanje in nadzor', desc: 'Pravno svetovanje za kripto in fintech ter upravljanje v finančnem sektorju.', children: [
+          { key: 'lemur', label: 'Lemur Legal', desc: 'Vodilni partner — kripto, fintech in tehnološko pravo.', href: 'https://lemur.legal', children: [
+            { key: 'moja', label: 'Moja znamka', desc: 'Storitev za zaščito blagovnih znamk.', href: 'https://mojaznamka.si' },
+          ] },
+          { key: 'gatehub', label: 'GateHub', desc: 'Vodja skladnosti — zunanji pooblaščenec za regulativno skladnost.', href: 'https://gatehub.net' },
+          { key: 'jonatan', label: 'JonatanMars Invest', desc: 'Predsednik nadzornega sveta — regulirano upravljanje premoženja in borzno posredovanje.' },
+        ] },
+        { key: 'lecturing', label: 'Predavanja', desc: 'Docent za digitalno in tehnološko pravo na štirih ustanovah.', children: [
+          { key: 'emuni', label: 'EMUNI', name: 'Univerza EMUNI', desc: 'Regulativni okvir za digitalne tehnologije; upravljanje tveganj v digitalni dobi.' },
+          { key: 'alma', label: 'Alma Mater Europaea', desc: 'Podjetništvo, spletna ekonomija, digitalne finance in pravo finančnih trgov.' },
+          { key: 'newuni', label: 'Nova univerza', name: 'Nova univerza', desc: 'Digitalizacija javne uprave.' },
+          { key: 'gea', label: 'GEA College', desc: 'Pravna in regulativna skladnost projektov Web 3.0.' },
+        ] },
+        { key: 'mentoring', label: 'Mentorstvo in ocenjevanje', desc: 'Mentoriranje startupov ter ocenjevanje globokotehnoloških in obrambnih projektov.', children: [
+          { key: 'nato', label: 'NATO DIANA', desc: 'Zunanji komercialni ocenjevalec — obrambni in dvonamenski predlogi.' },
+          { key: 'horizon', label: 'Horizon Europe', desc: 'Zunanji ocenjevalec — globokotehnološki predlogi (fintech, DLT, UI).' },
+          { key: 'rif', label: 'Research and Innovation Foundation (Cyprus)', name: 'Research and Innovation Foundation', desc: 'Zunanji ocenjevalec, Ciper.' },
+          { key: 'startup-si', label: 'Start:Up Slovenia', desc: 'Mentor — intelektualna lastnina, pravna strategija in pripravljenost na naložbe.', href: 'https://www.startup.si/en-us/startup-map/mentors/peter-merc' },
+        ] },
+      ],
     },
     media: {
       eyebrow: 'Za zapisnik — mediji',

@@ -58,7 +58,10 @@ export function initEffects(copy: HomeContent): () => void {
     // (framework self-call removed: theme is baked into :root / #pm-root)
         // Copy comes from the locale's content module (entities keep their
         // hrefs there too; extra fields like nodeLabel/aria are harmless).
-        this._ents = copy.record.ents;
+        // The operating map moved to opMap.ts; record.ents no longer exists.
+        // Kept defensively so the legacy net-panel helpers (now dead, their DOM
+        // removed) no-op instead of throwing.
+        this._ents = copy.record.ents || {};
         this._docket = copy.docket.items;
         // The operating map is a 3-tier tree: pm → 4 categories → 7 leaves.
         // _order is the cycle/browse order (depth-first); _paths maps each

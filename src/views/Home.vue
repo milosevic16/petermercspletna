@@ -84,132 +84,27 @@
           <em style="font-family:'Spectral', Georgia, serif; font-weight:400; font-style:italic; font-size:0.9rem; color:#948E81;">{{ t.record.aside }}</em>
         </h2>
 
-        <p style="margin:0 0 clamp(1.8rem, 4vw, 2.6rem); font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:500; font-size:clamp(1.4rem, 2.7vw, 2.1rem); line-height:1.3; color:var(--ivory); max-width:28ch;">{{ t.record.pullQuote }}<span style="color:var(--accent);">.</span></p>
-        <div id="map-wrap" style="position:relative; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap:clamp(1.8rem, 4.5vw, 3.5rem); align-items:center;">
-          <div id="network" style="min-width:0;">
-            <p style="margin:0 0 0.8rem; display:flex; align-items:center; gap:0.55rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;"><span aria-hidden="true" style="width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pm-blink 2.6s ease-in-out infinite;"></span>{{ t.record.live }}</p>
-            <!-- Circular operating map: PM hub at centre → inner ring of 4
-                 categories → outer ring of 7 leaves. Edge id = line-/flow-<childKey>;
-                 selection lights the whole path back to the hub (_applySel). -->
-            <svg viewBox="0 0 560 480" role="group" :aria-label="t.record.networkAria" style="width:100%; height:auto; display:block; max-height:76svh;">
-              <line id="line-investment" x1="280" y1="240" x2="280" y2="340" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-startup" x1="280" y1="240" x2="380" y2="240" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-advisory" x1="280" y1="240" x2="280" y2="140" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-lecture" x1="280" y1="240" x2="180" y2="240" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-suricate" x1="280" y1="340" x2="185" y2="404" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-ibex" x1="280" y1="340" x2="375" y2="404" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-lemur" x1="280" y1="140" x2="280" y2="76" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="line-faculty" x1="180" y1="240" x2="116" y2="145" stroke="rgba(236,231,220,0.25)" stroke-width="1"></line>
-              <line id="flow-investment" x1="280" y1="240" x2="280" y2="340" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-startup" x1="280" y1="240" x2="380" y2="240" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-advisory" x1="280" y1="240" x2="280" y2="140" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-lecture" x1="280" y1="240" x2="180" y2="240" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-suricate" x1="280" y1="340" x2="185" y2="404" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-ibex" x1="280" y1="340" x2="375" y2="404" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-bloctopus" x1="380" y1="240" x2="445" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-blocksquare" x1="380" y1="240" x2="445" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-lemur" x1="280" y1="140" x2="280" y2="76" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-thinktank" x1="180" y1="240" x2="116" y2="335" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
-              <line id="flow-faculty" x1="180" y1="240" x2="116" y2="145" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 10" style="opacity:0; transition:opacity 0.35s cubic-bezier(0.4,0,0.2,1); animation:pm-dash 1.15s linear infinite; pointer-events:none;"></line>
+        <p style="margin:0 0 clamp(1.6rem, 3.5vw, 2.3rem); font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:500; font-size:clamp(1.4rem, 2.7vw, 2.1rem); line-height:1.3; color:var(--ivory); max-width:28ch;">{{ t.record.pullQuote }}<span style="color:var(--accent);">.</span></p>
+        <p style="margin:0 0 0.6rem; display:flex; align-items:center; gap:0.55rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;"><span aria-hidden="true" style="width:6px; height:6px; border-radius:50%; background:var(--accent); animation:pm-blink 2.6s ease-in-out infinite;"></span>{{ t.record.live }}</p>
 
-              <g id="node-pm" data-net="pm" role="button" tabindex="0" :aria-label="t.record.ents.pm.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <circle cx="280" cy="240" r="32" fill="var(--accent)"></circle>
-                <circle cx="280" cy="240" r="40" fill="none" stroke="rgba(236,231,220,0.3)" stroke-width="1" style="animation:pm-pulse 3.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center;"></circle>
-                <text x="280" y="246" text-anchor="middle" class="pm-net-hub" style="letter-spacing:0.08em; fill:#F4F1EA;">PM</text>
-              </g>
-
-              <g id="node-investment" role="img" :aria-label="t.record.ents.investment.aria" style="pointer-events:none;">
-                <g style="animation:pm-float 5.2s ease-in-out 0.3s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="340" r="10" fill="#3A3D43"></circle>
-                  <text x="280" y="318" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.investment.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-startup" role="img" :aria-label="t.record.ents.startup.aria" style="pointer-events:none;">
-                <g style="animation:pm-float 5.8s ease-in-out 0.9s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="380" cy="240" r="10" fill="#3A3D43"></circle>
-                  <text x="380" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.startup.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-advisory" role="img" :aria-label="t.record.ents.advisory.aria" style="pointer-events:none;">
-                <g style="animation:pm-float 4.9s ease-in-out 0.5s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="140" r="10" fill="#3A3D43"></circle>
-                  <text x="280" y="118" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.advisory.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-lecture" role="img" :aria-label="t.record.ents.lecture.aria" style="pointer-events:none;">
-                <g style="animation:pm-float 6.2s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="180" cy="240" r="10" fill="#3A3D43"></circle>
-                  <text x="180" y="218" text-anchor="middle" class="pm-net-lbl pm-net-cat" style="fill:#B4AEA1;">{{ t.record.ents.lecture.nodeLabel }}</text>
-                </g>
-              </g>
-
-              <g id="node-suricate" data-net="suricate" role="button" tabindex="0" :aria-label="t.record.ents.suricate.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 6.1s ease-in-out 0.7s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="185" cy="404" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="185" y="434" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.suricate.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-ibex" data-net="ibex" role="button" tabindex="0" :aria-label="t.record.ents.ibex.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.5s ease-in-out 1.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="375" cy="404" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="375" y="434" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.ibex.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-bloctopus" data-net="bloctopus" role="button" tabindex="0" :aria-label="t.record.ents.bloctopus.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.9s ease-in-out 0.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="445" cy="145" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="445" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.bloctopus.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-blocksquare" data-net="blocksquare" role="button" tabindex="0" :aria-label="t.record.ents.blocksquare.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 4.8s ease-in-out 1.1s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="445" cy="335" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="445" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.blocksquare.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-lemur" data-net="lemur" role="button" tabindex="0" :aria-label="t.record.ents.lemur.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.4s ease-in-out 0.2s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="280" cy="76" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="280" y="56" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.lemur.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-thinktank" data-net="thinktank" role="button" tabindex="0" :aria-label="t.record.ents.thinktank.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 6.4s ease-in-out 0s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="116" cy="335" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="116" y="315" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.thinktank.nodeLabel }}</text>
-                </g>
-              </g>
-              <g id="node-faculty" data-net="faculty" role="button" tabindex="0" :aria-label="t.record.ents.faculty.aria" data-on-click="selectNet" data-on-keydown="netKey" style="cursor:pointer;">
-                <g style="animation:pm-float 5.6s ease-in-out 1.4s infinite alternate; transform-box:fill-box; transform-origin:center;">
-                  <circle cx="116" cy="145" r="12" fill="#3A3D43" stroke="#948E81" stroke-width="1.5"></circle>
-                  <text x="116" y="125" text-anchor="middle" class="pm-net-lbl" style="fill:#B4AEA1;">{{ t.record.ents.faculty.nodeLabel }}</text>
-                </g>
-              </g>
-              <!-- fx-layer LAST so the travelling pulse renders OVER the nodes, not under them -->
-              <g id="fx-layer" aria-hidden="true" style="pointer-events:none;"></g>
-            </svg>
-          </div>
-          <div id="net-panel" aria-live="polite" style="position:relative; min-width:0; min-height:15rem; padding:1.35rem 0 0;">
-            <span aria-hidden="true" style="position:absolute; top:0; left:0; right:0; border-top:1px solid rgba(236,231,220,0.18);"></span>
-            <span id="net-rule-fill" aria-hidden="true" style="position:absolute; top:-1px; left:0; width:9rem; border-top:2px solid var(--accent); transform-origin:left;"></span>
-            <div id="net-panel-inner">
-              <span style="display:inline-block; border:1px solid rgba(236,231,220,0.3); color:#B4AEA1; padding:0.28rem 0.6rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;" data-bind="selTag">{{ t.record.ents.lemur.tag }}</span>
-              <h3 style="margin:0.85rem 0 0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.5rem; line-height:1.2; min-height:1.2em;"><a id="net-name" data-on-click="nameClick" data-bind="selName" href="https://lemur.legal" target="_blank" rel="noopener" style="color:var(--ivory); text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:0.16em; text-decoration-color:rgba(236,231,220,0.45); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1), filter 0.3s ease;">{{ t.record.ents.lemur.name }}</a></h3>
-              <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);" data-bind="selRole">{{ t.record.ents.lemur.role }}</p>
-              <p style="margin:0.9rem 0 0; font-size:0.99rem; line-height:1.62; color:var(--ivory2);" data-bind="selDesc">{{ t.record.ents.lemur.desc }}</p>
-              <p style="margin:1.05rem 0 0;"><a id="net-visit" data-on-click="nameClick" href="https://lemur.legal" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:0.45em; min-height:44px; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ivory); text-decoration-color:rgba(236,231,220,0.4); transition:text-decoration-color 0.16s cubic-bezier(0.4,0,0.2,1);" data-hover="text-decoration-color:var(--accent);">{{ t.record.visit }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></a></p>
-            </div>
-            <div id="net-controls" style="display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
-              <button type="button" data-on-click="netPrev" :aria-label="t.record.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
-              <button type="button" data-on-click="netNext" :aria-label="t.record.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.78rem; font-weight:600; color:var(--ivory); font-variant-numeric:tabular-nums;" data-bind="netIdx">01 / 07</span>
-              <em style="font-family:'Spectral', Georgia, serif; font-style:italic; font-size:0.85rem; color:#948E81;">{{ t.record.orTap }}</em>
-            </div>
-          </div>
-        </div>
+        <!-- Interactive zoomable map is built into #op-map by opMap.ts on mount.
+             The list below is the server-rendered content (SEO + no-JS fallback);
+             it is hidden once the interactive map goes live. -->
+        <div id="op-map" class="op-map" role="group" :aria-label="t.record.networkAria"></div>
+        <ol class="op-fallback">
+          <li><strong>{{ t.record.hub.name }}</strong> — {{ t.record.hub.desc }}</li>
+          <li v-for="cat in t.record.tree" :key="cat.key">
+            <strong>{{ cat.label }}</strong> — {{ cat.desc }}
+            <ul>
+              <li v-for="org in cat.children" :key="org.key">
+                <strong>{{ org.name || org.label }}</strong> — {{ org.desc }}<template v-if="org.href"> · <a :href="org.href" target="_blank" rel="noopener">{{ t.record.visit }}</a></template>
+                <ul v-if="org.children">
+                  <li v-for="sub in org.children" :key="sub.key"><strong>{{ sub.name || sub.label }}</strong> — {{ sub.desc }}</li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ol>
       </div>
     </section>
 
@@ -378,6 +273,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import { initEffects } from './Home.effects'
+import { initOpMap } from './opMap'
 import { useRootVars } from '@/composables/useTheme'
 import { runLanguageRetype } from '@/composables/retype'
 import { usePageContent } from '@/i18n/useContent'
@@ -405,9 +301,13 @@ const ROOT_VARS: Record<string, string> = {
 }
 
 let dispose: (() => void) | undefined
+let disposeMap: (() => void) | undefined
 onMounted(() => {
   useRootVars(ROOT_VARS)
   dispose = initEffects(t.value)
+  // Build the interactive operating map into #op-map (over the SSR fallback).
+  const mapEl = document.getElementById('op-map')
+  if (mapEl) disposeMap = initOpMap(mapEl, t.value.record)
   if (consumeLangSwitch()) {
     // In-app language switch: kill the one-shot entrance animations for this
     // mount — #main's rise (its translateY exposes a paper-colored gap under
@@ -423,7 +323,7 @@ onMounted(() => {
     if (!window.location.hash) runLanguageRetype()
   }
 })
-onUnmounted(() => dispose && dispose())
+onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 </script>
 
 <style scoped>
@@ -509,4 +409,65 @@ onUnmounted(() => dispose && dispose())
 @media (max-width: 819px) {
   #hero > div:first-child { padding-bottom: 1.25rem !important; }
 }
+</style>
+
+<!-- Operating map — NOT scoped: opMap.ts builds these elements in JS, so they
+     carry no scoped data-v attribute and must be styled globally. -->
+<style>
+.op-map { position: relative; width: 100%; height: clamp(430px, 72svh, 640px); margin-top: 0.4rem; }
+@media (max-width: 740px) { .op-map { height: clamp(400px, 66svh, 540px); } }
+#op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+#op-camera { transition: transform 0.82s cubic-bezier(0.38, 0.02, 0.18, 1); }
+@media (prefers-reduced-motion: reduce) { #op-camera { transition: none; } }
+.op-edge { transition: opacity 0.6s ease; }
+.op-node { transition: opacity 0.55s ease; outline: none; }
+.op-node.op-click { cursor: pointer; }
+.op-dot { transition: fill 0.35s, stroke 0.35s, r 0.45s cubic-bezier(0.34, 1.4, 0.6, 1); }
+.op-node.op-click:hover .op-dot { stroke: var(--ivory); }
+.op-node:focus-visible .op-dot { stroke: var(--accent); stroke-width: 2.5; }
+.op-node.op-focus .op-dot, .op-node.op-sel .op-dot { fill: var(--accent); stroke: var(--accent); }
+.op-lbl { font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 600; letter-spacing: 0.04em; pointer-events: none; transition: opacity 0.5s ease; }
+.op-node.op-cat .op-lbl { text-transform: uppercase; letter-spacing: 0.11em; fill: #D6C9A9; font-size: 13.5px; }
+.op-node:not(.op-cat) .op-lbl { fill: #C7C1B4; font-size: 14.5px; }
+#op-focusname { font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 17px; fill: var(--ivory); text-anchor: middle; opacity: 0; transition: opacity 0.5s ease; }
+#op-focusname.on { opacity: 1; }
+#op-hub .op-core { fill: var(--accent); }
+#op-hub .op-ring { fill: none; stroke: rgba(236, 231, 220, 0.3); stroke-width: 1; opacity: 0; transition: opacity 0.5s; }
+#op-hub.op-top .op-ring { opacity: 1; }
+#op-hub text { fill: #F4F1EA; font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 700; letter-spacing: 0.06em; }
+.op-leafdesc { transition: opacity 0.5s ease; }
+.op-leafdesc-box { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 11.5px; line-height: 1.42; color: #B4AEA1; text-align: center; }
+.op-leafdesc-box.up { display: flex; align-items: flex-end; justify-content: center; height: 100%; }
+
+.op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
+.op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }
+.op-crumb:last-child { color: var(--ivory); }
+.op-crumb:not(:last-child):hover { color: var(--ivory); }
+.op-crumb-sep { color: rgba(236, 231, 220, 0.32); font-size: 0.66rem; }
+
+.op-back { position: absolute; top: 0.3rem; right: 0; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
+.op-back.show { opacity: 1; transform: none; }
+.op-back[hidden] { display: none; }
+.op-back-disc { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #F4F1EA; font-weight: 700; font-size: 0.72rem; font-family: 'Instrument Sans', Arial, sans-serif; }
+.op-back-txt { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; }
+.op-back:hover .op-back-txt { color: var(--ivory); }
+
+.op-dossier { position: absolute; z-index: 2; pointer-events: none; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; }
+.op-dossier.show { opacity: 1; pointer-events: auto; }
+.op-dossier-in { background: rgba(20, 21, 23, 0.82); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); border: 1px solid rgba(236, 231, 220, 0.14); border-left: 2px solid var(--accent); padding: 0.95rem 1.15rem 1.05rem; border-radius: 4px; }
+.op-d-name { font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 1.25rem; line-height: 1.15; margin: 0 0 0.4rem; color: var(--ivory); }
+.op-d-desc { font-size: 0.9rem; line-height: 1.55; color: #CFC9BC; margin: 0; }
+.op-d-visit { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.7rem; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.05em; color: var(--ivory); text-decoration: none; border-bottom: 1px dashed rgba(236, 231, 220, 0.4); padding-bottom: 1px; font-family: 'Instrument Sans', Arial, sans-serif; }
+.op-d-visit:hover { border-bottom-color: var(--accent); }
+@media (min-width: 741px) { .op-dossier { left: 0; bottom: 0.4rem; max-width: 20rem; } }
+@media (max-width: 740px) { .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); } .op-dossier.show { transform: none; } .op-dossier-in { border-radius: 10px 10px 0 0; border-left: 0; border-top: 2px solid var(--accent); } }
+
+/* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
+.op-fallback { list-style: none; margin: 0.4rem 0 0; padding: 0; font-family: 'Instrument Sans', Arial, sans-serif; }
+.op-fallback ul { list-style: none; margin: 0.25rem 0 0.7rem 1.15rem; padding: 0; }
+.op-fallback li { margin: 0.35rem 0; color: var(--ivory2); font-size: 0.92rem; line-height: 1.5; }
+.op-fallback > li > strong:first-child { color: #D6C9A9; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82rem; }
+.op-fallback strong { color: var(--ivory); font-weight: 600; }
+.op-fallback a { color: var(--ivory); }
+.op-map.op-live + .op-fallback { display: none; }
 </style>
