@@ -97,6 +97,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (node.key === 'pm') return
     const isCat = node.depth === 1
     const g = el('g', { class: 'op-node' + (isCat ? ' op-cat' : '') + (node.kids.length ? ' op-branch' : ''), tabindex: '0', role: 'button', 'aria-label': node.name }) as SVGGElement
+    // generous invisible tap target (touch); only active nodes take pointer events
+    g.appendChild(el('circle', { class: 'op-hit', cx: String(node.x), cy: String(node.y), r: '34', fill: 'transparent' }))
     g.appendChild(el('circle', { class: 'op-dot', cx: String(node.x), cy: String(node.y), r: isCat ? '14' : '12', fill: NODE_FILL, stroke: node.kids.length ? BRANCH_STROKE : NODE_STROKE }))
     const p = byId[node.parent!], dx = node.x - p.x, dy = node.y - p.y
     const anchor = Math.abs(dx) < 18 ? 'middle' : dx > 0 ? 'start' : 'end'
@@ -125,6 +127,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- state + render -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
+  // The viewBox follows the container's aspect ratio so the map FILLS it. A
+  // fixed wide viewBox got letterboxed into a portrait phone, shrinking every
+  // node to ~5px — untappable.
+  let VBW = 1040, VBH = 760
+  function updateViewBox() {
+    const r = container.getBoundingClientRect()
+    const w = r.width || 1, hh = r.height || 1
+    VBH = 760
+    VBW = Math.max(200, Math.round(VBH * (w / hh)))
+    svg.setAttribute('viewBox', `${Math.round(-VBW / 2)} ${Math.round(-VBH / 2)} ${VBW} ${VBH}`)
+  }
   const OP = { active: 1, spine: 0.5, hint: 0, context: 0 }
   function fit(id: string) {
     const path = ancestors(id), childIds = byId[id].kids
@@ -133,7 +146,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
     const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys)
     const pad = 105, bw = maxx - minx + pad * 2, bh = maxy - miny + pad * 2, cx = (minx + maxx) / 2, cy = (miny + maxy) / 2
-    let s = Math.min(1040 / bw, 720 / bh); s = Math.max(0.6, Math.min(s, 2.2))
+    let s = Math.min(VBW / bw, VBH / bh); s = Math.max(0.6, Math.min(s, 2.6))
     return { t: `translate(${(-s * cx).toFixed(1)} ${(-s * cy).toFixed(1)}) scale(${s.toFixed(3)})`, s }
   }
   function setDossier(id: string) {
@@ -148,6 +161,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const path = ancestors(focusId), childIds = byId[focusId].kids
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
+    updateViewBox()
     const cam = fit(focusId)
     const desktop = isDesktop()
     const childrenAllLeaves = childIds.length > 0 && childIds.every((k) => byId[k].leaf)
@@ -157,7 +171,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       g.classList.toggle('op-click', active)
       g.classList.toggle('op-focus', id === focusId)
       g.classList.toggle('op-sel', id === selId && id !== focusId)
-      ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', id === focusId ? '18' : (node.depth === 1 ? '14' : '12'))
+      // bigger nodes + far bigger tap targets on touch
+      const rDot = id === focusId ? (desktop ? 18 : 25) : node.depth === 1 ? (desktop ? 14 : 20) : (desktop ? 12 : 18)
+      ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', String(rDot))
+      ;(g.querySelector('.op-hit') as SVGCircleElement).setAttribute('r', String(rDot + (desktop ? 14 : 26)))
       ;(g.querySelector('.op-lbl') as SVGTextElement).style.opacity = (active && id !== focusId) ? '1' : '0'
       // leaf description under this node: desktop only, when it's an active leaf child of the focus
       if (descEls[id]) descEls[id].style.opacity = (desktop && active && childrenAllLeaves && id !== focusId) ? '1' : '0'
@@ -251,8 +268,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   window.addEventListener('resize', onResize)
 
   render()
+  // The viewBox aspect is derived from the container, whose final size isn't
+  // known at mount (layout + webfonts still settling). A ResizeObserver re-fits
+  // the moment the real size lands, and again on rotation; the timer is a
+  // fallback for browsers without it.
+  let ro: ResizeObserver | null = null
+  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => render()); ro.observe(container) }
+  const settleTimer = window.setTimeout(render, 400)
 
   return () => {
+    clearTimeout(settleTimer)
+    if (ro) ro.disconnect()
     pulseStop()
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)

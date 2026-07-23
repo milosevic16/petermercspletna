@@ -415,13 +415,21 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
      carry no scoped data-v attribute and must be styled globally. -->
 <style>
 .op-map { position: relative; width: 100%; height: clamp(430px, 72svh, 640px); margin-top: 0.4rem; }
-@media (max-width: 740px) { .op-map { height: clamp(400px, 66svh, 540px); } }
+/* phones: near full-screen so the map reads as an immersive canvas, not a chip */
+@media (max-width: 740px) {
+  .op-map { height: 86svh; min-height: 460px; margin-top: 0.2rem; }
+  .op-node.op-cat .op-lbl { font-size: 18px; letter-spacing: 0.09em; }
+  .op-node:not(.op-cat) .op-lbl { font-size: 19px; }
+  #op-focusname { font-size: 22px; }
+  .op-leafdesc-box { font-size: 15px; line-height: 1.35; }
+}
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 #op-camera { transition: transform 0.82s cubic-bezier(0.38, 0.02, 0.18, 1); }
 @media (prefers-reduced-motion: reduce) { #op-camera { transition: none; } }
 .op-edge { transition: opacity 0.6s ease; }
-.op-node { transition: opacity 0.55s ease; outline: none; }
-.op-node.op-click { cursor: pointer; }
+/* only active nodes take pointer events — faded ones must not swallow taps */
+.op-node { transition: opacity 0.55s ease; outline: none; pointer-events: none; }
+.op-node.op-click { cursor: pointer; pointer-events: auto; }
 .op-dot { transition: fill 0.35s, stroke 0.35s, r 0.45s cubic-bezier(0.34, 1.4, 0.6, 1); }
 .op-node.op-click:hover .op-dot { stroke: var(--ivory); }
 .op-node:focus-visible .op-dot { stroke: var(--accent); stroke-width: 2.5; }
