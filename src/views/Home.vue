@@ -451,9 +451,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 #op-hub .op-ring { fill: none; stroke: rgba(236, 231, 220, 0.3); stroke-width: 1; opacity: 0; transition: opacity 0.5s; }
 #op-hub.op-top .op-ring { opacity: 1; }
 #op-hub text { fill: #F4F1EA; font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 700; letter-spacing: 0.06em; }
-.op-leafdesc { transition: opacity 0.5s ease; }
-.op-leafdesc-box { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 11.5px; line-height: 1.42; color: #B4AEA1; text-align: center; }
-.op-leafdesc-box.up { display: flex; align-items: flex-end; justify-content: center; height: 100%; }
 
 .op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
 .op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }
