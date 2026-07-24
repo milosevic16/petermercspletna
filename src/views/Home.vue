@@ -427,8 +427,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
-#op-camera { transition: transform 0.82s cubic-bezier(0.38, 0.02, 0.18, 1); }
-@media (prefers-reduced-motion: reduce) { #op-camera { transition: none; } }
+/* The camera is tweened in JS (rAF) in opMap.ts, NOT via a CSS transition:
+   iOS Safari does not transition an SVG <g>'s transform *attribute*, so this
+   rule was a no-op on iPhone (the snap-instantly bug) and, if kept, would fight
+   the per-frame attribute writes on desktop. reduced-motion is honored in JS. */
 .op-edge { transition: opacity 0.6s ease; }
 /* only active nodes take pointer events — faded ones must not swallow taps */
 .op-node { transition: opacity 0.55s ease; outline: none; pointer-events: none; }

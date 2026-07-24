@@ -164,7 +164,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     let s = Math.min(availW / bw, availH / bh); s = Math.max(0.6, Math.min(s, 2.6))
     const bandCx = -VBW / 2 + ins.left + availW / 2 // horizontal centre of the free band
     const bandCy = -VBH / 2 + ins.top + availH / 2 // vertical centre of the free band
-    return { t: `translate(${(bandCx - s * cx).toFixed(1)} ${(bandCy - s * cy).toFixed(1)}) scale(${s.toFixed(3)})`, s }
+    // Numbers, not a transform string: the camera tween interpolates tx/ty/s
+    // independently (exactly how the old CSS transition decomposed the list), and
+    // applyCamera() adds the pan offset before writing the attribute.
+    return { tx: bandCx - s * cx, ty: bandCy - s * cy, s }
   }
   function setDossier(id: string) {
     const n = byId[id]
@@ -174,7 +177,66 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (n.href) { v.hidden = false; v.href = n.href; v.textContent = content.visit + ' ↗' } else v.hidden = true
     dossier.classList.add('show')
   }
-  function render() {
+  // ---- camera tween -------------------------------------------------------
+  // iOS Safari/WebKit does NOT run CSS transitions on an SVG <g>'s transform
+  // *attribute* (only on the CSS transform *property*), so the old
+  // "#op-camera { transition: transform … }" snapped instantly on iPhone while
+  // gliding on Chrome. We drop that CSS rule and tween the attribute ourselves
+  // with rAF: works identically on iOS Safari, Chrome, Firefox, matches the
+  // desktop feel (same 0.82s cubic-bezier, and translate/scale eased
+  // independently — exactly how the CSS transition decomposed the list), and
+  // composes with a future drag-to-pan (applyCamera adds panX/panY every frame).
+  type Cam = { tx: number; ty: number; s: number }
+  let cam: Cam = { tx: 0, ty: 0, s: 1 }   // camera as currently painted
+  let camFrom: Cam = cam, camTo: Cam = cam
+  let camRAF = 0, camT0 = 0
+  const CAM_DUR = 820                       // ms — was the CSS 0.82s
+  let panX = 0, panY = 0                    // drag-to-pan offset (viewBox units); 0 today
+
+  // cubic-bezier(0.38,0.02,0.18,1) solved in JS (Newton + bisection fallback),
+  // so the JS tween is byte-for-byte the desktop easing curve.
+  function makeBezier(p1x: number, p1y: number, p2x: number, p2y: number) {
+    const cx = 3 * p1x, bx = 3 * (p2x - p1x) - cx, ax = 1 - cx - bx
+    const cy = 3 * p1y, by = 3 * (p2y - p1y) - cy, ay = 1 - cy - by
+    const fx = (t: number) => ((ax * t + bx) * t + cx) * t
+    const fy = (t: number) => ((ay * t + by) * t + cy) * t
+    const dfx = (t: number) => (3 * ax * t + 2 * bx) * t + cx
+    return (x: number) => {
+      if (x <= 0) return 0
+      if (x >= 1) return 1
+      let t = x
+      for (let i = 0; i < 8; i++) { const e = fx(t) - x; if (Math.abs(e) < 1e-5) return fy(t); const d = dfx(t); if (Math.abs(d) < 1e-6) break; t -= e / d }
+      let lo = 0, hi = 1; t = x
+      for (let i = 0; i < 24; i++) { const e = fx(t) - x; if (Math.abs(e) < 1e-5) break; if (e > 0) hi = t; else lo = t; t = (lo + hi) / 2 }
+      return fy(t)
+    }
+  }
+  const camEase = makeBezier(0.38, 0.02, 0.18, 1)
+
+  // Single writer of the camera transform: base tween (cam) + live pan offset.
+  function applyCamera() {
+    camera.setAttribute('transform', `translate(${(cam.tx + panX).toFixed(2)} ${(cam.ty + panY).toFixed(2)}) scale(${cam.s.toFixed(4)})`)
+  }
+  function setCamera(target: Cam, opts: { animate: boolean }) {
+    if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 } // interrupt any glide in flight
+    const near = Math.abs(target.tx - cam.tx) < 0.5 && Math.abs(target.ty - cam.ty) < 0.5 && Math.abs(target.s - cam.s) < 0.002
+    if (!opts.animate || reduced || near) { cam = { tx: target.tx, ty: target.ty, s: target.s }; applyCamera(); return }
+    camFrom = { tx: cam.tx, ty: cam.ty, s: cam.s } // start from wherever we are now → seamless mid-glide re-aim
+    camTo = { tx: target.tx, ty: target.ty, s: target.s }
+    camT0 = 0
+    const step = (now: number) => {
+      if (!camT0) camT0 = now
+      const e = camEase(Math.min(1, (now - camT0) / CAM_DUR))
+      cam = { tx: camFrom.tx + (camTo.tx - camFrom.tx) * e, ty: camFrom.ty + (camTo.ty - camFrom.ty) * e, s: camFrom.s + (camTo.s - camFrom.s) * e }
+      applyCamera()
+      camRAF = e < 1 ? requestAnimationFrame(step) : 0
+    }
+    camRAF = requestAnimationFrame(step)
+  }
+
+  // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
+  // re-renders (resize/observer/settle/fonts) snap so they never tween.
+  function render(animate = false) {
     const path = ancestors(focusId), childIds = byId[focusId].kids
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
@@ -185,11 +247,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // of the camera's usable band, otherwise the lowest nodes sit behind it.
     setDossier(selId)
     updateViewBox()
-    const cam = fit(focusId)
+    const camTgt = fit(focusId)
     // CSS px per user unit at the current camera; lets us pin on-screen sizes.
     const rect = container.getBoundingClientRect()
     const ppu = Math.min((rect.width || 1) / VBW, (rect.height || 1) / VBH)
-    const k = cam.s * ppu || 1
+    const k = camTgt.s * ppu || 1
     Object.keys(nodeEls).forEach((id) => {
       const g = nodeEls[id], node = byId[id], t = tier(id), active = t === 'active'
       g.style.opacity = String(OP[t])
@@ -239,7 +301,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     })
     Object.keys(edgeEls).forEach((id) => {
       const t = tier(id), e = edgeEls[id]
-      e.setAttribute('stroke-width', (1.3 / cam.s).toFixed(2))
+      e.setAttribute('stroke-width', (1.3 / camTgt.s).toFixed(2))
       if (t === 'active' || t === 'spine') e.setAttribute('stroke', 'rgba(236,231,220,' + (t === 'active' ? 0.5 : 0.4) + ')')
       else e.setAttribute('stroke', 'url(#opg-' + id + ')')
     })
@@ -251,7 +313,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       else { const fnU = 18 / k; focusName.style.fontSize = fnU.toFixed(2) + 'px'; focusName.setAttribute('y', (f.y + 25 + fnU * 0.92 + 5).toFixed(1)) }
       focusName.classList.add('on')
     } else focusName.classList.remove('on')
-    camera.setAttribute('transform', cam.t)
+    setCamera(camTgt, { animate }) // glide on navigation, snap on layout re-renders
     // breadcrumb
     crumbs.innerHTML = ''
     path.forEach((id, i) => {
@@ -265,13 +327,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // (dossier is set at the top of render(), before fit() measures it)
     pulseChain(selId)
   }
-  function go(id: string) { focusId = id; selId = id; render() }
+  function go(id: string) { focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
     if (id === focusId) { goUp(); return }
     const n = byId[id]
-    if (n.kids.length) go(id); else { selId = id; render() }
+    if (n.kids.length) go(id); else { selId = id; render(true) }
   }
-  function goUp() { const p = byId[focusId].parent; if (p) go(p); else { selId = 'pm'; render() } }
+  function goUp() { const p = byId[focusId].parent; if (p) go(p); else { selId = 'pm'; render(true) } }
 
   // ---- traveling pulse (ported from the previous graph's _pulseChain) ------
   let pulseAnims: Animation[] = [], pulseTimer = 0, pulseEl: SVGGElement | null = null
@@ -342,6 +404,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   return () => {
     clearTimeout(settleTimer)
+    if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 }
     if (ro) ro.disconnect()
     pulseStop()
     window.removeEventListener('keydown', onKey)
