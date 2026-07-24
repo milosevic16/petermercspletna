@@ -93,6 +93,7 @@ export interface HomeContent {
     networkAria: string
     visit: string
     backLabel: string
+    coach: string
     /** PM hub. */
     hub: { label: string; name: string; desc: string; href: string }
     /** The five categories (each with orgs; IBEX and Lemur have sub-orgs). */
@@ -324,6 +325,7 @@ const home: Localized<HomeContent> = {
       networkAria: 'Peter Merc’s operating map — practices and organisations',
       visit: 'Visit',
       backLabel: 'Back to top',
+      coach: 'Tap a node · drag to look around',
       hub: {
         label: 'PM',
         name: 'Peter Merc',
@@ -657,6 +659,7 @@ const home: Localized<HomeContent> = {
       networkAria: 'Operativni zemljevid Petra Merca — področja in organizacije',
       visit: 'Obišči',
       backLabel: 'Nazaj na vrh',
+      coach: 'Tapnite vozlišče · povlecite za ogled',
       hub: {
         label: 'PM',
         name: 'Peter Merc',

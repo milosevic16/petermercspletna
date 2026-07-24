@@ -17,6 +17,7 @@ export interface OpMapContent {
   tree: OpMapNode[]
   visit: string
   backLabel: string
+  coach?: string
 }
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -46,6 +47,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const hubNode: OpMapNode = { key: 'pm', label: content.hub.label, name: content.hub.name, desc: content.hub.desc, href: content.hub.href, children: content.tree }
   place(hubNode, 0, 0, null)
+  // Farthest node from centre (~R[3]=520) + margin; clamps mobile drag-pan so the
+  // graph can be explored past the current fit but never dragged fully off-screen.
+  const GEXT = Math.max(0, ...Object.values(byId).map((n) => Math.max(Math.abs(n.x), Math.abs(n.y)))) + 60
 
   function ancestors(id: string) { const a: string[] = []; let c: string | null = id; while (c) { a.unshift(c); c = byId[c].parent } return a }
 
@@ -234,6 +238,42 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     camRAF = requestAnimationFrame(step)
   }
 
+  // ---- drag-to-pan + entrance (mobile only) -------------------------------
+  function clampPan() {
+    const maxX = Math.max(0, cam.s * GEXT - VBW / 2 + 40)
+    const maxY = Math.max(0, cam.s * GEXT - VBH / 2 + 40)
+    panX = Math.max(-maxX, Math.min(maxX, panX))
+    panY = Math.max(-maxY, Math.min(maxY, panY))
+  }
+  let momRAF = 0
+  function stopMomentum() { if (momRAF) { cancelAnimationFrame(momRAF); momRAF = 0 } camera.style.willChange = '' }
+  // Fold the live pan offset into the base camera and zero it, so a navigation
+  // glide starts from exactly where the eye is (no snap-back of the pan on nav).
+  function foldPan() { if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } stopMomentum() }
+
+  let io: IntersectionObserver | null = null
+  let coachEl: HTMLElement | null = null, coachTimer = 0
+  function hideCoach() { if (coachEl) coachEl.classList.remove('show'); if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 } }
+  function showCoach() {
+    if (reduced) return
+    if (!coachEl) { coachEl = h('div', 'op-coach'); coachEl.textContent = content.coach || 'Tap a node · drag to look around'; container.appendChild(coachEl) }
+    requestAnimationFrame(() => coachEl && coachEl.classList.add('show'))
+    coachTimer = window.setTimeout(hideCoach, 3400)
+  }
+  // One-shot, purely additive: nothing is pre-hidden, so the map can never render
+  // blank if the animation is skipped/unsupported.
+  function enterAnim() {
+    if (reduced) return
+    try {
+      svg.animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 600, easing: 'cubic-bezier(0.2,0.7,0.2,1)', fill: 'backwards' })
+    } catch { /* noop */ }
+    const f = fit(focusId) // camera "breathe": settle in from ~8% zoomed-out
+    cam = { tx: f.tx, ty: f.ty, s: f.s * 0.92 }; applyCamera()
+    setCamera(f, { animate: true })
+    showCoach()
+  }
+
   // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
   // re-renders (resize/observer/settle/fonts) snap so they never tween.
   function render(animate = false) {
@@ -327,13 +367,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // (dossier is set at the top of render(), before fit() measures it)
     pulseChain(selId)
   }
-  function go(id: string) { focusId = id; selId = id; render(true) }
+  function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
     if (id === focusId) { goUp(); return }
     const n = byId[id]
-    if (n.kids.length) go(id); else { selId = id; render(true) }
+    if (n.kids.length) go(id); else { foldPan(); selId = id; render(true) }
   }
-  function goUp() { const p = byId[focusId].parent; if (p) go(p); else { selId = 'pm'; render(true) } }
+  function goUp() { const p = byId[focusId].parent; if (p) go(p); else { foldPan(); selId = 'pm'; render(true) } }
 
   // ---- traveling pulse (ported from the previous graph's _pulseChain) ------
   let pulseAnims: Animation[] = [], pulseTimer = 0, pulseEl: SVGGElement | null = null
@@ -390,6 +430,73 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   window.addEventListener('keydown', onKey)
   window.addEventListener('resize', onResize)
 
+  // ---- pan gesture (mobile only; every handler no-ops on desktop) ----------
+  // Anti-trap by construction: #op-svg has touch-action:pan-y on mobile, so a
+  // vertical (or vertical-dominant) swipe is ALWAYS a native page scroll the JS
+  // never sees — the user can always scroll out of the section. Only a clearly
+  // horizontal stroke is captured as a pan.
+  let pid = -1, decided = 0 // 0 undecided, 1 pan, -1 let the page scroll
+  let startX = 0, startY = 0, panStartX = 0, panStartY = 0
+  let moved = false, suppressClick = false
+  let lastVX = 0, lastVY = 0
+  const DECIDE = 8
+  function startMomentum() {
+    let vx = lastVX, vy = lastVY
+    const stepM = () => {
+      vx *= 0.92; vy *= 0.92
+      if (Math.hypot(vx, vy) < 0.3) { stopMomentum(); return }
+      panX += vx; panY += vy; clampPan(); applyCamera()
+      momRAF = requestAnimationFrame(stepM)
+    }
+    momRAF = requestAnimationFrame(stepM)
+  }
+  const onPointerDown = (e: PointerEvent) => {
+    if (isDesktop()) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (e.pointerType === 'touch' && e.clientX < 24) return // dodge iOS edge back-swipe
+    stopMomentum(); hideCoach()
+    pid = e.pointerId; decided = 0; moved = false
+    startX = e.clientX; startY = e.clientY; panStartX = panX; panStartY = panY
+    lastVX = 0; lastVY = 0
+  }
+  const onPointerMove = (e: PointerEvent) => {
+    if (e.pointerId !== pid) return
+    const dx = e.clientX - startX, dy = e.clientY - startY
+    if (decided === 0) {
+      if (Math.hypot(dx, dy) < DECIDE) return
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) { decided = 1; try { svg.setPointerCapture(pid) } catch { /* noop */ } camera.style.willChange = 'transform' }
+      else { decided = -1; pid = -1; return } // vertical → let touch-action:pan-y scroll the page
+    }
+    if (decided === 1) {
+      e.preventDefault(); moved = true
+      const rect = svg.getBoundingClientRect()
+      const uPerPx = VBW / (rect.width || 1) // translate is outside scale → px→units is scale-independent
+      const pvx = panX, pvy = panY
+      panX = panStartX + dx * uPerPx; panY = panStartY + dy * uPerPx
+      clampPan()
+      lastVX = panX - pvx; lastVY = panY - pvy // units/frame, for momentum
+      applyCamera() // transform write only — never render() during a pan
+    }
+  }
+  const endDrag = (e: PointerEvent) => {
+    if (e.pointerId !== pid && decided !== 1) return
+    if (decided === 1) {
+      try { svg.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+      suppressClick = moved
+      if (moved && !reduced && Math.hypot(lastVX, lastVY) > 0.4) startMomentum()
+      else camera.style.willChange = ''
+    }
+    pid = -1; decided = 0
+  }
+  // Swallow the synthetic click that follows a drag so a pan never navigates.
+  const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
+  svg.addEventListener('pointerdown', onPointerDown)
+  svg.addEventListener('pointermove', onPointerMove, { passive: false })
+  svg.addEventListener('pointerup', endDrag)
+  svg.addEventListener('pointercancel', endDrag) // iOS fires this when it steals the gesture
+  svg.addEventListener('lostpointercapture', endDrag)
+  svg.addEventListener('click', onClickCapture, true)
+
   render()
   // The viewBox aspect is derived from the container, whose final size isn't
   // known at mount (layout + webfonts still settling). A ResizeObserver re-fits
@@ -402,14 +509,26 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // depends on how the description wraps, which changes when the webfont swaps in.
   try { (document as any).fonts?.ready?.then(() => render()) } catch { /* noop */ }
 
+  // Entrance: when the section scrolls into view on mobile, lift the map in,
+  // settle the camera, and flash a one-time coach hint. One-shot; additive.
+  if (typeof IntersectionObserver !== 'undefined' && !isDesktop() && !reduced) {
+    io = new IntersectionObserver((ents) => {
+      for (const en of ents) if (en.intersectionRatio >= 0.6) { if (io) io.disconnect(); io = null; enterAnim(); break }
+    }, { threshold: [0, 0.6, 1] })
+    io.observe(container)
+  }
+
   return () => {
     clearTimeout(settleTimer)
     if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 }
+    stopMomentum()
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
+    if (io) { io.disconnect(); io = null }
     if (ro) ro.disconnect()
     pulseStop()
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
-    container.innerHTML = ''
+    container.innerHTML = '' // discards svg + all its pointer/click listeners
     container.classList.remove('op-live', 'op-at-top')
   }
 }

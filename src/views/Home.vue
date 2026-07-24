@@ -422,11 +422,31 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    Node + label sizes are pinned in opMap.ts (counter-scaled per camera), so the
    old scale-dependent SVG font-size overrides are gone — inline styles drive them. */
 @media (max-width: 740px) {
+  /* Immersive: fill the screen (svh = stable small-viewport, so the collapsing
+     Safari URL bar doesn't reflow/jitter the map). The camera reserves the
+     dossier + crumb bands (opMap.ts insets), so graph + description stay
+     co-visible whatever the height. */
   .op-map { margin-top: 0.2rem; }
-  .op-map.op-live { height: clamp(460px, 82svh, 620px); min-height: 460px; }
+  .op-map.op-live { height: 100svh; min-height: 520px; background: var(--graphite); }
   .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
+@supports not (height: 100svh) {
+  @media (max-width: 740px) { .op-map.op-live { height: 100vh; } }
+}
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+/* Mobile override AFTER the base rule so it wins at equal specificity.
+   touch-action: pan-y is the anti-trap — a vertical swipe is ALWAYS a native
+   page scroll (guaranteed escape); opMap.ts only captures horizontal drags as a
+   pan. The rest suppresses long-press callout / selection / tap highlight so a
+   drag is never interrupted. */
+@media (max-width: 740px) {
+  #op-svg {
+    touch-action: pan-y;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
 /* The camera is tweened in JS (rAF) in opMap.ts, NOT via a CSS transition:
    iOS Safari does not transition an SVG <g>'s transform *attribute*, so this
    rule was a no-op on iPhone (the snap-instantly bug) and, if kept, would fight
@@ -478,12 +498,24 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 @media (max-width: 740px) {
   .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); }
   .op-dossier.show { transform: none; }
-  .op-dossier-in { border-radius: 12px 12px 0 0; border-left: 0; border-top: 2px solid var(--accent); padding: 0.8rem 1.05rem 0.9rem; box-shadow: 0 -14px 34px rgba(15, 16, 18, 0.4); }
+  .op-dossier-in { border-radius: 12px 12px 0 0; border-left: 0; border-top: 2px solid var(--accent); padding: 0.8rem 1.05rem calc(0.9rem + env(safe-area-inset-bottom)); box-shadow: 0 -14px 34px rgba(15, 16, 18, 0.4); }
   .op-d-name { font-size: 1.12rem; }
   /* bound the sheet so the band the camera reserves for it stays small even for
      the longest description; the camera measures whatever height it lands at. */
   .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 }
+
+/* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds */
+.op-coach {
+  position: absolute; top: 3rem; left: 50%; transform: translateX(-50%);
+  z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.45s ease;
+  background: rgba(20, 21, 23, 0.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(236, 231, 220, 0.16); border-radius: 999px;
+  padding: 0.4rem 0.85rem; color: var(--ivory2); white-space: nowrap;
+  font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+}
+.op-coach.show { opacity: 1; }
+@media (min-width: 741px) { .op-coach { display: none; } }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
 .op-fallback { list-style: none; margin: 0.4rem 0 0; padding: 0; font-family: 'Instrument Sans', Arial, sans-serif; }
