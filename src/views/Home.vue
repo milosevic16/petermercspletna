@@ -414,14 +414,17 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 <!-- Operating map — NOT scoped: opMap.ts builds these elements in JS, so they
      carry no scoped data-v attribute and must be styled globally. -->
 <style>
-.op-map { position: relative; width: 100%; height: clamp(430px, 72svh, 640px); margin-top: 0.4rem; }
-/* phones: near full-screen so the map reads as an immersive canvas, not a chip */
+.op-map { position: relative; width: 100%; margin-top: 0.4rem; }
+/* Give the map its height only once it's live, so the no-JS / pre-hydration
+   state doesn't reserve a tall empty well above the SEO fallback list. */
+.op-map.op-live { height: clamp(430px, 72svh, 640px); }
+/* phones: near full-screen so the map reads as an immersive canvas, not a chip.
+   Node + label sizes are pinned in opMap.ts (counter-scaled per camera), so the
+   old scale-dependent SVG font-size overrides are gone — inline styles drive them. */
 @media (max-width: 740px) {
-  .op-map { height: 86svh; min-height: 460px; margin-top: 0.2rem; }
-  .op-node.op-cat .op-lbl { font-size: 18px; letter-spacing: 0.09em; }
-  .op-node:not(.op-cat) .op-lbl { font-size: 19px; }
-  #op-focusname { font-size: 22px; }
-  .op-leafdesc-box { font-size: 15px; line-height: 1.35; }
+  .op-map { margin-top: 0.2rem; }
+  .op-map.op-live { height: clamp(460px, 82svh, 620px); min-height: 460px; }
+  .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 #op-camera { transition: transform 0.82s cubic-bezier(0.38, 0.02, 0.18, 1); }
@@ -430,6 +433,11 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 /* only active nodes take pointer events — faded ones must not swallow taps */
 .op-node { transition: opacity 0.55s ease; outline: none; pointer-events: none; }
 .op-node.op-click { cursor: pointer; pointer-events: auto; }
+/* Invisible tap target. pointer-events:all so the transparent fill still
+   hit-tests on iOS Safari (the default visiblePainted ignores an unpainted
+   fill → dead taps); scoped to active nodes so faded ones never steal taps. */
+.op-hit { pointer-events: none; }
+.op-node.op-click .op-hit { pointer-events: all; }
 .op-dot { transition: fill 0.35s, stroke 0.35s, r 0.45s cubic-bezier(0.34, 1.4, 0.6, 1); }
 .op-node.op-click:hover .op-dot { stroke: var(--ivory); }
 .op-node:focus-visible .op-dot { stroke: var(--accent); stroke-width: 2.5; }
@@ -468,7 +476,15 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-d-visit { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.7rem; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.05em; color: var(--ivory); text-decoration: none; border-bottom: 1px dashed rgba(236, 231, 220, 0.4); padding-bottom: 1px; font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-d-visit:hover { border-bottom-color: var(--accent); }
 @media (min-width: 741px) { .op-dossier { left: 0; bottom: 0.4rem; max-width: 20rem; } }
-@media (max-width: 740px) { .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); } .op-dossier.show { transform: none; } .op-dossier-in { border-radius: 10px 10px 0 0; border-left: 0; border-top: 2px solid var(--accent); } }
+@media (max-width: 740px) {
+  .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); }
+  .op-dossier.show { transform: none; }
+  .op-dossier-in { border-radius: 12px 12px 0 0; border-left: 0; border-top: 2px solid var(--accent); padding: 0.8rem 1.05rem 0.9rem; box-shadow: 0 -14px 34px rgba(15, 16, 18, 0.4); }
+  .op-d-name { font-size: 1.12rem; }
+  /* bound the sheet so the band the camera reserves for it stays small even for
+     the longest description; the camera measures whatever height it lands at. */
+  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+}
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
 .op-fallback { list-style: none; margin: 0.4rem 0 0; padding: 0; font-family: 'Instrument Sans', Arial, sans-serif; }

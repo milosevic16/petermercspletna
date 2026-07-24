@@ -100,13 +100,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // generous invisible tap target (touch); only active nodes take pointer events
     g.appendChild(el('circle', { class: 'op-hit', cx: String(node.x), cy: String(node.y), r: '34', fill: 'transparent' }))
     g.appendChild(el('circle', { class: 'op-dot', cx: String(node.x), cy: String(node.y), r: isCat ? '14' : '12', fill: NODE_FILL, stroke: node.kids.length ? BRANCH_STROKE : NODE_STROKE }))
-    const p = byId[node.parent!], dx = node.x - p.x, dy = node.y - p.y
-    const anchor = Math.abs(dx) < 18 ? 'middle' : dx > 0 ? 'start' : 'end'
-    const lines = wrap(node.label, 20), fs = isCat ? 13.5 : 14.5, gap = (isCat ? 14 : 12) + 9
-    const tx = node.x + (anchor === 'middle' ? 0 : dx > 0 ? gap : -gap)
-    const ty = node.y + (anchor === 'middle' ? (dy >= 0 ? gap + fs : -gap - (lines.length - 1) * fs) : fs * 0.34 - (lines.length - 1) * fs * 0.5)
-    const txt = el('text', { class: 'op-lbl', x: String(tx), y: ty.toFixed(1), 'text-anchor': anchor })
-    lines.forEach((l, i) => { const ts = el('tspan', { x: String(tx), dy: i ? String(fs) : '0' }); ts.textContent = l; txt.appendChild(ts) })
+    const p = byId[node.parent!], dy = node.y - p.y
+    // Label text only — its geometry (anchor, offset, wrap, font size) is set per
+    // render() so it can track the live node radius and, on mobile, a font size
+    // pinned in CSS px (counter-scaled against the camera) instead of shrinking.
+    const txt = el('text', { class: 'op-lbl' })
     g.appendChild(txt); nodesG.appendChild(g); nodeEls[node.key] = g
     g.addEventListener('click', (e) => { e.stopPropagation(); onNodeClick(node.key) })
     g.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNodeClick(node.key) } })
@@ -139,15 +137,39 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     svg.setAttribute('viewBox', `${Math.round(-VBW / 2)} ${Math.round(-VBH / 2)} ${VBW} ${VBH}`)
   }
   const OP = { active: 1, spine: 0.5, hint: 0, context: 0 }
-  function fit(id: string) {
+  // Viewport space the HTML overlays occupy, in viewBox units. On mobile the
+  // crumbs sit at the top and the dossier is a full-width sheet pinned to the
+  // bottom; the camera must fit the graph into what's LEFT, or the lowest nodes
+  // land under (and behind) the sheet where taps never reach them. Desktop is
+  // already height-bound with no slack, so it gets no insets.
+  function insets(dossierShown: boolean) {
+    if (isDesktop()) return { top: 0, bottom: 0, side: 0 }
+    const px2u = VBH / (container.getBoundingClientRect().height || 1)
+    const crumbH = crumbs.getBoundingClientRect().height || 34
+    const topPx = Math.max(crumbH, pmback.hidden ? 0 : 40)
+    const sheetH = dossierShown ? (dossier.getBoundingClientRect().height || 170) : 0
+    // +28 at the bottom so the lowest node's dot clears the sheet (the band
+    // centres node CENTRES; the dot extends below its centre). ~26px each side
+    // keeps the centred category labels on screen when the fit is width-bound on
+    // a narrow phone, without starving the scale on wider ones.
+    return { top: (topPx + 8) * px2u, bottom: sheetH ? (sheetH + 28) * px2u : 0, side: 26 * px2u }
+  }
+  function fit(id: string, dossierShown: boolean) {
     const path = ancestors(id), childIds = byId[id].kids
     const ids: Record<string, 1> = {}; path.concat(childIds).concat(['pm']).forEach((k) => (ids[k] = 1))
     const pts = Object.keys(ids).map((k) => [byId[k].x, byId[k].y])
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
     const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys)
-    const pad = 105, bw = maxx - minx + pad * 2, bh = maxy - miny + pad * 2, cx = (minx + maxx) / 2, cy = (miny + maxy) / 2
-    let s = Math.min(VBW / bw, VBH / bh); s = Math.max(0.6, Math.min(s, 2.6))
-    return { t: `translate(${(-s * cx).toFixed(1)} ${(-s * cy).toFixed(1)}) scale(${s.toFixed(3)})`, s }
+    // Mobile hides the leaf-description foreignObjects, so vertical padding can be
+    // much tighter there; horizontal stays generous for the side labels.
+    const pad = isDesktop() ? 105 : 70
+    const bw = maxx - minx + pad * 2, bh = maxy - miny + pad * 2, cx = (minx + maxx) / 2, cy = (miny + maxy) / 2
+    const ins = insets(dossierShown)
+    const availH = Math.max(160, VBH - ins.top - ins.bottom)
+    const availW = Math.max(160, VBW - ins.side * 2)
+    let s = Math.min(availW / bw, availH / bh); s = Math.max(0.6, Math.min(s, 2.6))
+    const bandCy = -VBH / 2 + ins.top + availH / 2 // vertical centre of the free band, in viewBox coords
+    return { t: `translate(${(-s * cx).toFixed(1)} ${(bandCy - s * cy).toFixed(1)}) scale(${s.toFixed(3)})`, s }
   }
   function setDossier(id: string) {
     const n = byId[id]
@@ -161,10 +183,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const path = ancestors(focusId), childIds = byId[focusId].kids
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
-    updateViewBox()
-    const cam = fit(focusId)
     const desktop = isDesktop()
     const childrenAllLeaves = childIds.length > 0 && childIds.every((k) => byId[k].leaf)
+    // The dossier must be filled BEFORE fit() so its measured height can be
+    // reserved out of the camera's usable band (otherwise the lowest nodes sit
+    // behind it). On mobile it is always shown; on desktop only when it isn't
+    // superseded by the inline leaf descriptions.
+    const dossierShown = !desktop || !childrenAllLeaves || focusId === 'pm'
+    if (dossierShown) setDossier(selId)
+    else dossier.classList.remove('show')
+    updateViewBox()
+    const cam = fit(focusId, dossierShown)
+    // CSS px per user unit at the current camera; lets us pin on-screen sizes.
+    const rect = container.getBoundingClientRect()
+    const ppu = Math.min((rect.width || 1) / VBW, (rect.height || 1) / VBH)
+    const k = cam.s * ppu || 1
     Object.keys(nodeEls).forEach((id) => {
       const g = nodeEls[id], node = byId[id], t = tier(id), active = t === 'active'
       g.style.opacity = String(OP[t])
@@ -175,7 +208,42 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const rDot = id === focusId ? (desktop ? 18 : 25) : node.depth === 1 ? (desktop ? 14 : 20) : (desktop ? 12 : 18)
       ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', String(rDot))
       ;(g.querySelector('.op-hit') as SVGCircleElement).setAttribute('r', String(rDot + (desktop ? 14 : 26)))
-      ;(g.querySelector('.op-lbl') as SVGTextElement).style.opacity = (active && id !== focusId) ? '1' : '0'
+      // Label: geometry tracks the live radius; on mobile the font is pinned to a
+      // fixed CSS px size (14/15px) by expressing it in counter-scaled user units,
+      // so it stays legible and never rescales as the camera zooms. Desktop keeps
+      // its original 13.5/14.5-unit sizing, so its output is byte-identical.
+      const lbl = g.querySelector('.op-lbl') as SVGTextElement
+      lbl.style.opacity = (active && id !== focusId) ? '1' : '0'
+      if (node.parent) {
+        const isCat = node.depth === 1
+        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 14) / k
+        const pn = byId[node.parent], dxp = node.x - pn.x, dyp = node.y - pn.y
+        const gap = rDot + 9
+        const lns = wrap(node.label, desktop ? 20 : 13)
+        // Long uppercase category labels clip if placed to the side at the
+        // horizontal extremes of a narrow phone, so centre those above/below the
+        // node instead. Vertical-extreme categories keep side labels (they have
+        // the horizontal room). Desktop + deeper nodes: original side/middle logic.
+        let anchor: string, tx: number, ty: number
+        if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
+          anchor = 'middle'; tx = node.x
+          ty = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lns.length - 1) * fsU
+        } else {
+          anchor = Math.abs(dxp) < 18 ? 'middle' : dxp > 0 ? 'start' : 'end'
+          tx = node.x + (anchor === 'middle' ? 0 : dxp > 0 ? gap : -gap)
+          ty = node.y + (anchor === 'middle'
+            ? (dyp >= 0 ? gap + fsU : -gap - (lns.length - 1) * fsU)
+            : fsU * 0.34 - (lns.length - 1) * fsU * 0.5)
+        }
+        if (lbl.getAttribute('data-lines') !== lns.join('|')) {
+          lbl.textContent = ''
+          lns.forEach((l) => { const ts = el('tspan'); ts.textContent = l; lbl.appendChild(ts) })
+          lbl.setAttribute('data-lines', lns.join('|'))
+        }
+        lbl.setAttribute('x', tx.toFixed(1)); lbl.setAttribute('y', ty.toFixed(1)); lbl.setAttribute('text-anchor', anchor)
+        lbl.style.fontSize = fsU.toFixed(2) + 'px'
+        Array.from(lbl.children).forEach((ts, i) => { (ts as SVGTSpanElement).setAttribute('x', tx.toFixed(1)); (ts as SVGTSpanElement).setAttribute('dy', i ? fsU.toFixed(1) : '0') })
+      }
       // leaf description under this node: desktop only, when it's an active leaf child of the focus
       if (descEls[id]) descEls[id].style.opacity = (desktop && active && childrenAllLeaves && id !== focusId) ? '1' : '0'
     })
@@ -187,7 +255,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     })
     pmhub.style.opacity = String(OP[tier('pm')])
     pmhub.classList.toggle('op-top', focusId === 'pm')
-    if (focusId !== 'pm') { const f = byId[focusId]; focusName.textContent = f.label; focusName.setAttribute('x', String(f.x)); focusName.setAttribute('y', (f.y + 38).toFixed(1)); focusName.classList.add('on') } else focusName.classList.remove('on')
+    if (focusId !== 'pm') {
+      const f = byId[focusId]; focusName.textContent = f.label; focusName.setAttribute('x', String(f.x))
+      if (desktop) { focusName.style.fontSize = ''; focusName.setAttribute('y', (f.y + 38).toFixed(1)) }
+      else { const fnU = 18 / k; focusName.style.fontSize = fnU.toFixed(2) + 'px'; focusName.setAttribute('y', (f.y + 25 + fnU * 0.92 + 5).toFixed(1)) }
+      focusName.classList.add('on')
+    } else focusName.classList.remove('on')
     camera.setAttribute('transform', cam.t)
     // breadcrumb
     crumbs.innerHTML = ''
@@ -199,9 +272,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     pmback.hidden = focusId === 'pm'
     setTimeout(() => pmback.classList.toggle('show', focusId !== 'pm'), 10)
     container.classList.toggle('op-at-top', focusId === 'pm')
-    // dossier: mobile always; desktop only when NOT showing inline leaf descriptions
-    if (!desktop || !childrenAllLeaves || focusId === 'pm') setDossier(selId)
-    else dossier.classList.remove('show')
+    // (dossier is set at the top of render(), before fit() measures it)
     pulseChain(selId)
   }
   function go(id: string) { focusId = id; selId = id; render() }
@@ -275,6 +346,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let ro: ResizeObserver | null = null
   if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => render()); ro.observe(container) }
   const settleTimer = window.setTimeout(render, 400)
+  // The dossier's height (which the camera reserves out of the usable band)
+  // depends on how the description wraps, which changes when the webfont swaps in.
+  try { (document as any).fonts?.ready?.then(() => render()) } catch { /* noop */ }
 
   return () => {
     clearTimeout(settleTimer)
