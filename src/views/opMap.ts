@@ -464,11 +464,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const dx = e.clientX - startX, dy = e.clientY - startY
     if (decided === 0) {
       if (Math.hypot(dx, dy) < DECIDE) return
-      if (Math.abs(dx) > Math.abs(dy) * 1.2) { decided = 1; try { svg.setPointerCapture(pid) } catch { /* noop */ } camera.style.willChange = 'transform' }
+      // Bias toward scroll: only a clearly horizontal stroke becomes a pan.
+      if (Math.abs(dx) > Math.abs(dy) * 1.4) { decided = 1; try { svg.setPointerCapture(pid) } catch { /* noop */ } camera.style.willChange = 'transform' }
       else { decided = -1; pid = -1; return } // vertical → let touch-action:pan-y scroll the page
     }
     if (decided === 1) {
-      e.preventDefault(); moved = true
+      // No preventDefault: with touch-action:pan-y the browser won't horizontally
+      // scroll anyway, so the listener can stay PASSIVE — a non-passive move
+      // listener on the touch surface is what made vertical scrolling janky on iOS.
+      moved = true
       const rect = svg.getBoundingClientRect()
       const uPerPx = VBW / (rect.width || 1) // translate is outside scale → px→units is scale-independent
       const pvx = panX, pvy = panY
@@ -491,7 +495,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // Swallow the synthetic click that follows a drag so a pan never navigates.
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
   svg.addEventListener('pointerdown', onPointerDown)
-  svg.addEventListener('pointermove', onPointerMove, { passive: false })
+  svg.addEventListener('pointermove', onPointerMove, { passive: true }) // passive: never blocks the compositor scroll
   svg.addEventListener('pointerup', endDrag)
   svg.addEventListener('pointercancel', endDrag) // iOS fires this when it steals the gesture
   svg.addEventListener('lostpointercapture', endDrag)
