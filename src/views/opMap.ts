@@ -18,6 +18,7 @@ export interface OpMapContent {
   visit: string
   backLabel: string
   coach?: string
+  exit?: string
 }
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -80,8 +81,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   ;(pmback.querySelector('.op-back-txt') as HTMLElement).textContent = content.backLabel
   const crumbs = h('nav', 'op-crumbs'); crumbs.setAttribute('aria-label', 'You are here')
   const dossier = h('aside', 'op-dossier'); dossier.setAttribute('aria-live', 'polite')
-  dossier.innerHTML = '<div class="op-dossier-in"><h3 class="op-d-name"></h3><p class="op-d-desc"></p><a class="op-d-visit" target="_blank" rel="noopener" hidden></a></div>'
+  dossier.innerHTML =
+    '<div class="op-dossier-in">'
+    + '<button class="op-fs-exit" type="button">'
+    +   '<svg class="op-fs-exit-x" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">'
+    +     '<path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+    +   '</svg><span class="op-fs-exit-txt"></span>'
+    + '</button>'
+    + '<h3 class="op-d-name"></h3><p class="op-d-desc"></p>'
+    + '<a class="op-d-visit" target="_blank" rel="noopener" hidden></a>'
+    + '</div>'
   container.append(pmback, crumbs, dossier)
+  const fsExit = dossier.querySelector('.op-fs-exit') as HTMLButtonElement
+  ;(fsExit.querySelector('.op-fs-exit-txt') as HTMLElement).textContent = content.exit || 'Close'
+  fsExit.setAttribute('aria-label', content.exit || 'Close full screen map')
+  fsExit.addEventListener('click', (e) => { e.stopPropagation(); exitFullscreen() })
 
   // ---- render helpers -----------------------------------------------------
   function wrap(s: string, m: number) { const w = s.split(' '), o: string[] = []; let line = ''; for (const x of w) { if ((line + ' ' + x).trim().length > m && line) { o.push(line.trim()); line = x } else line = (line + ' ' + x).trim() } if (line) o.push(line); return o }
@@ -115,6 +129,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- state + render -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
+  // ---- fullscreen-takeover state (mobile only) ----------------------------
+  type FsState = 'collapsed' | 'entering' | 'fullscreen' | 'exiting'
+  let fsState: FsState = 'collapsed'
+  let placeholder: HTMLDivElement | null = null
+  let fsTransEnd: ((e: TransitionEvent) => void) | null = null
+  let fsSafety = 0
+  let lastFocused: HTMLElement | null = null
+  const FS_DUR = 340
+  const isFullscreen = () => fsState === 'fullscreen' || fsState === 'entering'
+  // ---- iOS body-scroll-lock state -----------------------------------------
+  let savedScrollY = 0
+  const bodyPrev: Partial<CSSStyleDeclaration> = {}
   // The viewBox follows the container's aspect ratio so the map FILLS it. A
   // fixed wide viewBox got letterboxed into a portrait phone, shrinking every
   // node to ~5px — untappable.
@@ -240,8 +266,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- drag-to-pan + entrance (mobile only) -------------------------------
   function clampPan() {
-    const maxX = Math.max(0, cam.s * GEXT - VBW / 2 + 40)
-    const maxY = Math.max(0, cam.s * GEXT - VBH / 2 + 40)
+    // Generous so fullscreen panning feels free (you can bring the farthest node
+    // near centre on either axis) while the graph can never be dragged fully off:
+    // allow up to the graph's on-screen radius minus a quarter-viewport.
+    const maxX = Math.max(0, cam.s * GEXT - VBW * 0.25)
+    const maxY = Math.max(0, cam.s * GEXT - VBH * 0.25)
     panX = Math.max(-maxX, Math.min(maxX, panX))
     panY = Math.max(-maxY, Math.min(maxY, panY))
   }
@@ -256,7 +285,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function hideCoach() { if (coachEl) coachEl.classList.remove('show'); if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 } }
   function showCoach() {
     if (reduced) return
-    if (!coachEl) { coachEl = h('div', 'op-coach'); coachEl.textContent = content.coach || 'Tap a node · drag to look around'; container.appendChild(coachEl) }
+    if (!coachEl) { coachEl = h('div', 'op-coach'); coachEl.textContent = content.coach || 'Tap a node to open the map'; container.appendChild(coachEl) }
     requestAnimationFrame(() => coachEl && coachEl.classList.add('show'))
     coachTimer = window.setTimeout(hideCoach, 3400)
   }
@@ -404,11 +433,147 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
+    // Mobile + collapsed: one tap both enters the fullscreen takeover and drills in.
+    // enterFullscreen() snaps the camera into the big box; the nav below then glides
+    // to the tapped node as the "drill-in".
+    if (!isDesktop() && fsState === 'collapsed') enterFullscreen()
     if (id === focusId) { goUp(); return }
     const n = byId[id]
     if (n.kids.length) go(id); else { foldPan(); selId = id; render(true) }
   }
   function goUp() { const p = byId[focusId].parent; if (p) go(p); else { foldPan(); selId = 'pm'; render(true) } }
+
+  // ---- fullscreen takeover (mobile only) ----------------------------------
+  // Collapsed: the map is a normal in-page section (no pan; the page scrolls past).
+  // Tapping a node lifts .op-map out to a position:fixed overlay and navigates in
+  // one gesture. A FLIP grows the collapsed getBoundingClientRect() box into the
+  // fullscreen box; the rAF camera (an SVG attribute on #op-camera) and the FLIP (a
+  // CSS transform on the container) live on different elements and never fight.
+
+  // iOS-proof body lock: overflow:hidden is NOT enough on iOS Safari (momentum and
+  // scroll-chaining bleed through), so pull <body> out of the scroll flow with
+  // position:fixed re-offset by the live scroll, and restore scrollTo() on release.
+  function lockBody() {
+    const b = document.body, d = document.documentElement
+    savedScrollY = window.scrollY || window.pageYOffset || 0
+    for (const k of ['position', 'top', 'left', 'right', 'width', 'overflow'] as const) bodyPrev[k] = b.style[k]
+    b.style.position = 'fixed'
+    b.style.top = `-${savedScrollY}px`
+    b.style.left = '0'; b.style.right = '0'; b.style.width = '100%'
+    b.style.overflow = 'hidden'
+    d.style.overscrollBehavior = 'none'
+  }
+  function unlockBody() {
+    const b = document.body, d = document.documentElement
+    for (const k of ['position', 'top', 'left', 'right', 'width', 'overflow'] as const) b.style[k] = (bodyPrev[k] as string) ?? ''
+    d.style.overscrollBehavior = ''
+    window.scrollTo(0, savedScrollY) // synchronous, same task → no jump-to-top flash
+  }
+  function clearFsTransition() {
+    if (fsTransEnd) { container.removeEventListener('transitionend', fsTransEnd); fsTransEnd = null }
+    if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
+    container.style.transition = ''
+    container.style.transform = ''
+    container.style.transformOrigin = ''
+    container.style.willChange = ''
+  }
+  function enterFullscreen() {
+    if (isDesktop() || fsState !== 'collapsed') return
+    fsState = 'entering'
+    lastFocused = (document.activeElement as HTMLElement) || null
+    hideCoach()
+    const first = container.getBoundingClientRect() // collapsed box, BEFORE lockBody()
+    placeholder = document.createElement('div')
+    placeholder.className = 'op-map-ph'
+    const cs = getComputedStyle(container)
+    placeholder.style.height = first.height + 'px'
+    placeholder.style.marginTop = cs.marginTop
+    container.parentNode!.insertBefore(placeholder, container)
+    container.classList.add('op-fs')
+    container.setAttribute('role', 'dialog')
+    container.setAttribute('aria-modal', 'true')
+    lockBody()
+    pid = -1; decided = 0; suppressClick = false; stopMomentum()
+    panX = 0; panY = 0
+    const last = container.getBoundingClientRect() // true fullscreen box (transform still none)
+    updateViewBox(); render() // snap camera into the fullscreen framing
+    requestAnimationFrame(() => { try { fsExit.focus() } catch { /* noop */ } })
+    if (reduced) { fsState = 'fullscreen'; return }
+    // FLIP: invert (fullscreen box back onto collapsed box), then release to identity.
+    const sx = first.width / (last.width || 1)
+    const sy = first.height / (last.height || 1)
+    const tx = first.left - last.left
+    const ty = first.top - last.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform'
+    container.style.transition = 'none'
+    container.style.transform = `translate(${tx}px,${ty}px) scale(${sx},${sy})`
+    void container.getBoundingClientRect()
+    // Safety is set OUTSIDE the rAF so a throttled rAF can never strand fsState at 'entering'.
+    fsSafety = window.setTimeout(() => { clearFsTransition(); fsState = 'fullscreen' }, FS_DUR + 160)
+    requestAnimationFrame(() => {
+      container.style.transition = `transform ${FS_DUR}ms cubic-bezier(0.34,0.9,0.24,1)`
+      container.style.transform = 'none'
+      fsTransEnd = (e) => { if (e.propertyName !== 'transform') return; clearFsTransition(); fsState = 'fullscreen' }
+      container.addEventListener('transitionend', fsTransEnd)
+    })
+  }
+  function exitFullscreen() {
+    if (fsState !== 'fullscreen' && fsState !== 'entering') return
+    if (fsState === 'entering') clearFsTransition()
+    fsState = 'exiting'
+    pid = -1; decided = 0; suppressClick = false; stopMomentum()
+    const first = container.getBoundingClientRect() // fullscreen box
+    const target = placeholder ? placeholder.getBoundingClientRect() : first
+    const finish = () => {
+      clearFsTransition()
+      container.classList.remove('op-fs') // regain in-flow height BEFORE unlock
+      container.removeAttribute('role')
+      container.removeAttribute('aria-modal')
+      if (placeholder) { placeholder.remove(); placeholder = null }
+      unlockBody() // restores scrollTo(savedScrollY)
+      panX = 0; panY = 0; foldPan()
+      fsState = 'collapsed'
+      updateViewBox(); render() // refit camera into the collapsed box
+      if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus() } catch { /* noop */ } }
+      lastFocused = null
+    }
+    if (reduced) { finish(); return }
+    const sx = target.width / (first.width || 1)
+    const sy = target.height / (first.height || 1)
+    const tx = target.left - first.left
+    const ty = target.top - first.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform'
+    container.style.transition = `transform ${FS_DUR}ms cubic-bezier(0.4,0.06,0.2,1)`
+    void container.getBoundingClientRect()
+    fsSafety = window.setTimeout(finish, FS_DUR + 160) // outside rAF: always completes the exit
+    requestAnimationFrame(() => {
+      container.style.transform = `translate(${tx}px,${ty}px) scale(${sx},${sy})`
+      fsTransEnd = (e) => { if (e.propertyName !== 'transform') return; finish() }
+      container.addEventListener('transitionend', fsTransEnd)
+    })
+  }
+  // Instant (no animation) teardown of the overlay — for teardown and for a
+  // viewport crossing to desktop mid-fullscreen (tablet rotation), where the
+  // mobile exit button is gone and the body must not stay locked.
+  function forceCollapse() {
+    if (fsState === 'collapsed') return
+    clearFsTransition()
+    container.classList.remove('op-fs')
+    container.removeAttribute('role'); container.removeAttribute('aria-modal')
+    if (placeholder) { placeholder.remove(); placeholder = null }
+    unlockBody()
+    panX = 0; panY = 0
+    fsState = 'collapsed'
+  }
+  // Focus set for the Tab-trap (mobile fullscreen only).
+  const FOCUS_SEL = '.op-back:not([hidden]), .op-crumb, .op-fs-exit, .op-d-visit:not([hidden])'
+  function getFocusables(): HTMLElement[] {
+    const nodes = Array.from(container.querySelectorAll<HTMLElement>('.op-node.op-click'))
+    const ctrls = Array.from(container.querySelectorAll<HTMLElement>(FOCUS_SEL))
+    return nodes.concat(ctrls)
+  }
 
   // ---- traveling pulse (ported from the previous graph's _pulseChain) ------
   let pulseAnims: Animation[] = [], pulseTimer = 0, pulseEl: SVGGElement | null = null
@@ -456,8 +621,20 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const onBack = () => go('pm')
   const onBg = () => { if (focusId !== 'pm') goUp() }
   const onHub = () => { if (focusId !== 'pm') go('pm') }
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focusId !== 'pm') goUp() }
-  const onResize = () => render()
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (isFullscreen()) { exitFullscreen(); return } // Esc leaves fullscreen first
+      if (focusId !== 'pm') goUp()
+      return
+    }
+    if (e.key === 'Tab' && fsState === 'fullscreen') { // trap focus in the dialog
+      const f = getFocusables(); if (!f.length) return
+      const first = f[0], last = f[f.length - 1], a = document.activeElement as HTMLElement
+      if (e.shiftKey && (a === first || !container.contains(a))) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (a === last || !container.contains(a))) { e.preventDefault(); first.focus() }
+    }
+  }
+  const onResize = () => { if (fsState !== 'collapsed' && isDesktop()) forceCollapse(); render() }
   pmback.addEventListener('click', onBack)
   bg.addEventListener('click', onBg)
   ;(pmhub as SVGElement).style.cursor = 'pointer'
@@ -486,7 +663,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     momRAF = requestAnimationFrame(stepM)
   }
   const onPointerDown = (e: PointerEvent) => {
-    if (isDesktop()) return
+    if (fsState !== 'fullscreen') return // collapsed + desktop: no capture, the page scrolls
     if (e.pointerType === 'mouse' && e.button !== 0) return
     if (e.pointerType === 'touch' && e.clientX < 24) return // dodge iOS edge back-swipe
     stopMomentum(); hideCoach()
@@ -499,9 +676,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const dx = e.clientX - startX, dy = e.clientY - startY
     if (decided === 0) {
       if (Math.hypot(dx, dy) < DECIDE) return
-      // Bias toward scroll: only a clearly horizontal stroke becomes a pan.
-      if (Math.abs(dx) > Math.abs(dy) * 1.4) { decided = 1; try { svg.setPointerCapture(pid) } catch { /* noop */ } camera.style.willChange = 'transform' }
-      else { decided = -1; pid = -1; return } // vertical → let touch-action:pan-y scroll the page
+      // Fullscreen has no page scroll to defer to (touch-action:none + exit button),
+      // so ANY drag past threshold is a free 2D pan — no axis bias.
+      decided = 1
+      try { svg.setPointerCapture(pid) } catch { /* noop */ }
+      camera.style.willChange = 'transform'
     }
     if (decided === 1) {
       // No preventDefault: with touch-action:pan-y the browser won't horizontally
@@ -558,6 +737,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
 
   return () => {
+    forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
     if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 }
     stopMomentum()
@@ -568,6 +748,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
     container.innerHTML = '' // discards svg + all its pointer/click listeners
-    container.classList.remove('op-live', 'op-at-top')
+    container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
 }

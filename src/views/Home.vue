@@ -422,16 +422,41 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    Node + label sizes are pinned in opMap.ts (counter-scaled per camera), so the
    old scale-dependent SVG font-size overrides are gone — inline styles drive them. */
 @media (max-width: 740px) {
-  /* Immersive: fill the screen (svh = stable small-viewport, so the collapsing
-     Safari URL bar doesn't reflow/jitter the map). The camera reserves the
-     dossier + crumb bands (opMap.ts insets), so graph + description stay
-     co-visible whatever the height. */
+  /* Collapsed: a moderate in-page preview that the page scrolls smoothly past
+     (no pan). Tapping a node lifts it into the fullscreen takeover below. */
   .op-map { margin-top: 0.2rem; }
-  .op-map.op-live { height: 100svh; min-height: 520px; background: var(--graphite); }
+  .op-map.op-live { height: clamp(360px, 56svh, 520px); min-height: 360px; background: var(--graphite); }
   .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 @supports not (height: 100svh) {
-  @media (max-width: 740px) { .op-map.op-live { height: 100vh; } }
+  @media (max-width: 740px) { .op-map.op-live { height: clamp(360px, 56vh, 520px); } }
+}
+/* ---- fullscreen takeover (mobile only) ---------------------------------- */
+@media (max-width: 740px) {
+  .op-map-ph { width: 100%; } /* reserves in-flow height while the map is lifted out */
+  .op-map.op-live.op-fs {
+    position: fixed; inset: 0;
+    width: 100vw;
+    height: 100vh;  /* fallback */
+    height: 100dvh; /* body is locked, so dvh is stable and owns the whole visible area */
+    min-height: 0; margin: 0;
+    z-index: 9999;
+    background: var(--graphite);
+    -webkit-overflow-scrolling: auto;
+  }
+  /* collapsed: page scrolls over the map. fullscreen: free 2D pan, no native
+     scroll/overscroll to fight. */
+  .op-map.op-fs #op-svg { touch-action: none; overscroll-behavior: none; }
+}
+@supports not (height: 100dvh) {
+  @media (max-width: 740px) { .op-map.op-live.op-fs { height: 100vh; } }
+}
+/* Inert on desktop even if op-fs is ever toggled there. */
+@media (min-width: 741px) {
+  .op-map.op-fs { position: relative; inset: auto; height: clamp(430px, 72svh, 640px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .op-map.op-fs { transition: none !important; }
 }
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
@@ -503,6 +528,32 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   /* bound the sheet so the band the camera reserves for it stays small even for
      the longest description; the camera measures whatever height it lands at. */
   .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+}
+
+/* Fullscreen exit — lives inside the dossier so it never moves while the graph
+   pans. Hidden off-mobile and while collapsed; only .op-fs (mobile) reveals it. */
+.op-fs-exit { display: none; }
+.op-dossier-in { position: relative; }
+@media (max-width: 740px) {
+  .op-map.op-fs .op-fs-exit {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    position: absolute; top: 0.7rem; right: 0.9rem; z-index: 1;
+    background: rgba(236, 231, 220, 0.12);
+    border: 1px solid rgba(236, 231, 220, 0.3);
+    color: var(--ivory); border-radius: 999px;
+    padding: 0.42rem 0.85rem; min-height: 40px;
+    font-family: 'Instrument Sans', Arial, sans-serif;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+  .op-map.op-fs .op-fs-exit:hover,
+  .op-map.op-fs .op-fs-exit:focus-visible {
+    background: rgba(236, 231, 220, 0.2); border-color: var(--ivory); outline: none;
+  }
+  .op-fs-exit-x { flex: none; }
+  .op-map.op-fs .op-d-name { padding-right: 6rem; } /* keep a long title clear of the pill */
 }
 
 /* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds.
