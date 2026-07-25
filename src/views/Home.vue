@@ -425,11 +425,11 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   /* Collapsed: a moderate in-page preview that the page scrolls smoothly past
      (no pan). Tapping a node lifts it into the fullscreen takeover below. */
   .op-map { margin-top: 0.2rem; }
-  .op-map.op-live { height: clamp(420px, 62svh, 560px); min-height: 420px; background: var(--graphite); }
+  .op-map.op-live { height: clamp(500px, 74svh, 660px); min-height: 500px; background: var(--graphite); }
   .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 @supports not (height: 100svh) {
-  @media (max-width: 740px) { .op-map.op-live { height: clamp(420px, 62vh, 560px); } }
+  @media (max-width: 740px) { .op-map.op-live { height: clamp(500px, 74vh, 660px); } }
 }
 /* ---- fullscreen takeover (mobile only) ---------------------------------- */
 @media (max-width: 740px) {
@@ -456,13 +456,13 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
-   touch-action: pan-y is the anti-trap — a vertical swipe is ALWAYS a native
-   page scroll (guaranteed escape); opMap.ts only captures horizontal drags as a
-   pan. The rest suppresses long-press callout / selection / tap highlight so a
-   drag is never interrupted. */
+   Collapsed: the map is just a preview, so the page scrolls over it normally
+   (touch-action: manipulation = smooth native scroll, no pan). Fullscreen sets
+   touch-action:none below and drives the pan via touch events. The rest
+   suppresses long-press callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
   #op-svg {
-    touch-action: pan-y;
+    touch-action: manipulation;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
@@ -531,13 +531,16 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-fs-exit { display: none; }
 .op-dossier-in { position: relative; }
 @media (max-width: 740px) {
+  /* In fullscreen the sheet becomes a column with the Close pill as its own
+     right-aligned row at the top — so it never sits on top of the title/text. */
+  .op-map.op-fs .op-dossier-in { display: flex; flex-direction: column; }
   .op-map.op-fs .op-fs-exit {
     display: inline-flex; align-items: center; gap: 0.4rem;
-    position: absolute; top: 0.7rem; right: 0.9rem; z-index: 1;
+    align-self: flex-end; margin: 0 0 0.55rem auto; order: -1;
     background: rgba(236, 231, 220, 0.12);
     border: 1px solid rgba(236, 231, 220, 0.3);
     color: var(--ivory); border-radius: 999px;
-    padding: 0.42rem 0.85rem; min-height: 40px;
+    padding: 0.42rem 0.9rem; min-height: 40px;
     font-family: 'Instrument Sans', Arial, sans-serif;
     font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
     text-transform: uppercase; cursor: pointer;
@@ -549,7 +552,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     background: rgba(236, 231, 220, 0.2); border-color: var(--ivory); outline: none;
   }
   .op-fs-exit-x { flex: none; }
-  .op-map.op-fs .op-d-name { padding-right: 6rem; } /* keep a long title clear of the pill */
 }
 
 /* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds.

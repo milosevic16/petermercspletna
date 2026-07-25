@@ -218,7 +218,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let cam: Cam = { tx: 0, ty: 0, s: 1 }   // camera as currently painted
   let camFrom: Cam = cam, camTo: Cam = cam
   let camRAF = 0, camT0 = 0
-  const CAM_DUR = 820                       // ms — was the CSS 0.82s
+  const CAM_DUR = 1050                      // ms — a slow, smooth zoom (was 820, felt fast/choppy)
   let panX = 0, panY = 0                    // drag-to-pan offset (viewBox units); 0 today
 
   // cubic-bezier(0.38,0.02,0.18,1) solved in JS (Newton + bisection fallback),
@@ -239,7 +239,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       return fy(t)
     }
   }
-  const camEase = makeBezier(0.38, 0.02, 0.18, 1)
+  const camEase = makeBezier(0.33, 0, 0.2, 1) // smooth ease-in-out, gentle finish
 
   // Single writer of the camera transform: base tween (cam) + live pan offset.
   function applyCamera() {
@@ -264,11 +264,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- drag-to-pan + entrance (mobile only) -------------------------------
   function clampPan() {
-    // Generous so fullscreen panning feels free (you can bring the farthest node
-    // near centre on either axis) while the graph can never be dragged fully off:
-    // allow up to the graph's on-screen radius minus a quarter-viewport.
-    const maxX = Math.max(0, cam.s * GEXT - VBW * 0.25)
-    const maxY = Math.max(0, cam.s * GEXT - VBH * 0.25)
+    // Very generous so the pan follows the finger freely and never feels like it
+    // "stops" mid-drag: you can push the graph almost entirely off either edge
+    // (leaving a sliver) and pan back. Symmetric, so diagonal drags never collapse
+    // to one axis by hitting one clamp first.
+    const maxX = Math.max(VBW * 0.5, cam.s * GEXT + VBW * 0.35)
+    const maxY = Math.max(VBH * 0.5, cam.s * GEXT + VBH * 0.35)
     panX = Math.max(-maxX, Math.min(maxX, panX))
     panY = Math.max(-maxY, Math.min(maxY, panY))
   }
@@ -480,7 +481,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     container.setAttribute('role', 'dialog')
     container.setAttribute('aria-modal', 'true')
     lockScroll()
-    pid = -1; decided = 0; suppressClick = false; stopMomentum()
+    resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
     updateViewBox(); render() // fit the camera into the fullscreen box
     requestAnimationFrame(() => { try { fsExit.focus() } catch { /* noop */ } })
@@ -509,7 +510,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus() } catch { /* noop */ } }
       lastFocused = null
     }
-    pid = -1; decided = 0; suppressClick = false; stopMomentum()
+    resetGesture(); suppressClick = false; stopMomentum()
     if (reduced) { finish(); return }
     let done = false
     const end = () => { if (done) return; done = true; finish() }
@@ -590,7 +591,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // ---- wire back / bg / keys / resize -------------------------------------
   const onBack = () => go('pm')
   const onBg = () => { if (focusId !== 'pm') goUp() }
-  const onHub = () => { if (focusId !== 'pm') go('pm') }
+  const onHub = () => { if (!isDesktop() && fsState === 'collapsed') enterFullscreen(); if (focusId !== 'pm') go('pm') }
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       if (isFullscreen()) { exitFullscreen(); return } // Esc leaves fullscreen first
@@ -612,77 +613,68 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   window.addEventListener('keydown', onKey)
   window.addEventListener('resize', onResize)
 
-  // ---- pan gesture (mobile only; every handler no-ops on desktop) ----------
-  // Anti-trap by construction: #op-svg has touch-action:pan-y on mobile, so a
-  // vertical (or vertical-dominant) swipe is ALWAYS a native page scroll the JS
-  // never sees — the user can always scroll out of the section. Only a clearly
-  // horizontal stroke is captured as a pan.
-  let pid = -1, decided = 0 // 0 undecided, 1 pan, -1 let the page scroll
-  let startX = 0, startY = 0, panStartX = 0, panStartY = 0
-  let moved = false, suppressClick = false
-  let lastVX = 0, lastVY = 0
-  const DECIDE = 8
+  // ---- pan gesture (mobile FULLSCREEN only) --------------------------------
+  // Driven by TOUCH events with preventDefault. iOS Safari does not reliably honor
+  // touch-action:none on an SVG and would axis-lock, rubber-band, or cancel a
+  // pointer-event drag mid-gesture ("stops following the finger"; diagonals
+  // collapsing to one axis). A non-passive touchmove + preventDefault takes the
+  // gesture away from the browser entirely → true free 2D pan that tracks the
+  // finger for the whole stroke. Collapsed/desktop: handlers no-op, page scrolls.
+  let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
+  let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
+  const DECIDE = 6
+  function resetGesture() { tId = -1; tMoved = false }
   function startMomentum() {
-    let vx = lastVX, vy = lastVY
+    let vx = tVX, vy = tVY
     const stepM = () => {
-      vx *= 0.92; vy *= 0.92
-      if (Math.hypot(vx, vy) < 0.3) { stopMomentum(); return }
+      vx *= 0.93; vy *= 0.93
+      if (Math.hypot(vx, vy) < 0.25) { stopMomentum(); return }
       panX += vx; panY += vy; clampPan(); applyCamera()
       momRAF = requestAnimationFrame(stepM)
     }
     momRAF = requestAnimationFrame(stepM)
   }
-  const onPointerDown = (e: PointerEvent) => {
-    if (fsState !== 'fullscreen') return // collapsed + desktop: no capture, the page scrolls
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    if (e.pointerType === 'touch' && e.clientX < 24) return // dodge iOS edge back-swipe
+  const onTouchStart = (e: TouchEvent) => {
+    if (fsState !== 'fullscreen') return
+    if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
+    const t = e.touches[0]
+    if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
     stopMomentum(); hideCoach()
-    pid = e.pointerId; decided = 0; moved = false
-    startX = e.clientX; startY = e.clientY; panStartX = panX; panStartY = panY
-    lastVX = 0; lastVY = 0
+    suppressClick = false // a fresh gesture: never swallow this one's tap
+    tId = t.identifier
+    tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
+    tMoved = false
+    tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
   }
-  const onPointerMove = (e: PointerEvent) => {
-    if (e.pointerId !== pid) return
-    const dx = e.clientX - startX, dy = e.clientY - startY
-    if (decided === 0) {
-      if (Math.hypot(dx, dy) < DECIDE) return
-      // Fullscreen has no page scroll to defer to (touch-action:none + exit button),
-      // so ANY drag past threshold is a free 2D pan — no axis bias.
-      decided = 1
-      try { svg.setPointerCapture(pid) } catch { /* noop */ }
-      camera.style.willChange = 'transform'
-    }
-    if (decided === 1) {
-      // No preventDefault: with touch-action:pan-y the browser won't horizontally
-      // scroll anyway, so the listener can stay PASSIVE — a non-passive move
-      // listener on the touch surface is what made vertical scrolling janky on iOS.
-      moved = true
-      const rect = svg.getBoundingClientRect()
-      const uPerPx = VBW / (rect.width || 1) // translate is outside scale → px→units is scale-independent
-      const pvx = panX, pvy = panY
-      panX = panStartX + dx * uPerPx; panY = panStartY + dy * uPerPx
-      clampPan()
-      lastVX = panX - pvx; lastVY = panY - pvy // units/frame, for momentum
-      applyCamera() // transform write only — never render() during a pan
-    }
+  const onTouchMove = (e: TouchEvent) => {
+    if (fsState !== 'fullscreen' || tId < 0) return
+    let t: Touch | null = null
+    for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
+    if (!t) return
+    if (e.cancelable) e.preventDefault() // KEY: take the gesture from iOS entirely
+    const dx = t.clientX - tSX, dy = t.clientY - tSY
+    if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true; camera.style.willChange = 'transform' }
+    const rect = svg.getBoundingClientRect()
+    const uPerPx = VBW / (rect.width || 1) // translate is outside the scale, so px→units is scale-independent
+    panX = tPX0 + dx * uPerPx; panY = tPY0 + dy * uPerPx
+    clampPan()
+    const now = e.timeStamp, dt = now - tLT
+    if (dt > 0) { tVX = ((t.clientX - tLX) * uPerPx / dt) * 16; tVY = ((t.clientY - tLY) * uPerPx / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
+    applyCamera() // transform write only — never render() during a pan
   }
-  const endDrag = (e: PointerEvent) => {
-    if (e.pointerId !== pid && decided !== 1) return
-    if (decided === 1) {
-      try { svg.releasePointerCapture(e.pointerId) } catch { /* noop */ }
-      suppressClick = moved
-      if (moved && !reduced && Math.hypot(lastVX, lastVY) > 0.4) startMomentum()
-      else camera.style.willChange = ''
+  const onTouchEnd = () => {
+    if (tId < 0) return
+    if (tMoved) {
+      suppressClick = true // swallow the click iOS synthesizes after a drag
+      if (!reduced && Math.hypot(tVX, tVY) > 0.4) startMomentum(); else camera.style.willChange = ''
     }
-    pid = -1; decided = 0
+    resetGesture()
   }
-  // Swallow the synthetic click that follows a drag so a pan never navigates.
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
-  svg.addEventListener('pointerdown', onPointerDown)
-  svg.addEventListener('pointermove', onPointerMove, { passive: true }) // passive: never blocks the compositor scroll
-  svg.addEventListener('pointerup', endDrag)
-  svg.addEventListener('pointercancel', endDrag) // iOS fires this when it steals the gesture
-  svg.addEventListener('lostpointercapture', endDrag)
+  svg.addEventListener('touchstart', onTouchStart, { passive: true })
+  svg.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
+  svg.addEventListener('touchend', onTouchEnd)
+  svg.addEventListener('touchcancel', onTouchEnd)
   svg.addEventListener('click', onClickCapture, true)
 
   render()
