@@ -130,17 +130,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // ---- state + render -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
   // ---- fullscreen-takeover state (mobile only) ----------------------------
-  type FsState = 'collapsed' | 'entering' | 'fullscreen' | 'exiting'
+  type FsState = 'collapsed' | 'fullscreen'
   let fsState: FsState = 'collapsed'
   let placeholder: HTMLDivElement | null = null
-  let fsTransEnd: ((e: TransitionEvent) => void) | null = null
+  let fsAnim: Animation | null = null
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
-  const FS_DUR = 340
-  const isFullscreen = () => fsState === 'fullscreen' || fsState === 'entering'
-  // ---- iOS body-scroll-lock state -----------------------------------------
-  let savedScrollY = 0
-  const bodyPrev: Partial<CSSStyleDeclaration> = {}
+  const FS_DUR = 320
+  const isFullscreen = () => fsState === 'fullscreen'
+  const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
   // The viewBox follows the container's aspect ratio so the map FILLS it. A
   // fixed wide viewBox got letterboxed into a portrait phone, shrinking every
   // node to ~5px — untappable.
@@ -445,125 +443,97 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- fullscreen takeover (mobile only) ----------------------------------
   // Collapsed: the map is a normal in-page section (no pan; the page scrolls past).
-  // Tapping a node lifts .op-map out to a position:fixed overlay and navigates in
-  // one gesture. A FLIP grows the collapsed getBoundingClientRect() box into the
-  // fullscreen box; the rAF camera (an SVG attribute on #op-camera) and the FLIP (a
-  // CSS transform on the container) live on different elements and never fight.
-
-  // iOS-proof body lock: overflow:hidden is NOT enough on iOS Safari (momentum and
-  // scroll-chaining bleed through), so pull <body> out of the scroll flow with
-  // position:fixed re-offset by the live scroll, and restore scrollTo() on release.
-  function lockBody() {
-    const b = document.body, d = document.documentElement
-    savedScrollY = window.scrollY || window.pageYOffset || 0
-    for (const k of ['position', 'top', 'left', 'right', 'width', 'overflow'] as const) bodyPrev[k] = b.style[k]
-    b.style.position = 'fixed'
-    b.style.top = `-${savedScrollY}px`
-    b.style.left = '0'; b.style.right = '0'; b.style.width = '100%'
-    b.style.overflow = 'hidden'
-    d.style.overscrollBehavior = 'none'
+  // Tapping a node lifts .op-map into a position:fixed overlay and navigates in one
+  // gesture. NOTE: we do NOT use position:fixed on <body> to lock scroll — on iOS
+  // Safari a fixed body mis-positions fixed DESCENDANTS (the overlay ends up
+  // off-screen). The fullscreen overlay already covers the viewport with
+  // touch-action:none, so it intercepts every touch and the page can't scroll;
+  // overflow:hidden on html/body is a harmless belt-and-braces that never offsets
+  // fixed elements. The enter/exit animation is a plain WAAPI opacity+scale (works
+  // on iOS; no fragile rect math).
+  function lockScroll() {
+    const d = document.documentElement, b = document.body
+    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
+    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
   }
-  function unlockBody() {
-    const b = document.body, d = document.documentElement
-    for (const k of ['position', 'top', 'left', 'right', 'width', 'overflow'] as const) b.style[k] = (bodyPrev[k] as string) ?? ''
-    d.style.overscrollBehavior = ''
-    window.scrollTo(0, savedScrollY) // synchronous, same task → no jump-to-top flash
+  function unlockScroll() {
+    const d = document.documentElement, b = document.body
+    d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
   }
-  function clearFsTransition() {
-    if (fsTransEnd) { container.removeEventListener('transitionend', fsTransEnd); fsTransEnd = null }
-    if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
-    container.style.transition = ''
-    container.style.transform = ''
-    container.style.transformOrigin = ''
-    container.style.willChange = ''
-  }
+  function stopFsAnim() { if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null } if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 } }
   function enterFullscreen() {
     if (isDesktop() || fsState !== 'collapsed') return
-    fsState = 'entering'
+    stopFsAnim()
+    fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
     lastFocused = (document.activeElement as HTMLElement) || null
     hideCoach()
-    const first = container.getBoundingClientRect() // collapsed box, BEFORE lockBody()
     placeholder = document.createElement('div')
     placeholder.className = 'op-map-ph'
-    const cs = getComputedStyle(container)
-    placeholder.style.height = first.height + 'px'
-    placeholder.style.marginTop = cs.marginTop
+    placeholder.style.height = container.getBoundingClientRect().height + 'px'
+    placeholder.style.marginTop = getComputedStyle(container).marginTop
     container.parentNode!.insertBefore(placeholder, container)
+    // Portal to <body>: #main carries a filled identity transform from its entrance
+    // animation, which would otherwise make this position:fixed overlay relative to
+    // #main (off-screen when scrolled down) instead of the viewport. <body> is clean.
+    document.body.appendChild(container)
     container.classList.add('op-fs')
     container.setAttribute('role', 'dialog')
     container.setAttribute('aria-modal', 'true')
-    lockBody()
+    lockScroll()
     pid = -1; decided = 0; suppressClick = false; stopMomentum()
     panX = 0; panY = 0
-    const last = container.getBoundingClientRect() // true fullscreen box (transform still none)
-    updateViewBox(); render() // snap camera into the fullscreen framing
+    updateViewBox(); render() // fit the camera into the fullscreen box
     requestAnimationFrame(() => { try { fsExit.focus() } catch { /* noop */ } })
-    if (reduced) { fsState = 'fullscreen'; return }
-    // FLIP: invert (fullscreen box back onto collapsed box), then release to identity.
-    const sx = first.width / (last.width || 1)
-    const sy = first.height / (last.height || 1)
-    const tx = first.left - last.left
-    const ty = first.top - last.top
-    container.style.transformOrigin = 'top left'
-    container.style.willChange = 'transform'
-    container.style.transition = 'none'
-    container.style.transform = `translate(${tx}px,${ty}px) scale(${sx},${sy})`
-    void container.getBoundingClientRect()
-    // Safety is set OUTSIDE the rAF so a throttled rAF can never strand fsState at 'entering'.
-    fsSafety = window.setTimeout(() => { clearFsTransition(); fsState = 'fullscreen' }, FS_DUR + 160)
-    requestAnimationFrame(() => {
-      container.style.transition = `transform ${FS_DUR}ms cubic-bezier(0.34,0.9,0.24,1)`
-      container.style.transform = 'none'
-      fsTransEnd = (e) => { if (e.propertyName !== 'transform') return; clearFsTransition(); fsState = 'fullscreen' }
-      container.addEventListener('transitionend', fsTransEnd)
-    })
+    if (reduced) return
+    try {
+      fsAnim = container.animate(
+        [{ opacity: 0, transform: 'scale(0.965)' }, { opacity: 1, transform: 'none' }],
+        { duration: FS_DUR, easing: 'cubic-bezier(0.34,0.9,0.24,1)' }
+      )
+      fsAnim.onfinish = () => { fsAnim = null }
+    } catch { /* noop */ }
   }
   function exitFullscreen() {
-    if (fsState !== 'fullscreen' && fsState !== 'entering') return
-    if (fsState === 'entering') clearFsTransition()
-    fsState = 'exiting'
-    pid = -1; decided = 0; suppressClick = false; stopMomentum()
-    const first = container.getBoundingClientRect() // fullscreen box
-    const target = placeholder ? placeholder.getBoundingClientRect() : first
+    if (fsState !== 'fullscreen') return
+    stopFsAnim()
     const finish = () => {
-      clearFsTransition()
-      container.classList.remove('op-fs') // regain in-flow height BEFORE unlock
-      container.removeAttribute('role')
-      container.removeAttribute('aria-modal')
+      stopFsAnim()
+      container.classList.remove('op-fs')
+      container.removeAttribute('role'); container.removeAttribute('aria-modal')
+      if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
       if (placeholder) { placeholder.remove(); placeholder = null }
-      unlockBody() // restores scrollTo(savedScrollY)
-      panX = 0; panY = 0; foldPan()
+      unlockScroll()
+      panX = 0; panY = 0
       fsState = 'collapsed'
-      updateViewBox(); render() // refit camera into the collapsed box
+      updateViewBox(); render() // refit into the collapsed box
       if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus() } catch { /* noop */ } }
       lastFocused = null
     }
+    pid = -1; decided = 0; suppressClick = false; stopMomentum()
     if (reduced) { finish(); return }
-    const sx = target.width / (first.width || 1)
-    const sy = target.height / (first.height || 1)
-    const tx = target.left - first.left
-    const ty = target.top - first.top
-    container.style.transformOrigin = 'top left'
-    container.style.willChange = 'transform'
-    container.style.transition = `transform ${FS_DUR}ms cubic-bezier(0.4,0.06,0.2,1)`
-    void container.getBoundingClientRect()
-    fsSafety = window.setTimeout(finish, FS_DUR + 160) // outside rAF: always completes the exit
-    requestAnimationFrame(() => {
-      container.style.transform = `translate(${tx}px,${ty}px) scale(${sx},${sy})`
-      fsTransEnd = (e) => { if (e.propertyName !== 'transform') return; finish() }
-      container.addEventListener('transitionend', fsTransEnd)
-    })
+    let done = false
+    const end = () => { if (done) return; done = true; finish() }
+    try {
+      fsAnim = container.animate(
+        [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.965)' }],
+        { duration: FS_DUR, easing: 'cubic-bezier(0.4,0.06,0.2,1)' }
+      )
+      fsAnim.onfinish = end; fsAnim.oncancel = end
+    } catch { end(); return }
+    fsSafety = window.setTimeout(end, FS_DUR + 160) // safety if onfinish never fires
   }
   // Instant (no animation) teardown of the overlay — for teardown and for a
   // viewport crossing to desktop mid-fullscreen (tablet rotation), where the
   // mobile exit button is gone and the body must not stay locked.
   function forceCollapse() {
     if (fsState === 'collapsed') return
-    clearFsTransition()
+    stopFsAnim()
+    container.style.opacity = ''; container.style.transform = ''
     container.classList.remove('op-fs')
     container.removeAttribute('role'); container.removeAttribute('aria-modal')
+    if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)
     if (placeholder) { placeholder.remove(); placeholder = null }
-    unlockBody()
+    unlockScroll()
     panX = 0; panY = 0
     fsState = 'collapsed'
   }

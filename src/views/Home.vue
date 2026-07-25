@@ -425,27 +425,26 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   /* Collapsed: a moderate in-page preview that the page scrolls smoothly past
      (no pan). Tapping a node lifts it into the fullscreen takeover below. */
   .op-map { margin-top: 0.2rem; }
-  .op-map.op-live { height: clamp(360px, 56svh, 520px); min-height: 360px; background: var(--graphite); }
+  .op-map.op-live { height: clamp(420px, 62svh, 560px); min-height: 420px; background: var(--graphite); }
   .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 @supports not (height: 100svh) {
-  @media (max-width: 740px) { .op-map.op-live { height: clamp(360px, 56vh, 520px); } }
+  @media (max-width: 740px) { .op-map.op-live { height: clamp(420px, 62vh, 560px); } }
 }
 /* ---- fullscreen takeover (mobile only) ---------------------------------- */
 @media (max-width: 740px) {
   .op-map-ph { width: 100%; } /* reserves in-flow height while the map is lifted out */
   .op-map.op-live.op-fs {
-    position: fixed; inset: 0;
+    position: fixed; top: 0; left: 0; /* NOT body-fixed-locked, so this stays viewport-fixed */
     width: 100vw;
     height: 100vh;  /* fallback */
-    height: 100dvh; /* body is locked, so dvh is stable and owns the whole visible area */
+    height: 100dvh; /* dynamic vh: owns the whole visible area under the URL bar */
     min-height: 0; margin: 0;
     z-index: 9999;
     background: var(--graphite);
-    -webkit-overflow-scrolling: auto;
   }
-  /* collapsed: page scrolls over the map. fullscreen: free 2D pan, no native
-     scroll/overscroll to fight. */
+  /* collapsed: page scrolls over the map. fullscreen: free 2D pan + the overlay
+     intercepts every touch (touch-action:none) so the page can't scroll. */
   .op-map.op-fs #op-svg { touch-action: none; overscroll-behavior: none; }
 }
 @supports not (height: 100dvh) {
@@ -453,10 +452,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 /* Inert on desktop even if op-fs is ever toggled there. */
 @media (min-width: 741px) {
-  .op-map.op-fs { position: relative; inset: auto; height: clamp(430px, 72svh, 640px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .op-map.op-fs { transition: none !important; }
+  .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
 #op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
@@ -591,5 +587,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-fallback > li > strong:first-child { color: #D6C9A9; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82rem; }
 .op-fallback strong { color: var(--ivory); font-weight: 600; }
 .op-fallback a { color: var(--ivory); }
-.op-map.op-live + .op-fallback { display: none; }
+.op-map.op-live + .op-fallback,
+.op-map-ph + .op-fallback { display: none; } /* hidden while live, incl. while the map is portaled to <body> */
 </style>
