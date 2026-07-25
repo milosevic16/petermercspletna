@@ -322,7 +322,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       lbl.style.opacity = (id !== focusId && (active || disc)) ? '1' : '0'
       if (node.parent) {
         const isCat = node.depth === 1
-        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 14) / k
+        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 13) / k
         const pn = byId[node.parent], dxp = node.x - pn.x, dyp = node.y - pn.y
         const gap = rDot + 9
         const lns = wrap(node.label, desktop ? 20 : 13)
@@ -366,6 +366,28 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       else { const fnU = 18 / k; focusName.style.fontSize = fnU.toFixed(2) + 'px'; focusName.setAttribute('y', (f.y + 25 + fnU * 0.92 + 5).toFixed(1)) }
       focusName.classList.add('on')
     } else focusName.classList.remove('on')
+    // De-clutter titles: never let two visible titles overlap, in any state. Place
+    // greedily by priority (active > spine > discovered, shallower first); hide any
+    // lower-priority title whose box hits an already-placed one — its dot stays
+    // (tappable) and the title returns once there's room. Active titles are never
+    // hidden (the layout keeps them clear). getBBox is in the shared camera user
+    // space, so an overlap there is exactly an overlap on screen.
+    {
+      const placed: { x: number; y: number; width: number; height: number }[] = []
+      if (focusId !== 'pm') { try { placed.push(focusName.getBBox()) } catch { /* noop */ } }
+      const prio = (id: string) => { const t = tier(id); return t === 'active' ? 3 : t === 'spine' ? 2 : 1 }
+      Object.keys(nodeEls)
+        .filter((id) => (nodeEls[id].querySelector('.op-lbl') as SVGTextElement).style.opacity !== '0')
+        .sort((a, b) => prio(b) - prio(a) || byId[a].depth - byId[b].depth)
+        .forEach((id) => {
+          const l = nodeEls[id].querySelector('.op-lbl') as SVGTextElement
+          let bb: { x: number; y: number; width: number; height: number }
+          try { bb = l.getBBox() } catch { return }
+          const hit = placed.some((p) => !(bb.x + bb.width < p.x || bb.x > p.x + p.width || bb.y + bb.height < p.y || bb.y > p.y + p.height))
+          if (hit && prio(id) < 3) l.style.opacity = '0'
+          else placed.push(bb)
+        })
+    }
     setCamera(camTgt, { animate }) // glide on navigation, snap on layout re-renders
     // breadcrumb
     crumbs.innerHTML = ''
