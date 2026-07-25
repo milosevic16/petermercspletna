@@ -316,7 +316,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       // so it stays legible and never rescales as the camera zooms. Desktop keeps
       // its original 13.5/14.5-unit sizing, so its output is byte-identical.
       const lbl = g.querySelector('.op-lbl') as SVGTextElement
-      lbl.style.opacity = (active && id !== focusId) ? '1' : '0'
+      // Show discovered titles too, dimmed: the node group's 0.45 opacity does the
+      // fading, so active labels read ~1.0 and discovered ones ~0.45 (on desktop
+      // `disc` is always false, so this stays the active-only original behavior).
+      lbl.style.opacity = (id !== focusId && (active || disc)) ? '1' : '0'
       if (node.parent) {
         const isCat = node.depth === 1
         const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 14) / k
