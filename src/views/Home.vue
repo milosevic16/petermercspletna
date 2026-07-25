@@ -505,17 +505,33 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 }
 
-/* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds */
+/* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds.
+   A little more present than a plain caption — a live accent dot + soft lift —
+   but still a slim, elegant pill. */
 .op-coach {
-  position: absolute; top: 3rem; left: 50%; transform: translateX(-50%);
-  z-index: 3; pointer-events: none; opacity: 0; transition: opacity 0.45s ease;
-  background: rgba(20, 21, 23, 0.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(236, 231, 220, 0.16); border-radius: 999px;
-  padding: 0.4rem 0.85rem; color: var(--ivory2); white-space: nowrap;
-  font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+  position: absolute; top: 2.6rem; left: 50%;
+  z-index: 3; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
+  opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.96);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  background: rgba(20, 21, 23, 0.92); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+  border: 1px solid rgba(236, 231, 220, 0.22); border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(15, 16, 18, 0.42);
+  padding: 0.5rem 1rem 0.5rem 0.8rem; color: var(--ivory);
+  font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em;
 }
-.op-coach.show { opacity: 1; }
+.op-coach::before {
+  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(210, 69, 62, 0.5); animation: op-coach-pulse 2s ease-out infinite;
+}
+.op-coach.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+@keyframes op-coach-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(210, 69, 62, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(210, 69, 62, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(210, 69, 62, 0); }
+}
 @media (min-width: 741px) { .op-coach { display: none; } }
+@media (prefers-reduced-motion: reduce) { .op-coach::before { animation: none; } }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
 .op-fallback { list-style: none; margin: 0.4rem 0 0; padding: 0; font-family: 'Instrument Sans', Arial, sans-serif; }

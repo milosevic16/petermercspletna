@@ -274,6 +274,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     showCoach()
   }
 
+  // Mobile "persistent discovery": once you've opened a node it stays lit and
+  // tappable, so you can pan across the whole explored map instead of watching
+  // branches fade in and out. Desktop keeps the focus-only fade (straightforward).
+  const discovered = new Set<string>()
+  const DISC_OP = 0.45
+
   // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
   // re-renders (resize/observer/settle/fonts) snap so they never tween.
   function render(animate = false) {
@@ -281,6 +287,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
     const desktop = isDesktop()
+    // Everything on the current focus path/branch counts as discovered (mobile).
+    if (!desktop) { discovered.add(focusId); childIds.forEach((c) => discovered.add(c)); path.forEach((p) => discovered.add(p)) }
     // The dossier window is the single description surface, desktop and mobile:
     // select a node and its description shows here. Fill it BEFORE fit() so its
     // measured height (mobile, where it's a full-width sheet) can be reserved out
@@ -294,8 +302,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const k = camTgt.s * ppu || 1
     Object.keys(nodeEls).forEach((id) => {
       const g = nodeEls[id], node = byId[id], t = tier(id), active = t === 'active'
-      g.style.opacity = String(OP[t])
-      g.classList.toggle('op-click', active)
+      const disc = !desktop && discovered.has(id) // discovered stays visible + tappable on mobile
+      g.style.opacity = String(disc && OP[t] === 0 ? DISC_OP : OP[t])
+      g.classList.toggle('op-click', active || disc)
       g.classList.toggle('op-focus', id === focusId)
       g.classList.toggle('op-sel', id === selId && id !== focusId)
       // bigger nodes + far bigger tap targets on touch
@@ -343,6 +352,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const t = tier(id), e = edgeEls[id]
       e.setAttribute('stroke-width', (1.3 / camTgt.s).toFixed(2))
       if (t === 'active' || t === 'spine') e.setAttribute('stroke', 'rgba(236,231,220,' + (t === 'active' ? 0.5 : 0.4) + ')')
+      else if (!desktop && discovered.has(id)) e.setAttribute('stroke', 'rgba(236,231,220,0.16)') // discovered edge stays drawn
       else e.setAttribute('stroke', 'url(#opg-' + id + ')')
     })
     pmhub.style.opacity = String(OP[tier('pm')])
