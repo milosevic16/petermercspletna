@@ -336,7 +336,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       g.classList.toggle('op-focus', id === focusId)
       g.classList.toggle('op-sel', id === selId && id !== focusId)
       // bigger nodes + far bigger tap targets on touch
-      const rDot = id === focusId ? (desktop ? 18 : 25) : node.depth === 1 ? (desktop ? 14 : 20) : (desktop ? 12 : 18)
+      const rDot = id === focusId ? (desktop ? 18 : 28) : node.depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
       ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', String(rDot))
       ;(g.querySelector('.op-hit') as SVGCircleElement).setAttribute('r', String(rDot + (desktop ? 14 : 26)))
       // Label: geometry tracks the live radius; on mobile the font is pinned to a
@@ -470,7 +470,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     hideCoach()
     placeholder = document.createElement('div')
     placeholder.className = 'op-map-ph'
-    placeholder.style.height = container.getBoundingClientRect().height + 'px'
+    const first = container.getBoundingClientRect() // collapsed box, BEFORE portal, for the FLIP
+    placeholder.style.height = first.height + 'px'
     placeholder.style.marginTop = getComputedStyle(container).marginTop
     container.parentNode!.insertBefore(placeholder, container)
     // Portal to <body>: #main carries a filled identity transform from its entrance
@@ -486,13 +487,24 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     updateViewBox(); render() // fit the camera into the fullscreen box
     requestAnimationFrame(() => { try { fsExit.focus() } catch { /* noop */ } })
     if (reduced) return
+    // FLIP: grow the fullscreen box out of the collapsed section's box. Now that the
+    // overlay is correctly viewport-fixed (portaled to body), the rects are right, so
+    // this reads as the section smoothly enlarging into fullscreen. WAAPI = composited.
+    const last = container.getBoundingClientRect()
+    const sx = Math.max(0.05, first.width / (last.width || 1))
+    const sy = Math.max(0.05, first.height / (last.height || 1))
+    const ox = first.left - last.left, oy = first.top - last.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity' // GPU-composite the grow → smooth on iOS
     try {
       fsAnim = container.animate(
-        [{ opacity: 0, transform: 'scale(0.965)' }, { opacity: 1, transform: 'none' }],
-        { duration: FS_DUR, easing: 'cubic-bezier(0.34,0.9,0.24,1)' }
+        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.55 },
+         { opacity: 1, offset: 0.45 },
+         { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
+        { duration: 520, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' } // smooth, decisive ease-out
       )
-      fsAnim.onfinish = () => { fsAnim = null }
-    } catch { /* noop */ }
+      fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
+    } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
@@ -513,15 +525,24 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     resetGesture(); suppressClick = false; stopMomentum()
     if (reduced) { finish(); return }
     let done = false
-    const end = () => { if (done) return; done = true; finish() }
+    const end = () => { if (done) return; done = true; container.style.transformOrigin = ''; container.style.willChange = ''; finish() }
+    // Reverse FLIP: shrink the fullscreen box back into the collapsed section's slot
+    // (the placeholder still marks it), then drop back into the page.
+    const cur = container.getBoundingClientRect()
+    const tgt = placeholder ? placeholder.getBoundingClientRect() : cur
+    const sx = Math.max(0.05, tgt.width / (cur.width || 1))
+    const sy = Math.max(0.05, tgt.height / (cur.height || 1))
+    const ox = tgt.left - cur.left, oy = tgt.top - cur.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity'
     try {
       fsAnim = container.animate(
-        [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.965)' }],
-        { duration: FS_DUR, easing: 'cubic-bezier(0.4,0.06,0.2,1)' }
+        [{ transform: 'none', opacity: 1 }, { transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.4 }],
+        { duration: 360, easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)' }
       )
       fsAnim.onfinish = end; fsAnim.oncancel = end
     } catch { end(); return }
-    fsSafety = window.setTimeout(end, FS_DUR + 160) // safety if onfinish never fires
+    fsSafety = window.setTimeout(end, 520) // safety if onfinish never fires
   }
   // Instant (no animation) teardown of the overlay — for teardown and for a
   // viewport crossing to desktop mid-fullscreen (tablet rotation), where the
@@ -529,7 +550,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function forceCollapse() {
     if (fsState === 'collapsed') return
     stopFsAnim()
-    container.style.opacity = ''; container.style.transform = ''
+    container.style.opacity = ''; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
     container.classList.remove('op-fs')
     container.removeAttribute('role'); container.removeAttribute('aria-modal')
     if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)

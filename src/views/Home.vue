@@ -491,8 +491,17 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 #op-focusname { font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 17px; fill: var(--ivory); text-anchor: middle; opacity: 0; transition: opacity 0.5s ease; }
 #op-focusname.on { opacity: 1; }
 #op-hub .op-core { fill: var(--accent); }
-#op-hub .op-ring { fill: none; stroke: rgba(236, 231, 220, 0.3); stroke-width: 1; opacity: 0; transition: opacity 0.5s; }
+#op-hub .op-ring { fill: none; stroke: rgba(236, 231, 220, 0.3); stroke-width: 1; opacity: 0; transition: opacity 0.5s; transform-box: fill-box; transform-origin: center; }
 #op-hub.op-top .op-ring { opacity: 1; }
+/* At the hub view, the ring radiates outward like a slow radar ping — an elegant
+   "this is live, tap to explore" invitation. */
+#op-hub.op-top .op-ring { animation: op-hub-ping 3.4s cubic-bezier(0.2, 0.6, 0.2, 1) infinite; }
+@keyframes op-hub-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  60% { transform: scale(2.7); opacity: 0; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { #op-hub.op-top .op-ring { animation: none; } }
 #op-hub text { fill: #F4F1EA; font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 700; letter-spacing: 0.06em; }
 
 .op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
@@ -524,6 +533,9 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   /* bound the sheet so the band the camera reserves for it stays small even for
      the longest description; the camera measures whatever height it lands at. */
   .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* Collapsed (preview): keep the panel compact so it doesn't crowd the graph —
+     the camera reserves less, so the graph reads bigger. Full text in fullscreen. */
+  .op-map.op-live:not(.op-fs) .op-d-desc { max-height: 2.9em; }
 }
 
 /* Fullscreen exit — lives inside the dossier so it never moves while the graph
