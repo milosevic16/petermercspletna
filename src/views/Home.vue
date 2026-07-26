@@ -444,8 +444,20 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     background: var(--graphite);
   }
   /* collapsed: page scrolls over the map. fullscreen: free 2D pan + the overlay
-     intercepts every touch (touch-action:none) so the page can't scroll. */
-  .op-map.op-fs #op-svg { touch-action: none; overscroll-behavior: none; }
+     intercepts every touch so the page can't scroll. touch-action:none must sit
+     on the CONTAINER: iOS WebKit applies it unreliably on SVG elements, letting a
+     drag be claimed for a native page pan — after which every touchmove arrives
+     cancelable:false and JS preventDefault can't take the gesture back (the
+     "pan never follows the finger" iPhone bug). A document-level touchmove guard
+     in opMap.ts (lockScroll) backstops even that. */
+  .op-map.op-live.op-fs { touch-action: none; overscroll-behavior: none; }
+  /* will-change keeps the svg ROOT on its own compositor layer: the live pan is a
+     CSS translate3d on it (GPU-composited even in WebKit's legacy SVG engine),
+     not a per-frame rewrite of the inner <g> transform attribute (CPU repaint of
+     the whole SVG on iPhone). */
+  .op-map.op-fs #op-svg { touch-action: none; overscroll-behavior: none; will-change: transform; }
+  /* the description keeps its own native scroll (also exempted by the JS guard) */
+  .op-map.op-fs .op-d-desc { touch-action: pan-y; }
 }
 @supports not (height: 100dvh) {
   @media (max-width: 740px) { .op-map.op-live.op-fs { height: 100vh; } }
@@ -467,6 +479,9 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* decorative focus title floats mid-screen exactly where drags start — it must
+     never be a touch/long-press target (taps fall through to the bg → up-nav). */
+  #op-focusname { pointer-events: none; }
 }
 /* The camera is tweened in JS (rAF) in opMap.ts, NOT via a CSS transition:
    iOS Safari does not transition an SVG <g>'s transform *attribute*, so this
