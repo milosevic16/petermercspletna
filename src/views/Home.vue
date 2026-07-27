@@ -160,9 +160,19 @@
           <em style="font-family:'Spectral', Georgia, serif; font-weight:400; font-style:italic; font-size:0.9rem; color:var(--ink2);">{{ t.timeline.aside }}</em>
         </h2>
         <div class="pm-desktop-only">
-          <div id="tl-h" class="tl-h">
-            <div class="tl-track tl-track-up" :style="{ gridTemplateColumns: `repeat(${t.timeline.above.length}, 1fr)` }">
-              <div v-for="e in t.timeline.above" :key="'up-' + e.year + e.title" data-tl-item="" class="tl-cell">
+          <!-- One shared axis: every entry takes its own column in chronological
+               order and renders above or below the rail according to its track.
+               16 columns will not fit the text column at a readable width, so
+               the rail scrolls rather than compressing. -->
+          <div id="tl-h" class="tl-h" tabindex="0" role="group" :aria-label="t.timeline.eyebrow">
+            <div class="tl-grid" :style="{ gridTemplateColumns: `repeat(${timelineMerged.length}, var(--tl-slot))` }">
+              <div
+                v-for="(e, i) in timelineMerged"
+                :key="e.side + e.year + e.title"
+                data-tl-item=""
+                class="tl-cell"
+                :class="['tl-cell-' + e.side, { 'tl-step': e.step }]"
+                :style="{ gridColumn: i + 1, gridRow: e.side === 'above' ? 1 : 3 }">
                 <span class="tl-txt">
                   <span class="tl-year">{{ e.year }}</span>
                   <strong class="tl-title">{{ e.title }}</strong>
@@ -170,19 +180,8 @@
                 </span>
                 <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
               </div>
-              <!-- The rail is this track's bottom border; the fill overlays it, so
-                   neither track has to know the other's height to line dots up. -->
+              <span aria-hidden="true" class="tl-rail"></span>
               <span data-tl-line="" aria-hidden="true" class="tl-fill"></span>
-            </div>
-            <div class="tl-track tl-track-dn" :style="{ gridTemplateColumns: `repeat(${t.timeline.below.length}, 1fr)` }">
-              <div v-for="e in t.timeline.below" :key="'dn-' + e.year + e.title" data-tl-item="" class="tl-cell">
-                <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
-                <span class="tl-txt">
-                  <span class="tl-year">{{ e.year }}</span>
-                  <strong class="tl-title">{{ e.title }}</strong>
-                  <span class="tl-cap">{{ e.caption }}</span>
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -293,14 +292,20 @@ import home, { withOrgLinks } from '@/content/home'
 const t = usePageContent(home)
 useHead(home)
 
-// The two timeline tracks are separate rows on desktop, but the mobile rail is
-// a single column, so there they merge back into one chronology — each entry
-// keeps its track in `side`, which picks the rail side and the dot colour.
+// Both layouts run off one chronological sequence, so reading along the rail the
+// years only ever increase. `side` picks which side of the rail an entry sits on
+// and its dot colour; `step` drops every second entry on a side a notch further
+// out, so a run of neighbours on one side does not read as a single block.
 // Sort is stable, so an `above` entry leads a `below` one from the same year.
-const timelineMerged = computed(() => [
-  ...t.value.timeline.above.map((e) => ({ ...e, side: 'above' })),
-  ...t.value.timeline.below.map((e) => ({ ...e, side: 'below' })),
-].sort((a, b) => Number(a.year) - Number(b.year)))
+const timelineMerged = computed(() => {
+  const merged = [
+    ...t.value.timeline.above.map((e) => ({ ...e, side: 'above' })),
+    ...t.value.timeline.below.map((e) => ({ ...e, side: 'below' })),
+  ].sort((a, b) => Number(a.year) - Number(b.year))
+  let up = 0
+  let down = 0
+  return merged.map((e) => ({ ...e, step: (e.side === 'above' ? up++ : down++) % 2 === 1 }))
+})
 
 // This page's design tokens (baked from the original #pm-root inline vars).
 // Applied at runtime so pages with different palettes never clobber each other.
@@ -411,33 +416,35 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .tl-cap { font-family: 'Instrument Sans', Arial, sans-serif; line-height: 1.45; color: var(--ink2); }
 .tl-dot { width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 3px solid; background: var(--paper); }
 
-.tl-h { display: flex; flex-direction: column; }
-.tl-track { display: grid; gap: 0 0.75rem; }
-.tl-track-up { position: relative; border-bottom: 2px solid var(--line); }
-.tl-cell { position: relative; display: flex; flex-direction: column; min-width: 0; }
-.tl-track-up .tl-cell { justify-content: flex-end; padding-bottom: 1.35rem; }
-.tl-track-dn .tl-cell { padding-top: 1.35rem; }
-/* Ten lower entries in one row read as a wall of text, so every second one drops
-   a step and a hairline runs from its dot down to it. Padding, not margin: the
-   dot is pinned to the cell's top edge, which must stay on the rail. */
-.tl-track-dn .tl-cell:nth-child(even) { padding-top: 4.6rem; }
-.tl-track-dn .tl-cell:nth-child(even)::before {
-  content: ''; position: absolute; left: 6px; top: 1.1rem;
-  width: 2px; height: 2.7rem; background: var(--line);
-}
+/* One rail, one chronological axis: each entry owns a column and its track picks
+   the row above or below the rail. Because the two tracks now share the axis, no
+   two dots can land in the same column, so the dots sit centred on the rail.
+   16 columns will not fit at a readable width, so the rail scrolls. */
+.tl-h { overflow-x: auto; overflow-y: hidden; padding-bottom: 0.7rem; scrollbar-width: thin; scrollbar-color: rgba(92,89,79,0.4) transparent; }
+.tl-h:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.tl-grid { --tl-slot: 9.4rem; display: grid; grid-template-rows: auto 2px auto; width: max-content; }
+.tl-rail, .tl-fill { grid-column: 1 / -1; grid-row: 2; }
+.tl-rail { background: var(--line); }
+.tl-fill { background: var(--accent); transform: scaleX(0); transform-origin: left; }
+.tl-cell { position: relative; display: flex; flex-direction: column; min-width: 0; padding-right: 1rem; }
+.tl-cell-above { justify-content: flex-end; padding-bottom: 1.35rem; }
+.tl-cell-below { padding-top: 1.35rem; }
+/* A run of neighbours on one side would read as a single block, so every second
+   one drops a step with a hairline back to its dot. Padding, not margin: the dot
+   is pinned to the cell edge that sits on the rail. */
+.tl-cell-above.tl-step { padding-bottom: 4.6rem; }
+.tl-cell-below.tl-step { padding-top: 4.6rem; }
+.tl-step::before { content: ''; position: absolute; left: 6px; width: 2px; height: 2.7rem; background: var(--line); }
+.tl-cell-above.tl-step::before { bottom: 1.1rem; }
+.tl-cell-below.tl-step::before { top: 1.1rem; }
 .tl-h .tl-title { font-size: 0.95rem; }
 .tl-h .tl-cap { font-size: 0.75rem; }
+/* -8px centres a 14px dot on the 2px rail from either row. */
 .tl-h .tl-dot { position: absolute; left: 0; }
-/* The tracks have different column counts, so their dots share an x wherever
-   i/6 == j/10 — (0,0) and (3,5), at every width. Centred on the rail the lower
-   track would paint over two upper dots and lose them; sitting tangent to the
-   rail instead, one above and one below, a shared x stacks them rather than
-   hiding either. */
-.tl-track-up .tl-dot { bottom: 0; border-color: var(--accent); }
-.tl-track-dn .tl-dot { top: 0; border-color: var(--ink); }
-.tl-track-up .tl-year, .tl-track-up .tl-title { color: var(--accent); }
-.tl-track-dn .tl-year { color: var(--ink); }
-.tl-fill { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; }
+.tl-cell-above .tl-dot { bottom: -8px; border-color: var(--accent); }
+.tl-cell-below .tl-dot { top: -8px; border-color: var(--ink); }
+.tl-cell-above .tl-year, .tl-cell-above .tl-title { color: var(--accent); }
+.tl-cell-below .tl-year { color: var(--ink); }
 
 .tl-v { position: relative; display: flex; flex-direction: column; gap: 1.6rem; }
 .tl-v-base, .tl-v-fill { position: absolute; top: 0.4rem; bottom: 0.4rem; left: 50%; width: 2px; margin-left: -1px; }
