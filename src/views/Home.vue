@@ -468,6 +468,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 @media (min-width: 741px) {
   .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
+/* Scrim under the fullscreen overlay (created in opMap.ts at entry): fades
+   the page to the section's graphite while the box expands, so the box's
+   opaque edge never sweeps across still-visible text. */
+.op-scrim { position: fixed; inset: 0; z-index: 9998; background: var(--graphite); pointer-events: none; }
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
    whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).

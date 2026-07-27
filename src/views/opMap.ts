@@ -164,6 +164,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // as the camera tween (see applyEnterFlip) so box and graph can never
   // desynchronize into a jump.
   let enterFlip: { l: number; t: number; u: number } | null = null
+  // Scrim under the overlay: fades the page to the section's graphite while
+  // the box expands, so the box's opaque edge never sweeps across
+  // still-bright page text (which read as a glitchy hard cut).
+  let scrim: HTMLDivElement | null = null
+  let scrimAnim: Animation | null = null
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
@@ -950,6 +955,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
   }
+  function dropScrim(fadeMs: number) {
+    const s = scrim
+    if (!s) return
+    scrim = null
+    let cur = 1
+    try { cur = parseFloat(getComputedStyle(s).opacity) || 1 } catch { /* noop */ }
+    if (scrimAnim) { try { scrimAnim.cancel() } catch { /* noop */ } scrimAnim = null }
+    if (!fadeMs || reduced) { s.remove(); return }
+    try {
+      const a = s.animate([{ opacity: cur }, { opacity: 0 }], { duration: fadeMs, easing: 'ease' })
+      a.onfinish = () => s.remove()
+      a.oncancel = () => s.remove()
+    } catch { s.remove(); return }
+    window.setTimeout(() => s.remove(), fadeMs + 250) // belt if onfinish never fires
+  }
   function stopFsAnim() {
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
     if (sheetAnim) { try { sheetAnim.cancel() } catch { /* noop */ } sheetAnim = null }
@@ -975,6 +995,19 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     placeholder.style.height = first.height + 'px'
     placeholder.style.marginTop = getComputedStyle(container).marginTop
     container.parentNode!.insertBefore(placeholder, container)
+    // The page fades toward graphite underneath the lifting box (see the
+    // scrim note above): by the time the box's edge reaches any text, that
+    // text has already faded away.
+    if (!reduced) {
+      dropScrim(0)
+      scrim = document.createElement('div')
+      scrim.className = 'op-scrim'
+      document.body.appendChild(scrim)
+      try {
+        scrimAnim = scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease' })
+        scrimAnim.onfinish = () => { scrimAnim = null }
+      } catch { /* noop */ }
+    }
     // Portal to <body>: #main carries a filled identity transform from its entrance
     // animation, which would otherwise make this position:fixed overlay relative to
     // #main (off-screen when scrolled down) instead of the viewport. <body> is clean.
@@ -1054,7 +1087,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       lastFocused = null
     }
     resetGesture(); suppressClick = false; stopMomentum()
-    if (reduced) { finish(); return }
+    if (reduced) { dropScrim(0); finish(); return }
+    dropScrim(520) // page fades back in around the shrinking box
     let done = false
     const end = () => { if (done) return; done = true; container.style.transformOrigin = ''; container.style.willChange = ''; finish() }
     // Reverse FLIP: shrink the fullscreen box back into the collapsed section's
@@ -1089,6 +1123,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
     stopMomentum(); panX = 0; panY = 0
+    dropScrim(0)
     fsState = 'collapsed'
   }
   // Focus set for the Tab-trap (mobile fullscreen only).
