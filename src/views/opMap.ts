@@ -159,6 +159,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let seenAway = false
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
+  let sheetAnim: Animation | null = null
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
@@ -927,10 +928,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
   }
-  function stopFsAnim() { if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null } if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 } }
+  function stopFsAnim() {
+    if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
+    if (sheetAnim) { try { sheetAnim.cancel() } catch { /* noop */ } sheetAnim = null }
+    if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
+    container.classList.remove('op-entering')
+  }
   function enterFullscreen() {
     if (isDesktop() || fsState !== 'collapsed') return
     stopFsAnim()
+    // Capture the collapsed view's box and world->viewport mapping BEFORE
+    // anything moves: the overlay's first frame must reproduce it exactly.
+    const first = container.getBoundingClientRect()
+    const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
+    const oldCam = { ...cam }
+    const oldW = cssW, oldH = cssH
     fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
     armed = false          // the once-per-load auto-open is spent on ANY entry
     if (io) { io.disconnect(); io = null } // its one job is done
@@ -938,7 +950,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     lastFocused = (document.activeElement as HTMLElement) || null
     placeholder = document.createElement('div')
     placeholder.className = 'op-map-ph'
-    const first = container.getBoundingClientRect() // collapsed box, BEFORE portal, for the FLIP
     placeholder.style.height = first.height + 'px'
     placeholder.style.marginTop = getComputedStyle(container).marginTop
     container.parentNode!.insertBefore(placeholder, container)
@@ -952,32 +963,61 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     lockScroll()
     resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
-    updateViewBox(); render() // fit the camera into the fullscreen box
+    updateViewBox()
+    // Seamless handoff: start the fullscreen camera at the transform that
+    // reproduces the collapsed view pixel-for-pixel — same world scale
+    // (oldU2p*s carried into the new px-per-unit) and same world->viewport
+    // offsets (the old box's centre re-expressed in the fullscreen box). The
+    // graph therefore does not move AT ALL on the entry frame; render(true)
+    // below aims the regular camera tween at the fullscreen fit and that
+    // glide IS the zoom. No snap, nothing to hide with an opacity dip.
+    const newU2p = Math.min(cssW / VBW, cssH / VBH) || 1
+    camActive = false
+    cam = {
+      s: oldCam.s * (oldU2p / newU2p),
+      tx: (first.left + oldW / 2 - cssW / 2 + oldCam.tx * oldU2p) / newU2p,
+      ty: (first.top + oldH / 2 - cssH / 2 + oldCam.ty * oldU2p) / newU2p,
+    }
+    render(!reduced)
+    // Paint the matched frame NOW. An IntersectionObserver callback runs
+    // after this frame's rAF but before paint, so the canvas resize above
+    // (which clears the bitmap) would otherwise reach the screen for one
+    // frame before the draw loop repaints — a visible blank flash.
+    draw(performance.now())
     // preventScroll: plain focus() scroll-reveals the button in the (still
     // programmatically scrollable) locked document — a hidden shift under the overlay.
     requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
     if (reduced) return
-    // FLIP: grow the fullscreen box out of the collapsed section's box — the
-    // whole entrance is this one smooth zoom into the graph. WAAPI on the
-    // container (an HTML box): composited, no mid-flight layout, smooth on iOS.
-    // Slow and GRADUAL by request: a near-symmetric ease that builds up gently
-    // instead of an ease-out that fires most of its motion in the first frames
-    // (that read as being "popped" into the overlay).
-    const last = container.getBoundingClientRect()
-    const sx = Math.max(0.05, first.width / (last.width || 1))
-    const sy = Math.max(0.05, first.height / (last.height || 1))
-    const ox = first.left - last.left, oy = first.top - last.top
-    container.style.transformOrigin = 'top left'
-    container.style.willChange = 'transform, opacity'
+    // The reveal: the overlay starts clipped to the section's old box and
+    // opens out to the full viewport in step with the camera glide (same
+    // duration and curve as CAM_DUR/camEase), so the box and its content move
+    // as one. No transform and no opacity keyframes: the graph stays
+    // continuously visible, crisp and undistorted the whole way.
+    container.classList.add('op-entering') // holds the sheet text compact until the reveal lands
+    const insTop = first.top, insLeft = first.left
+    const insRight = cssW - (first.left + first.width)
+    const insBottom = cssH - (first.top + first.height)
     try {
       fsAnim = container.animate(
-        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.6 },
-         { opacity: 1, offset: 0.5 },
-         { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
-        { duration: 950, easing: 'cubic-bezier(0.45, 0.05, 0.15, 1)' }
+        [{ clipPath: `inset(${insTop.toFixed(1)}px ${insRight.toFixed(1)}px ${insBottom.toFixed(1)}px ${insLeft.toFixed(1)}px)` },
+         { clipPath: 'inset(0px 0px 0px 0px)' }],
+        { duration: 1050, easing: 'cubic-bezier(0.33, 0, 0.2, 1)' }
       )
-      fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
-    } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
+      fsAnim.onfinish = () => { fsAnim = null; container.classList.remove('op-entering') }
+    } catch { container.classList.remove('op-entering') }
+    // The sheet rides the clip's bottom edge down to the viewport bottom, so
+    // it reads as the SAME sheet travelling with the opening box instead of
+    // teleporting there.
+    if (insBottom > 0.5) {
+      try {
+        sheetAnim = dossier.animate(
+          [{ transform: `translateY(${(-insBottom).toFixed(1)}px)` }, { transform: 'translateY(0px)' }],
+          { duration: 1050, easing: 'cubic-bezier(0.33, 0, 0.2, 1)' }
+        )
+        sheetAnim.onfinish = () => { sheetAnim = null }
+      } catch { /* noop */ }
+    }
+    fsSafety = window.setTimeout(() => { container.classList.remove('op-entering') }, 1400) // belt if onfinish never fires
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
@@ -993,6 +1033,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       panX = 0; panY = 0 // recentre: the preview always shows the whole graph centred
       fsState = 'collapsed'
       updateViewBox(); render() // refit into the collapsed box
+      draw(performance.now()) // paint before this frame ends — no blank flash on landing
       if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus({ preventScroll: true }) } catch { /* noop */ } }
       lastFocused = null
     }
