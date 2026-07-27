@@ -12,7 +12,7 @@
 // (checkerboarding). A canvas draws the complete scene synchronously every
 // frame (~30 dots + labels — trivial), so there is nothing to tile, defer, or
 // "load in". The draw loop only runs while something animates; a static scene
-// costs nothing. HTML overlays (crumbs, dossier, back, coach) are unchanged.
+// costs nothing. HTML overlays (dossier, back button, up-zone) are plain DOM.
 
 export interface OpMapNode {
   key: string
@@ -42,7 +42,10 @@ const SERIF = '"Spectral", Georgia, serif'
 
 export function initOpMap(container: HTMLElement, content: OpMapContent): () => void {
   const reduced = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false } })()
-  const isDesktop = () => { try { return window.matchMedia('(min-width: 741px)').matches } catch { return true } }
+  // NOT (max-width:740) rather than (min-width:741): fractional widths in the
+  // open interval (740,741) match neither query, and the scroll engine must
+  // agree with the CSS mobile block about which world it is in.
+  const isDesktop = () => { try { return !window.matchMedia('(max-width: 740px)').matches } catch { return true } }
   const ACCENT = (() => { try { return getComputedStyle(container).getPropertyValue('--accent').trim() || '#D2453E' } catch { return '#D2453E' } })()
 
   // ---- flatten tree + fixed radial layout ---------------------------------
@@ -118,7 +121,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const pmback = h('button', 'op-back') as HTMLButtonElement; pmback.type = 'button'; pmback.hidden = true
   pmback.innerHTML = '<span class="op-back-disc" aria-hidden="true">PM</span><span class="op-back-txt"></span>'
   ;(pmback.querySelector('.op-back-txt') as HTMLElement).textContent = content.backLabel
-  const crumbs = h('nav', 'op-crumbs'); crumbs.setAttribute('aria-label', 'You are here')
   const dossier = h('aside', 'op-dossier'); dossier.setAttribute('aria-live', 'polite')
   dossier.innerHTML =
     '<div class="op-dossier-in">'
@@ -127,14 +129,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     + '</div>'
   // The up-zone: the subtle chevron + accent glow strip at the top while the map
   // is engaged. It carries NO touch listeners on purpose — a swipe starting here
-  // scrolls the page natively, which is how you leave the map upward.
-  const upzone = h('div', 'op-upzone')
+  // scrolls the page natively — and a TAP on it glides the page back above the
+  // map (see the click handler where the scroll engine lives), so it works both
+  // as a gesture surface and as a button.
+  const upzone = h('button', 'op-upzone') as HTMLButtonElement
+  upzone.type = 'button'
+  upzone.tabIndex = -1
   upzone.setAttribute('aria-hidden', 'true')
   upzone.innerHTML =
     '<svg class="op-upzone-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
     + '<path d="M5 14.5 L12 7.5 L19 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
     + '</svg>'
-  container.append(upzone, pmback, crumbs, dossier)
+  container.append(upzone, pmback, dossier)
 
   // ---- state + camera -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
@@ -163,7 +169,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const OP = { active: 1, spine: 0.5, hint: 0, context: 0 }
   // Viewport space the HTML overlays occupy, in world units. On mobile the
-  // crumbs sit at the top and the dossier is a full-width sheet pinned to the
+  // up-zone strip sits at the top and the dossier is a full-width sheet pinned to the
   // bottom; the camera must fit the graph into what's LEFT, or the lowest nodes
   // land under (and behind) the sheet where taps never reach them. Desktop is
   // already height-bound with no slack, so it gets no insets.
@@ -178,8 +184,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const leftPx = dossier.classList.contains('show') ? dossier.offsetWidth + 30 : 0
       return { top: 0, bottom: 0, left: leftPx * px2u, right: (leftPx ? 150 : 0) * px2u }
     }
-    const crumbH = crumbs.offsetHeight || 34
-    const topPx = Math.max(crumbH, pmback.hidden ? 0 : 40)
+    // top band: the up-zone glow strip (and the back button when shown)
+    const topPx = Math.max(44, pmback.hidden ? 0 : 40)
     const sheetH = dossier.offsetHeight || 170
     // +28 at the bottom so the lowest node's dot clears the sheet (the band
     // centres node CENTRES; the dot extends below its centre). The side margin
@@ -411,6 +417,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function foldPan() { stopMomentum(); if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } }
 
   let io: IntersectionObserver | null = null
+  let visIO: IntersectionObserver | null = null
+  let stageVisible = true // ambient animations (radar ping, pulse) pause off-screen
+  let disposed = false
   // One-shot, purely additive: nothing is pre-hidden, so the map can never render
   // blank if the animation is skipped/unsupported.
   function enterAnim() {
@@ -615,13 +624,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
         })
     }
     setCamera(camTgt, { animate }) // glide on navigation, snap on layout re-renders
-    // breadcrumb
-    crumbs.innerHTML = ''
-    path.forEach((id, i) => {
-      if (i) { const s = h('span', 'op-crumb-sep'); s.textContent = '›'; crumbs.appendChild(s) }
-      const b = h('button', 'op-crumb') as HTMLButtonElement; b.type = 'button'; b.textContent = id === 'pm' ? content.hub.label : byId[id].label
-      b.addEventListener('click', () => go(id)); crumbs.appendChild(b)
-    })
     pmback.hidden = focusId === 'pm'
     setTimeout(() => pmback.classList.toggle('show', focusId !== 'pm'), 10)
     container.classList.toggle('op-at-top', focusId === 'pm')
@@ -630,6 +632,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
+    scrollIntoEngage() // mobile, not engaged: glide the page into the fullscreen map
     if (id === 'pm') { onHubActivate(); return }
     if (id === focusId) { goUp(); return }
     const n = byId[id]
@@ -704,7 +707,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const v = vis[id]
       return twActive(v.op, now) || twActive(v.r, now) || twActive(v.lblOp, now)
     }) || twActive(focusName.op, now)
-    const ambient = !reduced && (pulse !== null || focusId === 'pm')
+    const ambient = !reduced && stageVisible && (pulse !== null || focusId === 'pm')
     if (camActive || momActive || anims || ambient) requestDraw()
   }
 
@@ -879,7 +882,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const runway = (container.parentElement && container.parentElement.id === 'op-runway')
     ? container.parentElement as HTMLElement : null
   if (runway) runway.classList.add('op-runway-live')
-  const SC0 = 0.84 // stage scale at p=0 — the preview the zoom grows out of
+  const SC0 = 0.9 // graph scale at p=0 — subtle: the section itself never shrinks
   let RUNZOOM = 500, DWELL = 460
   const onDocTouchMove = (e: TouchEvent) => {
     if (!engaged) return
@@ -900,59 +903,83 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     unwireTouch()
     document.removeEventListener('touchmove', onDocTouchMove)
     container.classList.remove('op-eng')
-    stopMomentum(); resetGesture()
+    stopMomentum(); resetGesture(); suppressClick = false
     requestDraw()
   }
   function measureRunway() {
     if (!runway) return
     const vh = window.innerHeight || 1
-    RUNZOOM = Math.round(vh * 0.6)
+    // Reduced motion: no zoom scrub to feed, so no scrub runway — the map pins
+    // and engages immediately, and only the dwell holds it. Anything longer is
+    // a feedback-free stretch of scroll for those users.
+    RUNZOOM = reduced ? 1 : Math.round(vh * 0.6)
     DWELL = Math.round(vh * 0.55)
     runway.style.setProperty('--op-runway', (RUNZOOM + DWELL) + 'px')
   }
   let lastP = -1
   const ENG_EPS = 1.5 // sub-pixel layout offsets keep exact scroll targets at p=0.999…
-  function applyScroll() {
-    scrollRAF = 0
+  // The scrub runs on a continuous rAF loop while the runway is anywhere near
+  // the viewport, NOT on scroll events: iOS delivers scroll events sparsely
+  // during momentum, so an event-driven scrub visibly steps ("jitters") between
+  // deliveries. Reading the live rect every frame follows the real scroll
+  // position at display rate. The loop idles itself out (~1.5s of stillness or
+  // the runway far off-screen) and any scroll event or touch re-arms it.
+  let loopRAF = 0, stillFrames = 0, lastYSeen = -1
+  let touchHeld = false
+  function scrubFrame() {
+    loopRAF = 0
     if (!runway || isDesktop()) return
-    // consumed runway, from the live rect — no cached offsets to go stale when
-    // content above (the accordion, fonts) changes the page's height.
-    const consumed = -runway.getBoundingClientRect().top
+    const rect = runway.getBoundingClientRect()
+    const consumed = -rect.top
     const p = Math.max(0, Math.min(1, consumed / RUNZOOM))
     if (p !== lastP) {
       lastP = p
-      // strictly proportional to scroll; identity once engaged keeps the canvas crisp
-      if (!reduced) container.style.transform = consumed >= RUNZOOM - ENG_EPS ? '' : `scale(${(SC0 + (1 - SC0) * p).toFixed(4)})`
+      // Only the GRAPH zooms — the stage, sheet and up-zone stay full-size the
+      // whole time, so the section looks exactly like the classic preview and
+      // the canvas alone grows into the fit. Identity once engaged = crisp 1:1.
+      if (!reduced) canvas.style.transform = consumed >= RUNZOOM - ENG_EPS ? '' : `scale(${(SC0 + (1 - SC0) * p).toFixed(4)})`
     }
     // engaged = fully zoomed AND still pinned (the dwell keeps this true for a
     // stretch of scroll; past it the stage un-pins and slides away)
     if (consumed >= RUNZOOM - ENG_EPS && consumed <= RUNZOOM + DWELL + 1) engage()
     else disengage()
-  }
-  let scrollRAF = 0
-  const onScroll = () => {
-    if (!scrollRAF) scrollRAF = requestAnimationFrame(applyScroll)
-    scheduleSettle()
-  }
-  // Magnetic settle: if a scroll ends midway through the zoom, glide to the
-  // nearer rest — engaged, or back out to the runway start. Never fights an
-  // active finger, and skipped under reduced motion.
-  let magnetT = 0, touchHeld = false
-  const onDocTouchStart = () => { touchHeld = true; if (magnetT) { clearTimeout(magnetT); magnetT = 0 } }
-  const onDocTouchEnd = () => { touchHeld = false; scheduleSettle() }
-  function scheduleSettle() {
-    if (magnetT) clearTimeout(magnetT)
-    magnetT = window.setTimeout(() => {
-      magnetT = 0
-      if (!runway || isDesktop() || reduced || touchHeld) return
-      const consumed = -runway.getBoundingClientRect().top
-      const p = consumed / RUNZOOM
-      if (p <= 0.04 || p >= 0.96) return
-      // land INSIDE the dwell, not on its knife edge, so engagement is certain
-      const target = (window.scrollY || 0) - consumed + (p >= 0.45 ? RUNZOOM + Math.min(48, DWELL / 4) : 0)
+    // Magnetic settle, from actual stillness (frame-counted, so sparse iOS
+    // scroll events can't fake "idle" mid-momentum): finish a half-scrubbed
+    // stop toward the nearer rest — engagement (landing inside the dwell) or
+    // back out to the runway start.
+    const y = window.scrollY || 0
+    if (y === lastYSeen) stillFrames++
+    else { stillFrames = 0; lastYSeen = y }
+    if (stillFrames === 14 && !touchHeld && !reduced && p > 0.04 && p < 0.96) {
+      const target = y - consumed + (p >= 0.45 ? RUNZOOM + Math.min(48, DWELL / 4) : 0)
       try { window.scrollTo({ top: target, behavior: 'smooth' }) } catch { window.scrollTo(0, target) }
-    }, 170)
+    }
+    const vh = window.innerHeight || 1
+    const near = rect.bottom > -vh && rect.top < vh * 2
+    if (near && stillFrames < 90) loopRAF = requestAnimationFrame(scrubFrame)
   }
+  function kickScrub() { stillFrames = 0; if (!loopRAF) loopRAF = requestAnimationFrame(scrubFrame) }
+  const onScroll = () => kickScrub()
+  const onDocTouchStart = () => { touchHeld = true; kickScrub() }
+  const onDocTouchEnd = (e: TouchEvent) => { touchHeld = e.touches.length > 0; kickScrub() }
+  // Tap-to-enter: tapping any node (or the hub) before the map is engaged glides
+  // the page to the engage point — the scrub itself plays the zoom on the way,
+  // so the tap reads as "the graph zooms in", scroll-linked end to end.
+  function scrollIntoEngage() {
+    if (!runway || isDesktop() || engaged) return
+    const consumed = -runway.getBoundingClientRect().top
+    const target = (window.scrollY || 0) - consumed + RUNZOOM + Math.min(48, DWELL / 4)
+    try { window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' }) } catch { window.scrollTo(0, target) }
+  }
+  // Tap-to-exit: the up-zone chevron glides the page back above the map; the
+  // scrub reverses on the way and the page is an ordinary page again.
+  upzone.addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (!runway) return
+    const consumed = -runway.getBoundingClientRect().top
+    const target = (window.scrollY || 0) - consumed
+    try { window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' }) } catch { window.scrollTo(0, target) }
+  })
   window.addEventListener('scroll', onScroll, { passive: true })
   document.addEventListener('touchstart', onDocTouchStart, { passive: true })
   document.addEventListener('touchend', onDocTouchEnd, { passive: true })
@@ -977,10 +1004,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // Crossing the phone/desktop breakpoint (rotation, tablet, resized window)
     // switches the fan, so the radial layout has to be rebuilt before refitting.
     if (laidOutDesktop !== isDesktop()) buildLayout(isDesktop())
-    if (isDesktop()) { disengage(); container.style.transform = ''; lastP = -1 }
+    if (isDesktop()) { disengage(); canvas.style.transform = ''; lastP = -1 }
     measureRunway()
     render()
-    onScroll() // re-derive p (and engagement) for the new geometry
+    kickScrub() // re-derive p (and engagement) for the new geometry
   }
   pmback.addEventListener('click', onBack)
   canvas.addEventListener('click', onCanvasClick)
@@ -1069,17 +1096,24 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   measureRunway()
   render()
-  onScroll() // initial p + engagement for wherever the page loads
+  kickScrub() // initial p + engagement for wherever the page loads
   // The world box aspect is derived from the container, whose final size isn't
   // known at mount (layout + webfonts still settling). A ResizeObserver re-fits
   // the moment the real size lands, and again on rotation; the timer is a
   // fallback for browsers without it.
   let ro: ResizeObserver | null = null
-  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => { measureRunway(); render(); onScroll() }); ro.observe(container) }
+  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => { measureRunway(); render(); kickScrub() }); ro.observe(container) }
   const settleTimer = window.setTimeout(render, 400)
   // Label metrics + canvas text depend on the webfont; re-measure and repaint
   // when it swaps in (canvas text is rasterized, it never reflows on its own).
-  try { (document as any).fonts?.ready?.then(() => render()) } catch { /* noop */ }
+  try { (document as any).fonts?.ready?.then(() => { if (!disposed) render() }) } catch { /* noop */ }
+
+  if (typeof IntersectionObserver !== 'undefined') {
+    visIO = new IntersectionObserver((ents) => {
+      for (const en of ents) { stageVisible = en.isIntersecting; if (stageVisible) requestDraw() }
+    })
+    visIO.observe(container)
+  }
 
   // Entrance: when the section scrolls into view on mobile, lift the map in,
   // settle the camera, and flash a one-time coach hint. One-shot; additive.
@@ -1091,13 +1125,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
 
   return () => {
+    disposed = true
     disengage()
     clearTimeout(settleTimer)
-    if (magnetT) { clearTimeout(magnetT); magnetT = 0 }
-    if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0 }
+    if (loopRAF) { cancelAnimationFrame(loopRAF); loopRAF = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
     if (io) { io.disconnect(); io = null }
+    if (visIO) { visIO.disconnect(); visIO = null }
     if (ro) ro.disconnect()
     pulse = null
     window.removeEventListener('keydown', onKey)
@@ -1108,7 +1143,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     document.removeEventListener('touchcancel', onDocTouchEnd)
     document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (disengage already removes it)
     unwireTouch()
-    container.style.transform = ''
+    canvas.style.transform = ''
     if (runway) { runway.classList.remove('op-runway-live'); runway.style.removeProperty('--op-runway') }
     container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-eng')

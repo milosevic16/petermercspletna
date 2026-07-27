@@ -453,19 +453,30 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     height: 100dvh; /* dynamic vh: owns the whole visible area under the URL bar */
     min-height: 0;
     background: var(--graphite);
-    transform-origin: 50% 42%; /* zoom reads as diving toward the graph's heart */
+    /* above the fixed bottom progress bar (z-index 70): while the map owns the
+       viewport the bar must neither show through nor steal taps via its
+       invisible jump buttons */
+    z-index: 80;
   }
+  /* Only the GRAPH zooms during the scrub — the stage, sheet and up-zone stay
+     full-size, so the section looks like the classic preview from the first
+     pixel and the canvas alone grows into place. will-change keeps its layer
+     stable across the per-frame scale writes. */
+  #op-canvas { transform-origin: 50% 44%; will-change: transform; }
   /* engaged: only the CANVAS takes the touch stream (its non-passive listeners
      are wired in JS at the same moment). The sheet and up-zone keep native
      scrolling — they are the exits. touch-action on an HTML canvas IS honored
      by iOS WebKit (unlike SVG), and the doc-level guard in opMap.ts backstops. */
   .op-map.op-eng #op-canvas { touch-action: none; overscroll-behavior: none; }
   /* the up-zone: a subtle invitation at the top — swipe here to scroll back up
-     the site. Chevron + soft accent glow; visible only while engaged. Sits UNDER
-     the crumbs/back buttons (z-index) so those stay tappable. */
+     the site, or TAP it to glide out. Chevron + soft accent glow; visible only
+     while engaged. Sits UNDER the back button (z-index) so it stays tappable. */
   .op-upzone {
-    position: absolute; top: 0; left: 0; right: 0; height: 64px;
+    position: absolute; top: 0; left: 0; right: 0; height: 48px;
+    margin: 0; padding: 0; border: 0; /* it's a <button> — flatten the chrome */
     z-index: 1; pointer-events: none; opacity: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
     transition: opacity 0.45s ease;
     background: radial-gradient(120% 100% at 50% 0%, color-mix(in oklab, var(--accent) 26%, transparent) 0%, transparent 62%);
   }
@@ -510,12 +521,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    (canvas pixels carry no semantics). Focus draws the ring on the canvas. */
 .op-a11y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
-.op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }
-.op-crumb:last-child { color: var(--ivory); }
-.op-crumb:not(:last-child):hover { color: var(--ivory); }
-.op-crumb-sep { color: rgba(236, 231, 220, 0.32); font-size: 0.66rem; }
-
 .op-back { position: absolute; top: 0.3rem; right: 0; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
 .op-back.show { opacity: 1; transform: none; }
 .op-back[hidden] { display: none; }
@@ -540,7 +545,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
      the longest description; the camera measures whatever height it lands at.
      One height in every state — the sheet growing at the engage moment would
      shift the camera's reserved band and cause a visible refit jump mid-scrub. */
-  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* overscroll CHAINS (no `contain`): once the description hits its scroll
+     limit the swipe continues into the PAGE — the sheet is the downward exit,
+     and overflowing text must not become a dead zone for it */
+  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
