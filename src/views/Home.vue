@@ -454,15 +454,18 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 @media (min-width: 741px) {
   .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
-#op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+#op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
-   Collapsed: the map is just a preview, so the page scrolls over it normally
-   (touch-action: manipulation = smooth native scroll, no pan). Fullscreen sets
-   touch-action:none below and drives the pan via touch events. The rest
-   suppresses long-press callout / selection / tap highlight so a drag is clean. */
+   Collapsed: the map is just a preview, so the page scrolls over it normally.
+   touch-action: pan-y reserves vertical drags for native page scroll (taps still
+   register, so tap-to-open fullscreen keeps working); it's the correct intent here
+   and, combined with NOT attaching a non-passive touchmove listener in the collapsed
+   state (see opMap.ts), lets iOS WebKit scroll the page over the map. Fullscreen sets
+   touch-action:none below and drives the pan via touch events. The rest suppresses
+   long-press callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
   #op-svg {
-    touch-action: manipulation;
+    touch-action: pan-y;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;

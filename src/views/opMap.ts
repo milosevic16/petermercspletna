@@ -482,6 +482,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     container.setAttribute('role', 'dialog')
     container.setAttribute('aria-modal', 'true')
     lockScroll()
+    // Attach the free-pan handler only now — a non-passive touchmove makes the SVG a
+    // non-fast-scroll region, which must NOT exist while collapsed or it eats iOS page scroll.
+    svg.addEventListener('touchmove', onTouchMove, { passive: false })
     resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
     updateViewBox(); render() // fit the camera into the fullscreen box
@@ -516,6 +519,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
       if (placeholder) { placeholder.remove(); placeholder = null }
       unlockScroll()
+      svg.removeEventListener('touchmove', onTouchMove) // detach free-pan so the collapsed map scrolls natively again
       panX = 0; panY = 0
       fsState = 'collapsed'
       updateViewBox(); render() // refit into the collapsed box
@@ -556,6 +560,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
+    svg.removeEventListener('touchmove', onTouchMove)
     panX = 0; panY = 0
     fsState = 'collapsed'
   }
@@ -693,7 +698,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
   svg.addEventListener('touchstart', onTouchStart, { passive: true })
-  svg.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
+  // The non-passive touchmove listener is attached ONLY while fullscreen (see
+  // enterFullscreen / exitFullscreen). Registering it here at mount would mark the
+  // full-cover #op-svg as a NON-FAST-SCROLLABLE region on iOS WebKit the instant it
+  // attaches — passive:false is a registration-time flag, not a runtime decision — so
+  // a swipe that begins on the collapsed map is pulled off the compositor scroll path
+  // and, because WebKit doesn't hand an un-prevented gesture back to native scroll, the
+  // page never scrolls (works on desktop Chrome, dead on iOS Safari + iOS Chrome).
+  // Attaching it lazily keeps the fullscreen free-pan while the collapsed map scrolls
+  // natively. (touchstart is passive, so it never creates a slow-scroll region.)
   svg.addEventListener('touchend', onTouchEnd)
   svg.addEventListener('touchcancel', onTouchEnd)
   svg.addEventListener('click', onClickCapture, true)
