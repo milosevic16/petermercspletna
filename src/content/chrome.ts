@@ -12,7 +12,6 @@ export interface ChromeContent {
     facets: string
     record: string
     media: string
-    writing: string
   }
   cta: string
   footer: {
@@ -34,7 +33,6 @@ const chrome: Localized<ChromeContent> = {
       facets: 'What I do',
       record: 'Track record',
       media: 'Media',
-      writing: 'Writing',
     },
     cta: 'Get in touch',
     footer: {
@@ -54,7 +52,6 @@ const chrome: Localized<ChromeContent> = {
       facets: 'Kaj počnem',
       record: 'Dosedanje delo',
       media: 'Mediji',
-      writing: 'Objave',
     },
     cta: 'Stopite v stik',
     footer: {
