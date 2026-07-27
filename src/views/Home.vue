@@ -467,15 +467,18 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).
    The canvas paints the complete scene synchronously each frame instead —
    nothing to tile or lazily rasterize; node/label styling lives in draw(). */
-#op-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+#op-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
-   Collapsed: the map is just a preview, so the page scrolls over it normally
-   (touch-action: manipulation = smooth native scroll, no pan). Fullscreen sets
-   touch-action:none above and drives the pan via touch events. The rest
-   suppresses long-press callout / selection / tap highlight so a drag is clean. */
+   Collapsed: the map is just a preview, so the page scrolls over it normally.
+   touch-action: pan-y reserves vertical drags for native page scroll (taps still
+   register, so tap-to-open-fullscreen keeps working); combined with attaching NO
+   non-passive touchmove listener while collapsed (see wireTouch in opMap.ts) it
+   lets iOS WebKit scroll the page over the map. Fullscreen sets touch-action:none
+   above and drives the pan via touch events. The rest suppresses long-press
+   callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
   #op-canvas {
-    touch-action: manipulation;
+    touch-action: pan-y;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
