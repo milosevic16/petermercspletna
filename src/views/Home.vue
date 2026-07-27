@@ -422,15 +422,19 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    dot is pinned to the cell's top edge, which must stay on the rail. */
 .tl-track-dn .tl-cell:nth-child(even) { padding-top: 4.6rem; }
 .tl-track-dn .tl-cell:nth-child(even)::before {
-  content: ''; position: absolute; left: 6px; top: 0.7rem;
-  width: 2px; height: 3.1rem; background: var(--line);
+  content: ''; position: absolute; left: 6px; top: 1.1rem;
+  width: 2px; height: 2.7rem; background: var(--line);
 }
 .tl-h .tl-title { font-size: 0.95rem; }
 .tl-h .tl-cap { font-size: 0.75rem; }
 .tl-h .tl-dot { position: absolute; left: 0; }
-/* -8px centres a 14px dot on the 2px rail from either side. */
-.tl-track-up .tl-dot { bottom: -8px; border-color: var(--accent); }
-.tl-track-dn .tl-dot { top: -8px; border-color: var(--ink); }
+/* The tracks have different column counts, so their dots share an x wherever
+   i/6 == j/10 — (0,0) and (3,5), at every width. Centred on the rail the lower
+   track would paint over two upper dots and lose them; sitting tangent to the
+   rail instead, one above and one below, a shared x stacks them rather than
+   hiding either. */
+.tl-track-up .tl-dot { bottom: 0; border-color: var(--accent); }
+.tl-track-dn .tl-dot { top: 0; border-color: var(--ink); }
 .tl-track-up .tl-year, .tl-track-up .tl-title { color: var(--accent); }
 .tl-track-dn .tl-year { color: var(--ink); }
 .tl-fill { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; }

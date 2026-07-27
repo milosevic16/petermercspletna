@@ -321,7 +321,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Founder',
               credential: 'co-founder @ Blocksquare & Bloctopus Intelligence',
               paragraphHtml:
-                'I have co-founded two deep-tech ventures. <strong style="font-weight:600;">Blocksquare</strong> provides a turn-key, regulatory-compliant solution for real-estate tokenization. <strong style="font-weight:600;">Bloctopus Intelligence</strong> is the crypto forensics and crypto recovery business.',
+                'I have co-founded two deep-tech ventures. Blocksquare provides a turn-key, regulatory-compliant solution for real-estate tokenization. Bloctopus Intelligence is the crypto forensics and crypto recovery business.',
               list: [
                 { key: 'Blocksquare', detail: 'Real-world-asset (real estate) tokenization infrastructure, DLT' },
                 { key: 'Bloctopus', detail: 'Blockchain intelligence and crypto recovery, forensics services' },
@@ -381,7 +381,7 @@ const home: Localized<HomeContent> = {
               paragraphHtml:
                 'Through media appearances, conference stages, panels and podcasts, I explain developments in technology, finance, regulation and venture capital in a clear and practical way. I contribute as a speaker, commentator and moderator, connecting technical detail with the broader business and societal context.',
               list: [
-                { key: 'Appearances', detail: 'Every public appearance — TV, podcasts and articles', href: 'https://lemur.legal/media' },
+                { key: 'Appearances', detail: 'Every public appearance — TV shows, podcasts and articles', href: 'https://lemur.legal/media' },
               ],
             },
           ],
@@ -445,7 +445,7 @@ const home: Localized<HomeContent> = {
       nextAria: 'Scroll coverage forward',
       cards: [
         {
-          kicker: 'Podcast — Money How',
+          kicker: 'Podcast — Money-How',
           date: '2 Jul 2026',
           title: 'MiCA is here: are crypto investors truly better protected now?',
           desc: 'On the impact of MiCA on the European crypto market, Binance’s position in the EU, and what the new regime changes for crypto service providers and investors.',
@@ -465,8 +465,8 @@ const home: Localized<HomeContent> = {
         {
           kicker: 'Television — RTV SLO',
           date: '9 Jun 2026',
-          title: 'Flip the Coin: the instalment society',
-          desc: 'Why seemingly affordable instalments are rarely as harmless as they look, and how small monthly commitments turn into an expensive trap.',
+          title: 'Flip the Coin: the instalment society — why seemingly affordable purchases cost us dearly',
+          desc: 'The programme on why instalment payments are less harmless than they appear, and how small monthly commitments become an expensive financial trap.',
           href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
           external: true,
           cta: 'Watch',
@@ -498,7 +498,7 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ The four newest cards are still waiting on their images.',
+      note: 'Drop a photo straight onto each card — it sticks. ⚠ Every card is still waiting on its image.',
       archive: {
         seg: 'Archive',
         title: 'Every interview, column and mention — collected on Lemur Legal',
@@ -521,14 +521,14 @@ const home: Localized<HomeContent> = {
       below: [
         { year: '2008', title: 'NLB d.d.', caption: 'Legal counsel — capital markets & regulatory compliance' },
         { year: '2009', title: 'Municipality of Ljubljana', caption: 'Finance Committee, member' },
-        { year: '2014', title: 'Hypo Alpe Adria Bank', caption: 'Legal counsel — regulatory compliance' },
+        { year: '2014', title: 'Hypo Alpe-Adria-Bank d.d.', caption: 'Legal counsel — regulatory compliance' },
         { year: '2016', title: 'Abanka d.d.', caption: 'Member of the supervisory board' },
         { year: '2016', title: 'Lemur Legal', caption: 'Tech-law office opens' },
         { year: '2018', title: 'Blocksquare', caption: 'RWA tokenization, co-founded' },
         { year: '2021', title: 'Suricate Ventures', caption: 'Early-stage VC fund, co-founded' },
         { year: '2025', title: 'IBEX Equity Partners', caption: 'Early-stage defence-tech VC fund, co-founded' },
         { year: '2026', title: 'Bloctopus Intelligence', caption: 'Blockchain forensics, co-founded' },
-        { year: '2026', title: 'JonatanMars Invest', caption: 'Brokerage company, supervisory board' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Brokerage company, president of the supervisory board' },
       ],
     },
     contact: {
@@ -694,7 +694,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Ustanovitelj',
               credential: 'soustanovitelj @ Blocksquare in Bloctopus Intelligence',
               paragraphHtml:
-                'Soustanovil sem dve globokotehnološki (deep-tech) podjetji. <strong style="font-weight:600;">Blocksquare</strong> ponuja celovito, regulativno skladno rešitev za tokenizacijo nepremičnin. <strong style="font-weight:600;">Bloctopus Intelligence</strong> je podjetje za kripto forenziko in povrnitev kripto sredstev.',
+                'Soustanovil sem dve globokotehnološki (deep-tech) podjetji. Blocksquare ponuja celovito, regulativno skladno rešitev za tokenizacijo nepremičnin. Bloctopus Intelligence je podjetje za kripto forenziko in povrnitev kripto sredstev.',
               list: [
                 { key: 'Blocksquare', detail: 'Infrastruktura za tokenizacijo stvarnega premoženja (nepremičnin), DLT' },
                 { key: 'Bloctopus', detail: 'Blockchain obveščanje in povrnitev kripto sredstev, forenzične storitve' },
@@ -754,7 +754,7 @@ const home: Localized<HomeContent> = {
               paragraphHtml:
                 'Prek medijskih nastopov, konferenčnih odrov, panelov in podkastov razumljivo in praktično pojasnjujem dogajanje v tehnologiji, financah, regulativi in tveganem kapitalu. Sodelujem kot govorec, komentator in moderator ter povezujem tehnične podrobnosti s širšim poslovnim in družbenim kontekstom.',
               list: [
-                { key: 'Nastopi', detail: 'Vsi javni nastopi — TV, podkasti in članki', href: 'https://lemur.legal/media' },
+                { key: 'Nastopi', detail: 'Vsi javni nastopi — TV-oddaje, podkasti in članki', href: 'https://lemur.legal/media' },
               ],
             },
           ],
@@ -818,10 +818,10 @@ const home: Localized<HomeContent> = {
       nextAria: 'Pomakni prispevke naprej',
       cards: [
         {
-          kicker: 'Podkast — Money How',
+          kicker: 'Podkast — Money-How',
           date: '2. jul. 2026',
           title: 'MiCA je tu: so kriptovlagatelji zdaj res bolj varni?',
-          desc: 'O vplivu MiCA na evropski kripto trg, položaju Binancea v EU in o tem, kaj nova ureditev spreminja za ponudnike kripto storitev in vlagatelje.',
+          desc: 'O vplivu uredbe MiCA na evropski kripto trg, o položaju borze Binance v EU in o tem, kaj nova ureditev spreminja za ponudnike kripto storitev in vlagatelje.',
           href: 'https://money-how.si/podcast/mica-je-tu-so-kriptovlagatelji-zdaj-res-bolj-varni/',
           external: true,
           cta: 'Poslušaj',
@@ -829,8 +829,8 @@ const home: Localized<HomeContent> = {
         {
           kicker: 'Članek — Bloomberg Adria',
           date: '30. jun. 2026',
-          title: 'Potrjeno: Binance ni pridobil licence in ukinja storitve v EU. Kaj naj storijo uporabniki?',
-          desc: 'Kot strokovnjak o licenci Binancea v EU, ureditvi MiCA in o tem, kaj to v praksi pomeni za uporabnike.',
+          title: 'Binance brez licence v EU: kaj naj storijo uporabniki?',
+          desc: 'Strokovni komentar o licenci borze Binance v EU, o ureditvi MiCA in o tem, kaj to v praksi pomeni za uporabnike.',
           href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
           external: true,
           cta: 'Preberi',
@@ -838,8 +838,8 @@ const home: Localized<HomeContent> = {
         {
           kicker: 'Televizija — RTV SLO',
           date: '9. jun. 2026',
-          title: 'Platimo po svoje: družba obrokov',
-          desc: 'Zakaj navidezno ugodni obroki redko ostanejo tako nedolžni, kot se zdijo, in kako se majhne mesečne obveznosti spremenijo v drago past.',
+          title: 'Družba obrokov: zakaj nas navidezno ugodni nakupi drago stanejo',
+          desc: 'Zakaj navidezno ugodni obroki le redko ostanejo tako neškodljivi, kot se zdijo, in kako se majhne mesečne obveznosti spremenijo v drago finančno past.',
           href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
           external: true,
           cta: 'Oglej si',
@@ -847,7 +847,7 @@ const home: Localized<HomeContent> = {
         {
           kicker: 'Intervju — Delo',
           date: '8. maj 2026',
-          title: 'Ne bi zelo zgrešili, če bi rekli, da gre Evropa lahko nazaj v srednji vek',
+          title: '»Ne bi zelo zgrešili, če bi rekli, da gre Evropa lahko nazaj v srednji vek«',
           desc: 'O digitalni suverenosti, nadzoru nad podatki, tehnološki infrastrukturi in odpornosti podjetij.',
           href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
           external: true,
@@ -871,7 +871,7 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Štiri najnovejše kartice še čakajo na slike.',
+      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Vse kartice še čakajo na slike.',
       archive: {
         seg: 'Arhiv',
         title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',
@@ -887,21 +887,21 @@ const home: Localized<HomeContent> = {
         { year: '2015', title: 'Doktorat iz bančnega prava', caption: 'Pravna fakulteta Univerze v Ljubljani' },
         { year: '2017', title: 'Blockchain Think Tank Slovenija', caption: 'Soustanovitelj' },
         { year: '2019', title: 'Alma Mater Europaea', caption: 'Začetek akademske poti' },
-        { year: '2020', title: 'Obzorje 2020', caption: 'Zunanji strokovnjak' },
-        { year: '2021', title: 'Svet za digitalizacijo Republike Slovenije', caption: 'Član' },
+        { year: '2020', title: 'Horizon 2020', caption: 'Zunanji strokovnjak' },
+        { year: '2021', title: 'Strateški svet za digitalizacijo', caption: 'Član' },
         { year: '2026', title: 'NATO DIANA', caption: 'Zunanji ocenjevalec' },
       ],
       below: [
         { year: '2008', title: 'NLB d.d.', caption: 'Pravni svetovalec — kapitalski trgi in regulativna skladnost' },
         { year: '2009', title: 'Mestna občina Ljubljana', caption: 'Član odbora za finance' },
-        { year: '2014', title: 'Hypo Alpe Adria Bank', caption: 'Pravni svetovalec — regulativna skladnost' },
+        { year: '2014', title: 'Hypo Alpe-Adria-Bank d.d.', caption: 'Pravni svetovalec — regulativna skladnost' },
         { year: '2016', title: 'Abanka d.d.', caption: 'Član nadzornega sveta' },
         { year: '2016', title: 'Lemur Legal', caption: 'Odprtje pisarne za tehnološko pravo' },
         { year: '2018', title: 'Blocksquare', caption: 'Tokenizacija stvarnega premoženja, soustanovitelj' },
         { year: '2021', title: 'Suricate Ventures', caption: 'Sklad tveganega kapitala za zgodnje faze, soustanovitelj' },
-        { year: '2025', title: 'IBEX Equity Partners', caption: 'Sklad za obrambne tehnologije v zgodnjih fazah, soustanovitelj' },
+        { year: '2025', title: 'IBEX Equity Partners', caption: 'Sklad tveganega kapitala za zgodnje faze na področju obrambnih tehnologij, soustanovitelj' },
         { year: '2026', title: 'Bloctopus Intelligence', caption: 'Forenzika blockchaina, soustanovitelj' },
-        { year: '2026', title: 'JonatanMars Invest', caption: 'Borznoposredniška družba, nadzorni svet' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Borznoposredniška družba, predsednik nadzornega sveta' },
       ],
     },
     contact: {
