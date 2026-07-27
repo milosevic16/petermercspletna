@@ -165,7 +165,11 @@ export function wireWeb3Form(fx: Tracker, opts: Web3FormOpts): void {
     }
     if (!WEB3FORMS_KEY) {
       setStatus(opts.strings.error, 'error')
-      console.warn('[web3forms] VITE_WEB3FORMS_KEY is not set — cannot submit.')
+      console.error(
+        '[web3forms] VITE_WEB3FORMS_KEY is missing from this build — nothing was sent. ' +
+        'It is read at build time, so set it in Netlify → Site settings → Environment ' +
+        'variables and redeploy (a local .env.local only fixes local dev).',
+      )
       return
     }
 
@@ -204,16 +208,27 @@ export function wireWeb3Form(fx: Tracker, opts: Web3FormOpts): void {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(payload),
     })
-      .then((r) => r.json())
-      .then((json: { success?: boolean }) => {
-        if (json && json.success) {
+      .then((r) => r.json().then((json: unknown) => ({ status: r.status, json })))
+      .then(({ status: httpStatus, json }) => {
+        const body = (json ?? {}) as { success?: boolean; message?: string }
+        if (body.success) {
           setStatus(opts.strings.success, 'success')
           form.reset()
         } else {
           setStatus(opts.strings.error, 'error')
+          // The visitor gets the generic line, but the reason has to be
+          // recoverable from the console — Web3Forms says why it refused
+          // (bad access key, failed captcha, rate limit) in `message`.
+          console.error(
+            '[web3forms] submission refused (HTTP ' + httpStatus + '):',
+            body.message ?? json,
+          )
         }
       })
-      .catch(() => setStatus(opts.strings.error, 'error'))
+      .catch((err) => {
+        setStatus(opts.strings.error, 'error')
+        console.error('[web3forms] request failed before a reply came back:', err)
+      })
       .finally(() => {
         delete form.dataset.sending
         if (btn) { btn.disabled = false; btn.textContent = btnIdle }
