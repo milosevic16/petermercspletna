@@ -497,7 +497,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
      or tap to continue DOWN the site. */
   .op-downzone {
     position: absolute; bottom: 0; left: 0; right: 0;
-    height: calc(46px + env(safe-area-inset-bottom));
+    height: calc(58px + env(safe-area-inset-bottom));
     margin: 0; padding: 0; border: 0;
     z-index: 1; pointer-events: none; opacity: 0;
     cursor: pointer;
@@ -507,7 +507,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   }
   .op-map.op-eng .op-downzone { pointer-events: auto; opacity: 1; }
   .op-downzone-chev {
-    position: absolute; bottom: calc(5px + env(safe-area-inset-bottom)); left: 50%; margin-left: -11px;
+    position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; margin-left: -11px;
     color: var(--ivory); opacity: 0.85;
     animation: op-downzone-bob 2.2s ease-in-out infinite;
   }
@@ -517,26 +517,18 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   }
   @media (prefers-reduced-motion: reduce) { .op-downzone-chev { animation: none; } }
   /* engaged: the sheet lifts to sit above the down-zone strip */
-  .op-map.op-eng .op-dossier { bottom: calc(42px + env(safe-area-inset-bottom)); }
+  .op-map.op-eng .op-dossier { bottom: calc(54px + env(safe-area-inset-bottom)); }
   .op-dossier { transition: opacity 0.4s ease, transform 0.4s ease, bottom 0.35s ease; }
-  /* the fixed progress bar yields while the map is immersed */
-  div[data-if="barOn"] > div { transition: opacity 0.25s ease; }
-  html.op-immersed div[data-if="barOn"] > div { opacity: 0; pointer-events: none; }
-  /* ---- compositor-driven scrub (CSS scroll-driven animation) --------------
-     Where supported (Safari 26+/Chrome), the canvas scale is bound directly to
-     the runway's view-timeline: it runs OFF the main thread, in lockstep with
-     the scroll compositor — the JS rAF fallback can trail it by a frame, this
-     cannot. The scrub spans the first RUNZOOM of the runway's "contain" range:
-     0.6vh of (0.6+0.25)vh = 70.6%. JS skips its transform writes when the
-     html.op-cssscrub flag is set (feature-detected in opMap.ts). */
-  #record { timeline-scope: --oprun; }
-  #op-runway.op-runway-live { view-timeline: --oprun block; }
-  @keyframes op-scrub { from { transform: scale(0.9); } to { transform: scale(1); } }
-  html.op-cssscrub #op-canvas {
-    animation: op-scrub linear both;
-    animation-timeline: --oprun;
-    animation-range: contain 0% contain 70.6%;
-  }
+  /* The fixed progress bar yields while the map is immersed. !important is
+     required, not sloppiness: the bar carries `animation: chyron-rise … both`,
+     and a filled animation's final keyframe (opacity:1) outranks any normal
+     declaration in the cascade — only an !important author rule beats it. */
+  div[data-if="barOn"] > div { transition: opacity 0.3s ease; }
+  html.op-immersed div[data-if="barOn"] > div { opacity: 0 !important; pointer-events: none !important; }
+  /* The zoom curve is written from JS (see scrubFrame in opMap.ts), not a CSS
+     view-timeline: measured against this layout the timeline's mapping for a
+     subject wrapping a sticky child was non-monotonic. will-change keeps the
+     canvas on a stable layer for the per-frame transform writes. */
 }
 @media (min-width: 741px) {
   .op-upzone, .op-downzone { display: none; } /* desktop keeps the classic inline map */
@@ -567,7 +559,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    (canvas pixels carry no semantics). Focus draws the ring on the canvas. */
 .op-a11y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.op-back { position: absolute; top: 0.3rem; right: 0; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
+.op-back { position: absolute; top: 0.3rem; right: 0; z-index: 3; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
 .op-back.show { opacity: 1; transform: none; }
 .op-back[hidden] { display: none; }
 .op-back-disc { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #F4F1EA; font-weight: 700; font-size: 0.72rem; font-family: 'Instrument Sans', Arial, sans-serif; }
