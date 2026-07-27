@@ -119,8 +119,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // overlays (HTML)
   const pmback = h('button', 'op-back') as HTMLButtonElement; pmback.type = 'button'; pmback.hidden = true
-  pmback.innerHTML = '<span class="op-back-disc" aria-hidden="true">PM</span><span class="op-back-txt"></span>'
+  // Two faces, one control. Off-fullscreen it is the hub shortcut it always was
+  // (PM disc + "back to top"); while immersed it BECOMES the exit — same
+  // position, but an X and the close label, because there its job is leaving the
+  // map, not walking the graph. syncBack() swaps the face and the aria-label.
+  pmback.innerHTML =
+    '<span class="op-back-disc" aria-hidden="true">PM</span><span class="op-back-txt"></span>'
+    + '<svg class="op-back-x" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">'
+    +   '<path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>'
+    + '</svg><span class="op-back-exit-txt"></span>'
   ;(pmback.querySelector('.op-back-txt') as HTMLElement).textContent = content.backLabel
+  ;(pmback.querySelector('.op-back-exit-txt') as HTMLElement).textContent = content.exit || 'Close'
   const dossier = h('aside', 'op-dossier'); dossier.setAttribute('aria-live', 'polite')
   dossier.innerHTML =
     '<div class="op-dossier-in">'
@@ -638,6 +647,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function syncBack() {
     const show = engaged || focusId !== 'pm'
     pmback.hidden = !show
+    pmback.classList.toggle('op-exit', engaged)
+    pmback.setAttribute('aria-label', engaged ? (content.exit || 'Close full screen map') : content.backLabel)
     setTimeout(() => pmback.classList.toggle('show', show), 10)
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }

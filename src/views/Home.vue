@@ -565,6 +565,29 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-back-disc { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #F4F1EA; font-weight: 700; font-size: 0.72rem; font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-back-txt { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-back:hover .op-back-txt { color: var(--ivory); }
+/* exit face: shown only while the map is immersed (.op-exit, set by syncBack) */
+.op-back-x, .op-back-exit-txt { display: none; }
+.op-back.op-exit .op-back-disc, .op-back.op-exit .op-back-txt { display: none; }
+.op-back.op-exit {
+  gap: 0.4rem;
+  background: rgba(236, 231, 220, 0.12);
+  border: 1px solid rgba(236, 231, 220, 0.3);
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem; min-height: 40px;
+  color: var(--ivory);
+  -webkit-tap-highlight-color: transparent;
+}
+.op-back.op-exit .op-back-x { display: inline-flex; flex: none; }
+.op-back.op-exit .op-back-exit-txt {
+  display: inline-flex;
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ivory);
+}
+.op-back.op-exit:hover, .op-back.op-exit:focus-visible {
+  background: rgba(236, 231, 220, 0.2); border-color: var(--ivory); outline: none;
+}
+@media (max-width: 740px) { .op-back { top: 0.55rem; right: 0.6rem; } }
 
 .op-dossier { position: absolute; z-index: 2; pointer-events: none; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; }
 .op-dossier.show { opacity: 1; pointer-events: auto; }
