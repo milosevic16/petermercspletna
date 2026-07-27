@@ -18,6 +18,7 @@ export interface OpMapContent {
   visit: string
   backLabel: string
   coach?: string
+  exit?: string
 }
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -80,8 +81,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   ;(pmback.querySelector('.op-back-txt') as HTMLElement).textContent = content.backLabel
   const crumbs = h('nav', 'op-crumbs'); crumbs.setAttribute('aria-label', 'You are here')
   const dossier = h('aside', 'op-dossier'); dossier.setAttribute('aria-live', 'polite')
-  dossier.innerHTML = '<div class="op-dossier-in"><h3 class="op-d-name"></h3><p class="op-d-desc"></p><a class="op-d-visit" target="_blank" rel="noopener" hidden></a></div>'
+  dossier.innerHTML =
+    '<div class="op-dossier-in">'
+    + '<button class="op-fs-exit" type="button">'
+    +   '<svg class="op-fs-exit-x" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">'
+    +     '<path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+    +   '</svg><span class="op-fs-exit-txt"></span>'
+    + '</button>'
+    + '<h3 class="op-d-name"></h3><p class="op-d-desc"></p>'
+    + '<a class="op-d-visit" target="_blank" rel="noopener" hidden></a>'
+    + '</div>'
   container.append(pmback, crumbs, dossier)
+  const fsExit = dossier.querySelector('.op-fs-exit') as HTMLButtonElement
+  ;(fsExit.querySelector('.op-fs-exit-txt') as HTMLElement).textContent = content.exit || 'Close'
+  fsExit.setAttribute('aria-label', content.exit || 'Close full screen map')
+  fsExit.addEventListener('click', (e) => { e.stopPropagation(); exitFullscreen() })
 
   // ---- render helpers -----------------------------------------------------
   function wrap(s: string, m: number) { const w = s.split(' '), o: string[] = []; let line = ''; for (const x of w) { if ((line + ' ' + x).trim().length > m && line) { o.push(line.trim()); line = x } else line = (line + ' ' + x).trim() } if (line) o.push(line); return o }
@@ -115,6 +129,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- state + render -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
+  // ---- fullscreen-takeover state (mobile only) ----------------------------
+  type FsState = 'collapsed' | 'fullscreen'
+  let fsState: FsState = 'collapsed'
+  let placeholder: HTMLDivElement | null = null
+  let fsAnim: Animation | null = null
+  let fsSafety = 0
+  let lastFocused: HTMLElement | null = null
+  const FS_DUR = 320
+  const isFullscreen = () => fsState === 'fullscreen'
+  const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
   // The viewBox follows the container's aspect ratio so the map FILLS it. A
   // fixed wide viewBox got letterboxed into a portrait phone, shrinking every
   // node to ~5px — untappable.
@@ -194,7 +218,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let cam: Cam = { tx: 0, ty: 0, s: 1 }   // camera as currently painted
   let camFrom: Cam = cam, camTo: Cam = cam
   let camRAF = 0, camT0 = 0
-  const CAM_DUR = 820                       // ms — was the CSS 0.82s
+  const CAM_DUR = 1050                      // ms — a slow, smooth zoom (was 820, felt fast/choppy)
   let panX = 0, panY = 0                    // drag-to-pan offset (viewBox units); 0 today
 
   // cubic-bezier(0.38,0.02,0.18,1) solved in JS (Newton + bisection fallback),
@@ -215,7 +239,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       return fy(t)
     }
   }
-  const camEase = makeBezier(0.38, 0.02, 0.18, 1)
+  const camEase = makeBezier(0.33, 0, 0.2, 1) // smooth ease-in-out, gentle finish
 
   // Single writer of the camera transform: base tween (cam) + live pan offset.
   function applyCamera() {
@@ -240,8 +264,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // ---- drag-to-pan + entrance (mobile only) -------------------------------
   function clampPan() {
-    const maxX = Math.max(0, cam.s * GEXT - VBW / 2 + 40)
-    const maxY = Math.max(0, cam.s * GEXT - VBH / 2 + 40)
+    // Very generous so the pan follows the finger freely and never feels like it
+    // "stops" mid-drag: you can push the graph almost entirely off either edge
+    // (leaving a sliver) and pan back. Symmetric, so diagonal drags never collapse
+    // to one axis by hitting one clamp first.
+    const maxX = Math.max(VBW * 0.5, cam.s * GEXT + VBW * 0.35)
+    const maxY = Math.max(VBH * 0.5, cam.s * GEXT + VBH * 0.35)
     panX = Math.max(-maxX, Math.min(maxX, panX))
     panY = Math.max(-maxY, Math.min(maxY, panY))
   }
@@ -256,7 +284,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function hideCoach() { if (coachEl) coachEl.classList.remove('show'); if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 } }
   function showCoach() {
     if (reduced) return
-    if (!coachEl) { coachEl = h('div', 'op-coach'); coachEl.textContent = content.coach || 'Tap a node · drag to look around'; container.appendChild(coachEl) }
+    if (!coachEl) { coachEl = h('div', 'op-coach'); coachEl.textContent = content.coach || 'Tap a node to open the map'; container.appendChild(coachEl) }
     requestAnimationFrame(() => coachEl && coachEl.classList.add('show'))
     coachTimer = window.setTimeout(hideCoach, 3400)
   }
@@ -274,6 +302,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     showCoach()
   }
 
+  // Mobile "persistent discovery": once you've opened a node it stays lit and
+  // tappable, so you can pan across the whole explored map instead of watching
+  // branches fade in and out. Desktop keeps the focus-only fade (straightforward).
+  const discovered = new Set<string>()
+  const DISC_OP = 0.45
+
   // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
   // re-renders (resize/observer/settle/fonts) snap so they never tween.
   function render(animate = false) {
@@ -281,6 +315,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
     const desktop = isDesktop()
+    // Everything on the current focus path/branch counts as discovered (mobile).
+    if (!desktop) { discovered.add(focusId); childIds.forEach((c) => discovered.add(c)); path.forEach((p) => discovered.add(p)) }
     // The dossier window is the single description surface, desktop and mobile:
     // select a node and its description shows here. Fill it BEFORE fit() so its
     // measured height (mobile, where it's a full-width sheet) can be reserved out
@@ -294,12 +330,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const k = camTgt.s * ppu || 1
     Object.keys(nodeEls).forEach((id) => {
       const g = nodeEls[id], node = byId[id], t = tier(id), active = t === 'active'
-      g.style.opacity = String(OP[t])
-      g.classList.toggle('op-click', active)
+      const disc = !desktop && discovered.has(id) // discovered stays visible + tappable on mobile
+      g.style.opacity = String(disc && OP[t] === 0 ? DISC_OP : OP[t])
+      g.classList.toggle('op-click', active || disc)
       g.classList.toggle('op-focus', id === focusId)
       g.classList.toggle('op-sel', id === selId && id !== focusId)
       // bigger nodes + far bigger tap targets on touch
-      const rDot = id === focusId ? (desktop ? 18 : 25) : node.depth === 1 ? (desktop ? 14 : 20) : (desktop ? 12 : 18)
+      const rDot = id === focusId ? (desktop ? 18 : 28) : node.depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
       ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', String(rDot))
       ;(g.querySelector('.op-hit') as SVGCircleElement).setAttribute('r', String(rDot + (desktop ? 14 : 26)))
       // Label: geometry tracks the live radius; on mobile the font is pinned to a
@@ -307,10 +344,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       // so it stays legible and never rescales as the camera zooms. Desktop keeps
       // its original 13.5/14.5-unit sizing, so its output is byte-identical.
       const lbl = g.querySelector('.op-lbl') as SVGTextElement
-      lbl.style.opacity = (active && id !== focusId) ? '1' : '0'
+      // Show discovered titles too, dimmed: the node group's 0.45 opacity does the
+      // fading, so active labels read ~1.0 and discovered ones ~0.45 (on desktop
+      // `disc` is always false, so this stays the active-only original behavior).
+      lbl.style.opacity = (id !== focusId && (active || disc)) ? '1' : '0'
       if (node.parent) {
         const isCat = node.depth === 1
-        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 14) / k
+        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 13) / k
         const pn = byId[node.parent], dxp = node.x - pn.x, dyp = node.y - pn.y
         const gap = rDot + 9
         const lns = wrap(node.label, desktop ? 20 : 13)
@@ -343,6 +383,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const t = tier(id), e = edgeEls[id]
       e.setAttribute('stroke-width', (1.3 / camTgt.s).toFixed(2))
       if (t === 'active' || t === 'spine') e.setAttribute('stroke', 'rgba(236,231,220,' + (t === 'active' ? 0.5 : 0.4) + ')')
+      else if (!desktop && discovered.has(id)) e.setAttribute('stroke', 'rgba(236,231,220,0.16)') // discovered edge stays drawn
       else e.setAttribute('stroke', 'url(#opg-' + id + ')')
     })
     pmhub.style.opacity = String(OP[tier('pm')])
@@ -353,6 +394,28 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       else { const fnU = 18 / k; focusName.style.fontSize = fnU.toFixed(2) + 'px'; focusName.setAttribute('y', (f.y + 25 + fnU * 0.92 + 5).toFixed(1)) }
       focusName.classList.add('on')
     } else focusName.classList.remove('on')
+    // De-clutter titles: never let two visible titles overlap, in any state. Place
+    // greedily by priority (active > spine > discovered, shallower first); hide any
+    // lower-priority title whose box hits an already-placed one — its dot stays
+    // (tappable) and the title returns once there's room. Active titles are never
+    // hidden (the layout keeps them clear). getBBox is in the shared camera user
+    // space, so an overlap there is exactly an overlap on screen.
+    {
+      const placed: { x: number; y: number; width: number; height: number }[] = []
+      if (focusId !== 'pm') { try { placed.push(focusName.getBBox()) } catch { /* noop */ } }
+      const prio = (id: string) => { const t = tier(id); return t === 'active' ? 3 : t === 'spine' ? 2 : 1 }
+      Object.keys(nodeEls)
+        .filter((id) => (nodeEls[id].querySelector('.op-lbl') as SVGTextElement).style.opacity !== '0')
+        .sort((a, b) => prio(b) - prio(a) || byId[a].depth - byId[b].depth)
+        .forEach((id) => {
+          const l = nodeEls[id].querySelector('.op-lbl') as SVGTextElement
+          let bb: { x: number; y: number; width: number; height: number }
+          try { bb = l.getBBox() } catch { return }
+          const hit = placed.some((p) => !(bb.x + bb.width < p.x || bb.x > p.x + p.width || bb.y + bb.height < p.y || bb.y > p.y + p.height))
+          if (hit && prio(id) < 3) l.style.opacity = '0'
+          else placed.push(bb)
+        })
+    }
     setCamera(camTgt, { animate }) // glide on navigation, snap on layout re-renders
     // breadcrumb
     crumbs.innerHTML = ''
@@ -369,11 +432,145 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
+    // Mobile + collapsed: one tap both enters the fullscreen takeover and drills in.
+    // enterFullscreen() snaps the camera into the big box; the nav below then glides
+    // to the tapped node as the "drill-in".
+    if (!isDesktop() && fsState === 'collapsed') enterFullscreen()
     if (id === focusId) { goUp(); return }
     const n = byId[id]
     if (n.kids.length) go(id); else { foldPan(); selId = id; render(true) }
   }
   function goUp() { const p = byId[focusId].parent; if (p) go(p); else { foldPan(); selId = 'pm'; render(true) } }
+
+  // ---- fullscreen takeover (mobile only) ----------------------------------
+  // Collapsed: the map is a normal in-page section (no pan; the page scrolls past).
+  // Tapping a node lifts .op-map into a position:fixed overlay and navigates in one
+  // gesture. NOTE: we do NOT use position:fixed on <body> to lock scroll — on iOS
+  // Safari a fixed body mis-positions fixed DESCENDANTS (the overlay ends up
+  // off-screen). The fullscreen overlay already covers the viewport with
+  // touch-action:none, so it intercepts every touch and the page can't scroll;
+  // overflow:hidden on html/body is a harmless belt-and-braces that never offsets
+  // fixed elements. The enter/exit animation is a plain WAAPI opacity+scale (works
+  // on iOS; no fragile rect math).
+  function lockScroll() {
+    const d = document.documentElement, b = document.body
+    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
+    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
+  }
+  function unlockScroll() {
+    const d = document.documentElement, b = document.body
+    d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
+  }
+  function stopFsAnim() { if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null } if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 } }
+  function enterFullscreen() {
+    if (isDesktop() || fsState !== 'collapsed') return
+    stopFsAnim()
+    fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
+    lastFocused = (document.activeElement as HTMLElement) || null
+    hideCoach()
+    placeholder = document.createElement('div')
+    placeholder.className = 'op-map-ph'
+    const first = container.getBoundingClientRect() // collapsed box, BEFORE portal, for the FLIP
+    placeholder.style.height = first.height + 'px'
+    placeholder.style.marginTop = getComputedStyle(container).marginTop
+    container.parentNode!.insertBefore(placeholder, container)
+    // Portal to <body>: #main carries a filled identity transform from its entrance
+    // animation, which would otherwise make this position:fixed overlay relative to
+    // #main (off-screen when scrolled down) instead of the viewport. <body> is clean.
+    document.body.appendChild(container)
+    container.classList.add('op-fs')
+    container.setAttribute('role', 'dialog')
+    container.setAttribute('aria-modal', 'true')
+    lockScroll()
+    // Attach the free-pan handler only now — a non-passive touchmove makes the SVG a
+    // non-fast-scroll region, which must NOT exist while collapsed or it eats iOS page scroll.
+    svg.addEventListener('touchmove', onTouchMove, { passive: false })
+    resetGesture(); suppressClick = false; stopMomentum()
+    panX = 0; panY = 0
+    updateViewBox(); render() // fit the camera into the fullscreen box
+    requestAnimationFrame(() => { try { fsExit.focus() } catch { /* noop */ } })
+    if (reduced) return
+    // FLIP: grow the fullscreen box out of the collapsed section's box. Now that the
+    // overlay is correctly viewport-fixed (portaled to body), the rects are right, so
+    // this reads as the section smoothly enlarging into fullscreen. WAAPI = composited.
+    const last = container.getBoundingClientRect()
+    const sx = Math.max(0.05, first.width / (last.width || 1))
+    const sy = Math.max(0.05, first.height / (last.height || 1))
+    const ox = first.left - last.left, oy = first.top - last.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity' // GPU-composite the grow → smooth on iOS
+    try {
+      fsAnim = container.animate(
+        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.55 },
+         { opacity: 1, offset: 0.45 },
+         { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
+        { duration: 520, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' } // smooth, decisive ease-out
+      )
+      fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
+    } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
+  }
+  function exitFullscreen() {
+    if (fsState !== 'fullscreen') return
+    stopFsAnim()
+    const finish = () => {
+      stopFsAnim()
+      container.classList.remove('op-fs')
+      container.removeAttribute('role'); container.removeAttribute('aria-modal')
+      if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
+      if (placeholder) { placeholder.remove(); placeholder = null }
+      unlockScroll()
+      svg.removeEventListener('touchmove', onTouchMove) // detach free-pan so the collapsed map scrolls natively again
+      panX = 0; panY = 0
+      fsState = 'collapsed'
+      updateViewBox(); render() // refit into the collapsed box
+      if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus() } catch { /* noop */ } }
+      lastFocused = null
+    }
+    resetGesture(); suppressClick = false; stopMomentum()
+    if (reduced) { finish(); return }
+    let done = false
+    const end = () => { if (done) return; done = true; container.style.transformOrigin = ''; container.style.willChange = ''; finish() }
+    // Reverse FLIP: shrink the fullscreen box back into the collapsed section's slot
+    // (the placeholder still marks it), then drop back into the page.
+    const cur = container.getBoundingClientRect()
+    const tgt = placeholder ? placeholder.getBoundingClientRect() : cur
+    const sx = Math.max(0.05, tgt.width / (cur.width || 1))
+    const sy = Math.max(0.05, tgt.height / (cur.height || 1))
+    const ox = tgt.left - cur.left, oy = tgt.top - cur.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity'
+    try {
+      fsAnim = container.animate(
+        [{ transform: 'none', opacity: 1 }, { transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.4 }],
+        { duration: 360, easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)' }
+      )
+      fsAnim.onfinish = end; fsAnim.oncancel = end
+    } catch { end(); return }
+    fsSafety = window.setTimeout(end, 520) // safety if onfinish never fires
+  }
+  // Instant (no animation) teardown of the overlay — for teardown and for a
+  // viewport crossing to desktop mid-fullscreen (tablet rotation), where the
+  // mobile exit button is gone and the body must not stay locked.
+  function forceCollapse() {
+    if (fsState === 'collapsed') return
+    stopFsAnim()
+    container.style.opacity = ''; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+    container.classList.remove('op-fs')
+    container.removeAttribute('role'); container.removeAttribute('aria-modal')
+    if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)
+    if (placeholder) { placeholder.remove(); placeholder = null }
+    unlockScroll()
+    svg.removeEventListener('touchmove', onTouchMove)
+    panX = 0; panY = 0
+    fsState = 'collapsed'
+  }
+  // Focus set for the Tab-trap (mobile fullscreen only).
+  const FOCUS_SEL = '.op-back:not([hidden]), .op-crumb, .op-fs-exit, .op-d-visit:not([hidden])'
+  function getFocusables(): HTMLElement[] {
+    const nodes = Array.from(container.querySelectorAll<HTMLElement>('.op-node.op-click'))
+    const ctrls = Array.from(container.querySelectorAll<HTMLElement>(FOCUS_SEL))
+    return nodes.concat(ctrls)
+  }
 
   // ---- traveling pulse (ported from the previous graph's _pulseChain) ------
   let pulseAnims: Animation[] = [], pulseTimer = 0, pulseEl: SVGGElement | null = null
@@ -420,9 +617,21 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // ---- wire back / bg / keys / resize -------------------------------------
   const onBack = () => go('pm')
   const onBg = () => { if (focusId !== 'pm') goUp() }
-  const onHub = () => { if (focusId !== 'pm') go('pm') }
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focusId !== 'pm') goUp() }
-  const onResize = () => render()
+  const onHub = () => { if (!isDesktop() && fsState === 'collapsed') enterFullscreen(); if (focusId !== 'pm') go('pm') }
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (isFullscreen()) { exitFullscreen(); return } // Esc leaves fullscreen first
+      if (focusId !== 'pm') goUp()
+      return
+    }
+    if (e.key === 'Tab' && fsState === 'fullscreen') { // trap focus in the dialog
+      const f = getFocusables(); if (!f.length) return
+      const first = f[0], last = f[f.length - 1], a = document.activeElement as HTMLElement
+      if (e.shiftKey && (a === first || !container.contains(a))) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (a === last || !container.contains(a))) { e.preventDefault(); first.focus() }
+    }
+  }
+  const onResize = () => { if (fsState !== 'collapsed' && isDesktop()) forceCollapse(); render() }
   pmback.addEventListener('click', onBack)
   bg.addEventListener('click', onBg)
   ;(pmhub as SVGElement).style.cursor = 'pointer'
@@ -430,75 +639,76 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   window.addEventListener('keydown', onKey)
   window.addEventListener('resize', onResize)
 
-  // ---- pan gesture (mobile only; every handler no-ops on desktop) ----------
-  // Anti-trap by construction: #op-svg has touch-action:pan-y on mobile, so a
-  // vertical (or vertical-dominant) swipe is ALWAYS a native page scroll the JS
-  // never sees — the user can always scroll out of the section. Only a clearly
-  // horizontal stroke is captured as a pan.
-  let pid = -1, decided = 0 // 0 undecided, 1 pan, -1 let the page scroll
-  let startX = 0, startY = 0, panStartX = 0, panStartY = 0
-  let moved = false, suppressClick = false
-  let lastVX = 0, lastVY = 0
-  const DECIDE = 8
+  // ---- pan gesture (mobile FULLSCREEN only) --------------------------------
+  // Driven by TOUCH events with preventDefault. iOS Safari does not reliably honor
+  // touch-action:none on an SVG and would axis-lock, rubber-band, or cancel a
+  // pointer-event drag mid-gesture ("stops following the finger"; diagonals
+  // collapsing to one axis). A non-passive touchmove + preventDefault takes the
+  // gesture away from the browser entirely → true free 2D pan that tracks the
+  // finger for the whole stroke. Collapsed/desktop: handlers no-op, page scrolls.
+  let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
+  let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
+  const DECIDE = 6
+  function resetGesture() { tId = -1; tMoved = false }
   function startMomentum() {
-    let vx = lastVX, vy = lastVY
+    let vx = tVX, vy = tVY
     const stepM = () => {
-      vx *= 0.92; vy *= 0.92
-      if (Math.hypot(vx, vy) < 0.3) { stopMomentum(); return }
+      vx *= 0.93; vy *= 0.93
+      if (Math.hypot(vx, vy) < 0.25) { stopMomentum(); return }
       panX += vx; panY += vy; clampPan(); applyCamera()
       momRAF = requestAnimationFrame(stepM)
     }
     momRAF = requestAnimationFrame(stepM)
   }
-  const onPointerDown = (e: PointerEvent) => {
-    if (isDesktop()) return
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    if (e.pointerType === 'touch' && e.clientX < 24) return // dodge iOS edge back-swipe
+  const onTouchStart = (e: TouchEvent) => {
+    if (fsState !== 'fullscreen') return
+    if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
+    const t = e.touches[0]
+    if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
     stopMomentum(); hideCoach()
-    pid = e.pointerId; decided = 0; moved = false
-    startX = e.clientX; startY = e.clientY; panStartX = panX; panStartY = panY
-    lastVX = 0; lastVY = 0
+    suppressClick = false // a fresh gesture: never swallow this one's tap
+    tId = t.identifier
+    tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
+    tMoved = false
+    tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
   }
-  const onPointerMove = (e: PointerEvent) => {
-    if (e.pointerId !== pid) return
-    const dx = e.clientX - startX, dy = e.clientY - startY
-    if (decided === 0) {
-      if (Math.hypot(dx, dy) < DECIDE) return
-      // Bias toward scroll: only a clearly horizontal stroke becomes a pan.
-      if (Math.abs(dx) > Math.abs(dy) * 1.4) { decided = 1; try { svg.setPointerCapture(pid) } catch { /* noop */ } camera.style.willChange = 'transform' }
-      else { decided = -1; pid = -1; return } // vertical → let touch-action:pan-y scroll the page
-    }
-    if (decided === 1) {
-      // No preventDefault: with touch-action:pan-y the browser won't horizontally
-      // scroll anyway, so the listener can stay PASSIVE — a non-passive move
-      // listener on the touch surface is what made vertical scrolling janky on iOS.
-      moved = true
-      const rect = svg.getBoundingClientRect()
-      const uPerPx = VBW / (rect.width || 1) // translate is outside scale → px→units is scale-independent
-      const pvx = panX, pvy = panY
-      panX = panStartX + dx * uPerPx; panY = panStartY + dy * uPerPx
-      clampPan()
-      lastVX = panX - pvx; lastVY = panY - pvy // units/frame, for momentum
-      applyCamera() // transform write only — never render() during a pan
-    }
+  const onTouchMove = (e: TouchEvent) => {
+    if (fsState !== 'fullscreen' || tId < 0) return
+    let t: Touch | null = null
+    for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
+    if (!t) return
+    if (e.cancelable) e.preventDefault() // KEY: take the gesture from iOS entirely
+    const dx = t.clientX - tSX, dy = t.clientY - tSY
+    if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true; camera.style.willChange = 'transform' }
+    const rect = svg.getBoundingClientRect()
+    const uPerPx = VBW / (rect.width || 1) // translate is outside the scale, so px→units is scale-independent
+    panX = tPX0 + dx * uPerPx; panY = tPY0 + dy * uPerPx
+    clampPan()
+    const now = e.timeStamp, dt = now - tLT
+    if (dt > 0) { tVX = ((t.clientX - tLX) * uPerPx / dt) * 16; tVY = ((t.clientY - tLY) * uPerPx / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
+    applyCamera() // transform write only — never render() during a pan
   }
-  const endDrag = (e: PointerEvent) => {
-    if (e.pointerId !== pid && decided !== 1) return
-    if (decided === 1) {
-      try { svg.releasePointerCapture(e.pointerId) } catch { /* noop */ }
-      suppressClick = moved
-      if (moved && !reduced && Math.hypot(lastVX, lastVY) > 0.4) startMomentum()
-      else camera.style.willChange = ''
+  const onTouchEnd = () => {
+    if (tId < 0) return
+    if (tMoved) {
+      suppressClick = true // swallow the click iOS synthesizes after a drag
+      if (!reduced && Math.hypot(tVX, tVY) > 0.4) startMomentum(); else camera.style.willChange = ''
     }
-    pid = -1; decided = 0
+    resetGesture()
   }
-  // Swallow the synthetic click that follows a drag so a pan never navigates.
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
-  svg.addEventListener('pointerdown', onPointerDown)
-  svg.addEventListener('pointermove', onPointerMove, { passive: true }) // passive: never blocks the compositor scroll
-  svg.addEventListener('pointerup', endDrag)
-  svg.addEventListener('pointercancel', endDrag) // iOS fires this when it steals the gesture
-  svg.addEventListener('lostpointercapture', endDrag)
+  svg.addEventListener('touchstart', onTouchStart, { passive: true })
+  // The non-passive touchmove listener is attached ONLY while fullscreen (see
+  // enterFullscreen / exitFullscreen). Registering it here at mount would mark the
+  // full-cover #op-svg as a NON-FAST-SCROLLABLE region on iOS WebKit the instant it
+  // attaches — passive:false is a registration-time flag, not a runtime decision — so
+  // a swipe that begins on the collapsed map is pulled off the compositor scroll path
+  // and, because WebKit doesn't hand an un-prevented gesture back to native scroll, the
+  // page never scrolls (works on desktop Chrome, dead on iOS Safari + iOS Chrome).
+  // Attaching it lazily keeps the fullscreen free-pan while the collapsed map scrolls
+  // natively. (touchstart is passive, so it never creates a slow-scroll region.)
+  svg.addEventListener('touchend', onTouchEnd)
+  svg.addEventListener('touchcancel', onTouchEnd)
   svg.addEventListener('click', onClickCapture, true)
 
   render()
@@ -523,6 +733,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
 
   return () => {
+    forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
     if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 }
     stopMomentum()
@@ -533,6 +744,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
     container.innerHTML = '' // discards svg + all its pointer/click listeners
-    container.classList.remove('op-live', 'op-at-top')
+    container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
 }
