@@ -905,21 +905,27 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (descEl && e.target instanceof Node && descEl.contains(e.target)) return
     if (e.cancelable) e.preventDefault()
   }
+  // The lock is self-healing: a gesture's fling tail can leak a few px of
+  // root scroll past overflow:hidden + the touchmove guard (the browser
+  // applies it at gesture end, beyond preventDefault's reach). Behind the
+  // opaque overlay any drift is invisible — snap it straight back so the
+  // page provably never moves while the map is fullscreen.
+  const snapLockedY = () => { try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) } }
+  const onLockedScroll = () => { if (fsState === 'fullscreen' && Math.abs((window.scrollY || 0) - lockedY) > 1) snapLockedY() }
   function lockScroll() {
     const d = document.documentElement, b = document.body
     lockedY = window.scrollY || 0
     rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
     d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
+    window.addEventListener('scroll', onLockedScroll, { passive: true })
   }
   function unlockScroll() {
     const d = document.documentElement, b = document.body
     d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
     document.removeEventListener('touchmove', onDocTouchMove)
-    // A fast fling can leak a few px of root scroll past the lock (the first
-    // touchmove of a gesture may be dispatched non-cancelable). Snap back to
-    // the pinned offset so Close always lands exactly where the page was.
-    try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) }
+    window.removeEventListener('scroll', onLockedScroll)
+    snapLockedY() // Close lands exactly where the page was when the map opened
   }
   function stopFsAnim() { if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null } if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 } }
   function enterFullscreen() {
@@ -927,6 +933,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     stopFsAnim()
     fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
     armed = false          // the once-per-load auto-open is spent on ANY entry
+    if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
     placeholder = document.createElement('div')
@@ -953,6 +960,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // FLIP: grow the fullscreen box out of the collapsed section's box — the
     // whole entrance is this one smooth zoom into the graph. WAAPI on the
     // container (an HTML box): composited, no mid-flight layout, smooth on iOS.
+    // Slow and GRADUAL by request: a near-symmetric ease that builds up gently
+    // instead of an ease-out that fires most of its motion in the first frames
+    // (that read as being "popped" into the overlay).
     const last = container.getBoundingClientRect()
     const sx = Math.max(0.05, first.width / (last.width || 1))
     const sy = Math.max(0.05, first.height / (last.height || 1))
@@ -961,10 +971,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     container.style.willChange = 'transform, opacity'
     try {
       fsAnim = container.animate(
-        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.55 },
-         { opacity: 1, offset: 0.45 },
+        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.6 },
+         { opacity: 1, offset: 0.5 },
          { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
-        { duration: 560, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
+        { duration: 950, easing: 'cubic-bezier(0.45, 0.05, 0.15, 1)' }
       )
       fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
     } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
@@ -1167,20 +1177,34 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // when it swaps in (canvas text is rasterized, it never reflows on its own).
   try { (document as any).fonts?.ready?.then(() => { if (!disposed) render() }) } catch { /* noop */ }
 
-  // Auto-open (mobile): ARRIVING at the section — scrolling down into it or up
-  // from below — opens the overlay once per page load. seenAway requires the
-  // section to have been genuinely out of view first, so the collapse back
-  // into a visible section can never re-trigger it, and `armed` is consumed by
-  // the first entry of any kind (see enterFullscreen). Skipped under reduced
-  // motion: grabbing the viewport on scroll is exactly the surprise that
-  // preference asks to avoid — a node tap still opens the overlay.
+  // Auto-open (mobile): opens the overlay once per page load — but only when
+  // the WHOLE graph has scrolled into view, not on first contact. Triggering
+  // at partial visibility felt premature, and it also poisoned the exit: the
+  // scroll offset pinned at lock time was the half-arrived position, so Close
+  // returned you too high. Waiting for full visibility fixes both. seenAway
+  // requires the section to have been genuinely out of view first, so the
+  // collapse back into a visible section can never re-trigger it, and `armed`
+  // is consumed by the first entry of any kind (see enterFullscreen, which
+  // also disconnects this observer). Skipped under reduced motion: grabbing
+  // the viewport on scroll is exactly the surprise that preference asks to
+  // avoid — a node tap still opens the overlay.
   if (typeof IntersectionObserver !== 'undefined' && !reduced) {
     io = new IntersectionObserver((ents) => {
       for (const en of ents) {
         if (en.intersectionRatio <= 0.05) { seenAway = true; continue }
-        if (en.intersectionRatio >= 0.55 && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
+        // "Fully in view": the visible slice is as tall as it can ever get —
+        // the whole section (portrait, section shorter than the viewport) or
+        // the whole viewport (landscape phones, where the section is taller
+        // and a ratio threshold of 1 could never fire). The slack must cover
+        // one threshold step (callbacks only land ON thresholds, and exactly
+        // 1.0 is often never reported thanks to fractional-pixel rounding)
+        // plus sub-pixel/URL-bar drift — 3% of the section, min 12px.
+        const bh = en.boundingClientRect.height
+        const rb = en.rootBounds
+        const needed = (rb ? Math.min(bh, rb.height) : bh) - Math.max(12, bh * 0.03)
+        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
       }
-    }, { threshold: [0, 0.05, 0.55, 1] })
+    }, { threshold: Array.from({ length: 51 }, (_, i) => i / 50) })
     io.observe(container)
   }
 
@@ -1204,6 +1228,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
     document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (unlockScroll already removes it)
+    window.removeEventListener('scroll', onLockedScroll)
     unwireTouch()
     container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-fs')
