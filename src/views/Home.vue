@@ -218,7 +218,8 @@
           <!-- The selected Regarding choice (stable English key) is mirrored here
                by pickTopic, so it submits to Web3Forms as the `topic` field. -->
           <input id="cf-topic" type="hidden" name="topic" value="">
-          <div style="background:color-mix(in oklab, var(--graphite) 91%, #FFFFFF); border:1px solid rgba(236,231,220,0.14); border-top:3px solid var(--accent); box-shadow:0 16px 40px rgba(15,16,18,0.25);">
+          <!-- id is the anchor web3forms.ts appends the hCaptcha row to. -->
+          <div id="cf-card" style="background:color-mix(in oklab, var(--graphite) 91%, #FFFFFF); border:1px solid rgba(236,231,220,0.14); border-top:3px solid var(--accent); box-shadow:0 16px 40px rgba(15,16,18,0.25);">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:0.85rem 1.25rem; border-bottom:1px solid rgba(236,231,220,0.12);">
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#D6D1C5;">{{ t.contact.newMessage }}</span>
               <span style="display:inline-flex; align-items:center; gap:0.5rem;">
@@ -567,6 +568,41 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 /* Keyboard/screen-reader layer: one visually-hidden button per clickable node
    (canvas pixels carry no semantics). Focus draws the ring on the canvas. */
 .op-a11y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* hCaptcha row — built by web3forms.ts at runtime, so it carries no scope
+   attribute and is styled here rather than in the scoped block. It is the form
+   card's last row and matches the Name/Email rows: same padding, same divider,
+   same micro-label column. The widget itself is a fixed-size cross-origin
+   iframe, so only its surroundings can be styled — dark theme is set at render
+   so it sits on the panel rather than punching a white hole in it. */
+.pm-captcha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1.2rem;
+  padding: 0.85rem 1.25rem 1rem;
+  border-top: 1px solid rgba(236, 231, 220, 0.12);
+  /* fades in with the widget so the row never flashes empty while it loads */
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pm-captcha.is-live { opacity: 1; }
+.pm-captcha-label {
+  flex: 0 0 5rem;
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #948e81;
+}
+.pm-captcha-box { flex: 1 1 auto; min-width: 0; line-height: 0; }
+.pm-captcha-box iframe { max-width: 100%; }
+/* The widget is ~303px wide and will not shrink; below this the label takes its
+   own line so the full card width is left for it. */
+@media (max-width: 540px) {
+  .pm-captcha-label { flex: 1 1 100%; }
+}
 
 .op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
 .op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }

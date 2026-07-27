@@ -162,6 +162,8 @@ export interface HomeContent {
     messageLabel: string
     send: string
     formStates: { sending: string; success: string; error: string; invalid: string }
+    /** Copy for the hCaptcha row web3forms.ts injects into the form card. */
+    captcha: { label: string; required: string }
   }
   bar: {
     aria: string
@@ -586,6 +588,7 @@ const home: Localized<HomeContent> = {
         error: 'Something went wrong — please try again, or email me directly.',
         invalid: 'Please add your name, a valid email and a message.',
       },
+      captcha: { label: 'Verify', required: 'Please confirm you are not a robot.' },
     },
     bar: {
       aria: 'Page progress',
@@ -959,6 +962,7 @@ const home: Localized<HomeContent> = {
         error: 'Nekaj je šlo narobe — poskusite znova ali mi pišite neposredno.',
         invalid: 'Prosimo, dodajte ime, veljaven e-naslov in sporočilo.',
       },
+      captcha: { label: 'Preverba', required: 'Prosimo, potrdite, da niste robot.' },
     },
     bar: {
       aria: 'Napredek strani',

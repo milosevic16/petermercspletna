@@ -1111,6 +1111,7 @@ export function initEffects(copy: HomeContent): () => void {
       subject: function (f) { return 'Peter Merc website — ' + (f.topic || 'General'); },
       page: 'Peter Merc — website contact',
       strings: copy.contact.formStates,
+      captcha: copy.contact.captcha,
     })
   } catch (e) { console.error("[effects] init failed", e) }
   return __fx.dispose
