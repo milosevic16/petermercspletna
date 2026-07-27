@@ -28,11 +28,6 @@
             style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.86rem; font-weight:500; color:#FBFAF7; text-decoration:none;"
             data-hover="text-decoration:underline; text-decoration-color:rgba(251,250,247,0.6); text-underline-offset:0.35em;"
           >{{ c.nav.media }}</a>
-          <a
-            href="#writing"
-            style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.86rem; font-weight:500; color:#FBFAF7; text-decoration:none;"
-            data-hover="text-decoration:underline; text-decoration-color:rgba(251,250,247,0.6); text-underline-offset:0.35em;"
-          >{{ c.nav.writing }}</a>
         </nav>
       </div>
       <!-- EN | SL toggle: outside .pm-desktop-only so it stays visible on

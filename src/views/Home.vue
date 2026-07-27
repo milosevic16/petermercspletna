@@ -137,7 +137,7 @@
           </a>
         </div>
         <p style="margin:1.2rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:#948E81;">{{ t.media.note }}</p>
-        <!-- Same row as a `writing` segment, in the dark section's palette. -->
+        <!-- Row-style link out to the full archive, in the dark section's palette. -->
         <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); border-bottom:1px solid rgba(236,231,220,0.12);">
           <!-- reveal 0: the row sits below the note in its own band and crosses the
                threshold alone, so it should not wait out the card strip's stagger. -->
@@ -200,23 +200,6 @@
             </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section id="writing" data-screen-label="Writing" :data-chyron="t.writing.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0;">
-      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
-        <h2 style="margin:0 0 clamp(1.8rem, 4vw, 2.8rem); display:flex; align-items:center; gap:1.1rem;">
-          <span style="display:inline-flex; align-items:center; background:var(--graphite); border-left:3px solid var(--accent); color:#D6D1C5; padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.writing.eyebrow }}</span>
-          <span aria-hidden="true" data-rule="" style="flex:1; border-top:1px solid var(--line);"></span>
-        </h2>
-        <div style="border-bottom:1px solid var(--line);">
-          <a v-for="(s, si) in t.writing.segments" :key="s.seg" :data-reveal="si" href="https://lemur.legal/blog" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid var(--line); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
-            <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent); font-variant-numeric:tabular-nums;">{{ s.seg }}</span>
-            <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3;">{{ s.title }}</span>
-            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ t.writing.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-          </a>
-        </div>
-        <p style="margin:1.1rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.writing.note }}</p>
       </div>
     </section>
 
@@ -283,7 +266,7 @@
         <span aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:rgba(236,231,220,0.14);"></span>
         <span id="bar-fill" aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
         <span id="bar-knob" aria-hidden="true" style="position:absolute; top:50%; left:0; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 28%, transparent), 0 0 9px 1px color-mix(in oklab, var(--accent) 55%, transparent);"></span>
-        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" class="pm-bar-jump" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + ji * 20 + '%; width:20%; box-sizing:border-box; background:transparent; border:0; padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
+        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" class="pm-bar-jump" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + (ji * 100) / t.bar.jumps.length + '%; width:' + 100 / t.bar.jumps.length + '%; box-sizing:border-box; background:transparent; border:0; padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
       </div>
       <div style="flex:0 0 6.6rem; box-sizing:border-box; display:flex; align-items:center; justify-content:flex-end; gap:0.45rem; padding:0 1rem; border-left:1px solid rgba(236,231,220,0.12);">
         <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.6rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.bar.partLabel }}</span>
@@ -434,13 +417,21 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .tl-cell { position: relative; display: flex; flex-direction: column; min-width: 0; }
 .tl-track-up .tl-cell { justify-content: flex-end; padding-bottom: 1.35rem; }
 .tl-track-dn .tl-cell { padding-top: 1.35rem; }
+/* Ten lower entries in one row read as a wall of text, so every second one drops
+   a step and a hairline runs from its dot down to it. Padding, not margin: the
+   dot is pinned to the cell's top edge, which must stay on the rail. */
+.tl-track-dn .tl-cell:nth-child(even) { padding-top: 4.6rem; }
+.tl-track-dn .tl-cell:nth-child(even)::before {
+  content: ''; position: absolute; left: 6px; top: 0.7rem;
+  width: 2px; height: 3.1rem; background: var(--line);
+}
 .tl-h .tl-title { font-size: 0.95rem; }
 .tl-h .tl-cap { font-size: 0.75rem; }
 .tl-h .tl-dot { position: absolute; left: 0; }
 /* -8px centres a 14px dot on the 2px rail from either side. */
 .tl-track-up .tl-dot { bottom: -8px; border-color: var(--accent); }
 .tl-track-dn .tl-dot { top: -8px; border-color: var(--ink); }
-.tl-track-up .tl-year { color: var(--accent); }
+.tl-track-up .tl-year, .tl-track-up .tl-title { color: var(--accent); }
 .tl-track-dn .tl-year { color: var(--ink); }
 .tl-fill { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; }
 
@@ -454,7 +445,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .tl-v .tl-dot { position: absolute; left: 50%; margin-left: -7px; top: 0.12rem; }
 .tl-v-above .tl-txt { grid-column: 1; text-align: right; }
 .tl-v-above .tl-dot { border-color: var(--accent); }
-.tl-v-above .tl-year { color: var(--accent); }
+.tl-v-above .tl-year, .tl-v-above .tl-title { color: var(--accent); }
 .tl-v-below .tl-txt { grid-column: 2; text-align: left; }
 .tl-v-below .tl-dot { border-color: var(--ink); }
 .tl-v-below .tl-year { color: var(--ink); }

@@ -119,7 +119,7 @@ export interface HomeContent {
     cards: MediaCard[]
     cta: string
     note: string
-    /** Row under the cards — same shape as a `writing` segment — out to the archive. */
+    /** Row-style link under the cards, out to the full archive. */
     archive: { seg: string; title: string; linkLabel: string; href: string }
   }
   timeline: {
@@ -136,13 +136,6 @@ export interface HomeContent {
      */
     above: TimelineEntry[]
     below: TimelineEntry[]
-  }
-  writing: {
-    eyebrow: string
-    chyron: string
-    segments: Array<{ seg: string; title: string }>
-    linkLabel: string
-    note: string
   }
   contact: {
     eyebrow: string
@@ -538,17 +531,6 @@ const home: Localized<HomeContent> = {
         { year: '2026', title: 'JonatanMars Invest', caption: 'Brokerage company, supervisory board' },
       ],
     },
-    writing: {
-      eyebrow: 'Writing',
-      chyron: 'Writing',
-      segments: [
-        { seg: 'Seg 01', title: 'MiCA compliance, in practice' },
-        { seg: 'Seg 02', title: 'Token classification, and the opinions that get assets listed' },
-        { seg: 'Seg 03', title: 'Crypto taxation in Slovenia' },
-      ],
-      linkLabel: 'lemur.legal/blog',
-      note: '⚠ Topic lines shown — swap in final article titles, links and the LinkedIn destination before publishing.',
-    },
     contact: {
       eyebrow: 'Contact',
       chyron: 'Contact',
@@ -613,8 +595,7 @@ const home: Localized<HomeContent> = {
         { target: 'facets', title: 'Part 1 — What I do', aria: 'Jump to What I do' },
         { target: 'record', title: 'Part 2 — Track record', aria: 'Jump to Track record' },
         { target: 'media', title: 'Part 3 — Media & press', aria: 'Jump to Media and press' },
-        { target: 'writing', title: 'Part 4 — Writing', aria: 'Jump to Writing' },
-        { target: 'contact', title: 'Part 5 — Contact', aria: 'Jump to Contact' },
+        { target: 'contact', title: 'Part 4 — Contact', aria: 'Jump to Contact' },
       ],
     },
   },
@@ -923,17 +904,6 @@ const home: Localized<HomeContent> = {
         { year: '2026', title: 'JonatanMars Invest', caption: 'Borznoposredniška družba, nadzorni svet' },
       ],
     },
-    writing: {
-      eyebrow: 'Objave',
-      chyron: 'Objave',
-      segments: [
-        { seg: 'Seg 01', title: 'Skladnost z MiCA v praksi' },
-        { seg: 'Seg 02', title: 'Klasifikacija žetonov in mnenja, s katerimi se sredstva uvrstijo' },
-        { seg: 'Seg 03', title: 'Obdavčitev kriptovalut v Sloveniji' },
-      ],
-      linkLabel: 'lemur.legal/blog',
-      note: '⚠ Prikazane so tematske vrstice — pred objavo zamenjajte s končnimi naslovi člankov, povezavami in LinkedIn destinacijo.',
-    },
     contact: {
       eyebrow: 'Kontakt',
       chyron: 'Kontakt',
@@ -998,8 +968,7 @@ const home: Localized<HomeContent> = {
         { target: 'facets', title: '1. del — Kaj počnem', aria: 'Skoči na Kaj počnem' },
         { target: 'record', title: '2. del — Dosedanje delo', aria: 'Skoči na Dosedanje delo' },
         { target: 'media', title: '3. del — Mediji in tisk', aria: 'Skoči na Mediji in tisk' },
-        { target: 'writing', title: '4. del — Objave', aria: 'Skoči na Objave' },
-        { target: 'contact', title: '5. del — Kontakt', aria: 'Skoči na Kontakt' },
+        { target: 'contact', title: '4. del — Kontakt', aria: 'Skoči na Kontakt' },
       ],
     },
   },

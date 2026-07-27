@@ -117,7 +117,8 @@ export function initEffects(copy: HomeContent): () => void {
         // section offsets cache for the segmented progress bar
         this._refreshOffs = () => {
           var h = window.innerHeight || 800;
-          var ids = ['facets', 'record', 'media', 'writing', 'contact'];
+          // Must stay in step with copy.bar.jumps — one bar segment per section.
+          var ids = ['facets', 'record', 'media', 'contact'];
           var tops = [];
           for (var i = 0; i < ids.length; i++) {
             var el = document.getElementById(ids[i]);
@@ -145,15 +146,16 @@ export function initEffects(copy: HomeContent): () => void {
             }
             if (p > 0.8 && !this._locked && l3) this._lock(l3);
             var o = this._off;
-            if (o && o.tops.length === 5) {
+            if (o && o.tops.length) {
+              var nSeg = o.tops.length;
               var seg = -1;
-              for (var i = 0; i < 5; i++) { if (sy >= o.tops[i] - h * 0.35) seg = i; }
+              for (var i = 0; i < nSeg; i++) { if (sy >= o.tops[i] - h * 0.35) seg = i; }
               var f = 0;
               if (seg >= 0) {
                 var a = o.tops[seg] - h * 0.35;
-                var b = seg < 4 ? o.tops[seg + 1] - h * 0.35 : o.max;
+                var b = seg < nSeg - 1 ? o.tops[seg + 1] - h * 0.35 : o.max;
                 var fr = b > a ? Math.min(1, Math.max(0, (sy - a) / (b - a))) : 1;
-                f = (seg + fr) / 5;
+                f = (seg + fr) / nSeg;
               }
               var fill = document.getElementById('bar-fill');
               if (fill) fill.style.transform = 'scaleX(' + f.toFixed(4) + ')';
@@ -1005,7 +1007,7 @@ export function initEffects(copy: HomeContent): () => void {
           showNav: !this.state.mobile,
           barOn: on && this.state.bar,
           barLabel: this.state.label || copy.bar.fallbackLabel,
-          barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / 05',
+          barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / ' + this._pad(copy.bar.jumps.length),
           docketText: docket[this.state.docket] || copy.docket.items[0],
           docketIdx: this._pad(this.state.docket + 1) + ' / 08',
           dsRing: (this.props.docketStyle || 'ring') === 'ring',
