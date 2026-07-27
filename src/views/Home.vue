@@ -545,11 +545,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   /* Collapsed (preview): keep the panel compact so it doesn't crowd the graph —
      the camera reserves less, so the graph reads bigger. Full text in fullscreen. */
   .op-map.op-live:not(.op-fs) .op-d-desc { max-height: 2.9em; }
-  /* During the entry reveal the sheet stays compact (exactly as it looked in
-     the preview) so it reads as the same sheet riding down with the opening
-     box; it unfolds to the full text once the reveal lands (op-entering is
-     removed by the animation's onfinish). */
-  .op-map.op-live.op-fs.op-entering .op-d-desc { max-height: 2.9em; }
 }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */

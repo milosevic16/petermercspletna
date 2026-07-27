@@ -160,6 +160,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
   let sheetAnim: Animation | null = null
+  // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
+  // as the camera tween (see applyEnterFlip) so box and graph can never
+  // desynchronize into a jump.
+  let enterFlip: { l: number; t: number; u: number } | null = null
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
@@ -411,6 +415,23 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const e = camEase(Math.min(1, (now - camT0) / CAM_DUR))
     cam = { tx: camFrom.tx + (camTo.tx - camFrom.tx) * e, ty: camFrom.ty + (camTo.ty - camFrom.ty) * e, s: camFrom.s + (camTo.s - camFrom.s) * e }
     if (e >= 1) camActive = false
+  }
+  // Entry box-zoom: the container scales up from the collapsed section's slot
+  // while the camera glides to the fullscreen fit. Both read the SAME
+  // progress (camT0/CAM_DUR/camEase), so the box and the graph inside it are
+  // locked into one combined zoom — a main-thread hiccup stalls both
+  // together instead of letting one race ahead of the other.
+  function applyEnterFlip(now: number) {
+    if (!enterFlip) return
+    const p = camActive ? Math.min(1, (now - (camT0 || now)) / CAM_DUR) : 1
+    if (p >= 1) {
+      enterFlip = null
+      container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+      return
+    }
+    const e = camEase(p)
+    const s = enterFlip.u + (1 - enterFlip.u) * e
+    container.style.transform = `translate(${(enterFlip.l * (1 - e)).toFixed(2)}px, ${(enterFlip.t * (1 - e)).toFixed(2)}px) scale(${s.toFixed(5)})`
   }
 
   // ---- drag-to-pan + momentum (mobile fullscreen only) ---------------------
@@ -711,6 +732,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function frame(now: number) {
     drawRAF = 0
     stepCamera(now)
+    applyEnterFlip(now)
     if (momActive) {
       momVX *= 0.93; momVY *= 0.93
       if (Math.hypot(momVX, momVY) < 0.25) momActive = false
@@ -931,8 +953,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function stopFsAnim() {
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
     if (sheetAnim) { try { sheetAnim.cancel() } catch { /* noop */ } sheetAnim = null }
+    if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
-    container.classList.remove('op-entering')
   }
   function enterFullscreen() {
     if (isDesktop() || fsState !== 'collapsed') return
@@ -964,21 +986,35 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
     updateViewBox()
-    // Seamless handoff: start the fullscreen camera at the transform that
-    // reproduces the collapsed view pixel-for-pixel — same world scale
-    // (oldU2p*s carried into the new px-per-unit) and same world->viewport
-    // offsets (the old box's centre re-expressed in the fullscreen box). The
-    // graph therefore does not move AT ALL on the entry frame; render(true)
-    // below aims the regular camera tween at the fullscreen fit and that
-    // glide IS the zoom. No snap, nothing to hide with an opacity dip.
+    // Seamless handoff, in two locked parts — the expanding-box zoom of the
+    // original design plus a pixel-matched first frame:
+    //  1. the container zooms out of the collapsed section's slot to the
+    //     full viewport with a UNIFORM scale (u = width ratio). Uniform is
+    //     the trick: only a uniform box transform can be cancelled exactly
+    //     by the (uniform) camera, so the first frame can match the
+    //     collapsed view perfectly. The extra height u leaves over lands
+    //     below the viewport edge, where it is invisible.
+    //  2. the fullscreen camera starts at the transform that — seen through
+    //     that t=0 box transform — reproduces the collapsed view
+    //     pixel-for-pixel, and the regular camera tween glides it to the
+    //     fullscreen fit. Both movements run on the same clock and easing
+    //     (applyEnterFlip), so they compose into ONE zoom.
     const newU2p = Math.min(cssW / VBW, cssH / VBH) || 1
+    const u = Math.max(0.05, Math.min(1, first.width / (cssW || 1)))
     camActive = false
     cam = {
-      s: oldCam.s * (oldU2p / newU2p),
-      tx: (first.left + oldW / 2 - cssW / 2 + oldCam.tx * oldU2p) / newU2p,
-      ty: (first.top + oldH / 2 - cssH / 2 + oldCam.ty * oldU2p) / newU2p,
+      s: (oldU2p * oldCam.s) / (u * newU2p),
+      tx: ((oldW / 2 + oldCam.tx * oldU2p) / u - cssW / 2) / newU2p,
+      ty: ((oldH / 2 + oldCam.ty * oldU2p) / u - cssH / 2) / newU2p,
     }
     render(!reduced)
+    if (!reduced && camActive) {
+      // arm the box zoom BEFORE this frame paints, at its exact t=0 pose
+      enterFlip = { l: first.left, t: first.top, u }
+      container.style.transformOrigin = '0 0'
+      container.style.willChange = 'transform'
+      container.style.transform = `translate(${first.left.toFixed(2)}px, ${first.top.toFixed(2)}px) scale(${u.toFixed(5)})`
+    }
     // Paint the matched frame NOW. An IntersectionObserver callback runs
     // after this frame's rAF but before paint, so the canvas resize above
     // (which clears the bitmap) would otherwise reach the screen for one
@@ -988,36 +1024,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // programmatically scrollable) locked document — a hidden shift under the overlay.
     requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
     if (reduced) return
-    // The reveal: the overlay starts clipped to the section's old box and
-    // opens out to the full viewport in step with the camera glide (same
-    // duration and curve as CAM_DUR/camEase), so the box and its content move
-    // as one. No transform and no opacity keyframes: the graph stays
-    // continuously visible, crisp and undistorted the whole way.
-    container.classList.add('op-entering') // holds the sheet text compact until the reveal lands
-    const insTop = first.top, insLeft = first.left
-    const insRight = cssW - (first.left + first.width)
-    const insBottom = cssH - (first.top + first.height)
+    // The sheet is where the two states genuinely differ (position, height,
+    // amount of text), so opacity bridges it: invisible while the box
+    // travels, fading in as it lands. The graph itself never blinks.
     try {
-      fsAnim = container.animate(
-        [{ clipPath: `inset(${insTop.toFixed(1)}px ${insRight.toFixed(1)}px ${insBottom.toFixed(1)}px ${insLeft.toFixed(1)}px)` },
-         { clipPath: 'inset(0px 0px 0px 0px)' }],
-        { duration: 1050, easing: 'cubic-bezier(0.33, 0, 0.2, 1)' }
+      sheetAnim = dossier.animate(
+        [{ opacity: 0 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }],
+        { duration: 1050, easing: 'ease' }
       )
-      fsAnim.onfinish = () => { fsAnim = null; container.classList.remove('op-entering') }
-    } catch { container.classList.remove('op-entering') }
-    // The sheet rides the clip's bottom edge down to the viewport bottom, so
-    // it reads as the SAME sheet travelling with the opening box instead of
-    // teleporting there.
-    if (insBottom > 0.5) {
-      try {
-        sheetAnim = dossier.animate(
-          [{ transform: `translateY(${(-insBottom).toFixed(1)}px)` }, { transform: 'translateY(0px)' }],
-          { duration: 1050, easing: 'cubic-bezier(0.33, 0, 0.2, 1)' }
-        )
-        sheetAnim.onfinish = () => { sheetAnim = null }
-      } catch { /* noop */ }
-    }
-    fsSafety = window.setTimeout(() => { container.classList.remove('op-entering') }, 1400) // belt if onfinish never fires
+      sheetAnim.onfinish = () => { sheetAnim = null }
+    } catch { /* noop */ }
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
@@ -1212,7 +1228,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // the moment the real size lands, and again on rotation; the timer is a
   // fallback for browsers without it.
   let ro: ResizeObserver | null = null
-  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => render()); ro.observe(container) }
+  // While the entry zoom is running, skip observer re-renders: the observer
+  // fires one frame after enterFullscreen (the box's layout size changed) and
+  // a plain render() SNAPS the camera to the fullscreen fit — killing the
+  // glide dead while the box animation carries on alone. That one-frame-late
+  // delivery is redundant anyway: enterFullscreen already refit for the new
+  // size. Real resizes mid-entry (rotation) still land via onResize.
+  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => { if (!enterFlip) render() }); ro.observe(container) }
   const settleTimer = window.setTimeout(render, 400)
   // Label metrics + canvas text depend on the webfont; re-measure and repaint
   // when it swaps in (canvas text is rasterized, it never reflows on its own).
