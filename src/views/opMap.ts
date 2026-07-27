@@ -131,12 +131,25 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   ;(pmback.querySelector('.op-back-txt') as HTMLElement).textContent = content.backLabel
   ;(pmback.querySelector('.op-back-exit-txt') as HTMLElement).textContent = content.exit || 'Close'
   const dossier = h('aside', 'op-dossier'); dossier.setAttribute('aria-live', 'polite')
+  // The arrow is an inline SVG, not "\u2197": that codepoint has emoji
+  // presentation by default on iOS, so the link rendered with a colour
+  // emoji arrow instead of a hairline glyph in the text's own colour.
   dossier.innerHTML =
     '<div class="op-dossier-in">'
     + '<h3 class="op-d-name"></h3><p class="op-d-desc"></p>'
-    + '<a class="op-d-visit" target="_blank" rel="noopener" hidden></a>'
+    + '<a class="op-d-visit" target="_blank" rel="noopener" hidden>'
+    +   '<span class="op-d-visit-txt"></span>'
+    +   '<svg class="op-d-visit-arw" viewBox="0 0 12 12" aria-hidden="true">'
+    +     '<path d="M3.4 8.6 L8.6 3.4 M5 3.4 H8.6 V7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'
+    +   '</svg>'
+    + '</a>'
     + '</div>'
-  container.append(pmback, dossier)
+  // Coach hint: a pill that appears once the fullscreen zoom has landed and
+  // fades out a few seconds later (or the moment you touch the map).
+  const coachEl = h('div', 'op-coach') as HTMLDivElement
+  coachEl.setAttribute('aria-hidden', 'true')
+  coachEl.textContent = content.coach || ''
+  container.append(pmback, coachEl, dossier)
 
   // ---- state + camera -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
@@ -359,7 +372,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     ;(dossier.querySelector('.op-d-name') as HTMLElement).textContent = n.name
     ;(dossier.querySelector('.op-d-desc') as HTMLElement).textContent = n.desc
     const v = dossier.querySelector('.op-d-visit') as HTMLAnchorElement
-    if (n.href) { v.hidden = false; v.href = n.href; v.textContent = content.visit + ' ↗' } else v.hidden = true
+    if (n.href) { v.hidden = false; v.href = n.href; (v.querySelector('.op-d-visit-txt') as HTMLElement).textContent = content.visit } else v.hidden = true
     dossier.classList.add('show')
   }
 
@@ -407,17 +420,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let camFrom: Cam = cam, camTo: Cam = cam
   let camT0 = 0, camActive = false
   const CAM_DUR = 1050 // ms — a slow, smooth zoom
+  let camDur = CAM_DUR // per-glide override (the exit recentre runs shorter)
   let panX = 0, panY = 0 // drag-to-pan offset (world units)
-  function setCamera(target: Cam, opts: { animate: boolean }) {
+  function setCamera(target: Cam, opts: { animate: boolean; dur?: number }) {
     const near = Math.abs(target.tx - cam.tx) < 0.5 && Math.abs(target.ty - cam.ty) < 0.5 && Math.abs(target.s - cam.s) < 0.002
     if (!opts.animate || reduced || near) { camActive = false; cam = { ...target }; requestDraw(); return }
-    camFrom = { ...cam }; camTo = { ...target }; camT0 = 0; camActive = true
+    camFrom = { ...cam }; camTo = { ...target }; camT0 = 0; camActive = true; camDur = opts.dur || CAM_DUR
     requestDraw()
   }
   function stepCamera(now: number) {
     if (!camActive) return
     if (!camT0) camT0 = now
-    const e = camEase(Math.min(1, (now - camT0) / CAM_DUR))
+    const e = camEase(Math.min(1, (now - camT0) / camDur))
     cam = { tx: camFrom.tx + (camTo.tx - camFrom.tx) * e, ty: camFrom.ty + (camTo.ty - camFrom.ty) * e, s: camFrom.s + (camTo.s - camFrom.s) * e }
     if (e >= 1) camActive = false
   }
@@ -436,11 +450,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (p >= 1) {
       enterFlip = null
       container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
-      // Only now show the Close pill: mid-flight it hovered over a
-      // still-moving scene and read as out of place. syncBack un-hides it
-      // (its own CSS fade plays), and focus lands on it for the Tab-trap.
-      syncBack()
-      try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
+      fsLanded() // Close pill + coach hint appear only now
       return
     }
     const e = camEase(p)
@@ -590,7 +600,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
   // re-renders (resize/observer/settle/fonts) snap so they never tween.
-  function render(animate = false) {
+  function render(animate = false, camMs?: number) {
     const now = performance.now()
     const path = ancestors(focusId), childIds = byId[focusId].kids
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
@@ -663,7 +673,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
           else placed.push(bb)
         })
     }
-    setCamera(camTgt, { animate }) // glide on navigation, snap on layout re-renders
+    setCamera(camTgt, { animate, dur: camMs }) // glide on navigation, snap on layout re-renders
     syncBack()
     container.classList.toggle('op-at-top', focusId === 'pm')
     pulseChain(selId)
@@ -686,6 +696,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
+    hideCoach() // the hint has been acted on
     // A node tap is the ONE way into the overlay from the collapsed preview.
     if (!isDesktop() && fsState === 'collapsed') enterFullscreen()
     if (id === 'pm') { onHubActivate(); return }
@@ -966,6 +977,25 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
   }
+  let coachTimer = 0
+  function showCoach() {
+    if (!content.coach || isDesktop()) return
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
+    coachEl.classList.add('show')
+    coachTimer = window.setTimeout(() => { coachEl.classList.remove('show'); coachTimer = 0 }, 4200)
+  }
+  function hideCoach() {
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
+    coachEl.classList.remove('show')
+  }
+  // Everything that belongs to the overlay having ARRIVED — deliberately not
+  // done at entry time: mid-zoom the Close pill hovered over a still-moving
+  // scene, and the hint would have competed with the animation.
+  function fsLanded() {
+    syncBack()
+    try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
+    showCoach()
+  }
   function dropScrim(fadeMs: number) {
     const s = scrim
     if (!s) return
@@ -1059,8 +1089,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       container.style.willChange = 'transform'
       container.style.transform = `translate(${first.left.toFixed(2)}px, ${first.top.toFixed(2)}px) scale(${u.toFixed(5)})`
     } else if (enterFlip) {
-      enterFlip = null // camera had nothing to glide — no box zoom either; show the pill now
-      syncBack()
+      enterFlip = null // camera had nothing to glide — no box zoom either; land now
+      fsLanded()
     }
     // Paint the matched frame NOW. An IntersectionObserver callback runs
     // after this frame's rAF but before paint, so the canvas resize above
@@ -1072,7 +1102,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // overlay. Animated entries focus the pill when it appears at landing
     // (see applyEnterFlip); only the instant, reduced-motion path does it here.
     if (reduced) {
-      requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
+      requestAnimationFrame(() => fsLanded())
       return
     }
     // The sheet is where the two states genuinely differ (position, height,
@@ -1104,7 +1134,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus({ preventScroll: true }) } catch { /* noop */ } }
       lastFocused = null
     }
-    resetGesture(); suppressClick = false; stopMomentum()
+    resetGesture(); suppressClick = false; stopMomentum(); hideCoach()
+    // Recentre as it closes: the collapsed preview is always the whole graph
+    // around the hub, never the branch that happened to be open. The glide is
+    // cut to the exit's own length so the recentre and the shrink land
+    // together — finish()'s refit then has nothing left to jump.
+    if (focusId !== 'pm' || selId !== 'pm') { foldPan(); focusId = 'pm'; selId = 'pm'; render(!reduced, 340) }
     if (reduced) { dropScrim(0); finish(); return }
     dropScrim(520) // page fades back in around the shrinking box
     let done = false
@@ -1141,7 +1176,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
     stopMomentum(); panX = 0; panY = 0
-    dropScrim(0)
+    dropScrim(0); hideCoach()
     fsState = 'collapsed'
   }
   // Focus set for the Tab-trap (mobile fullscreen only).
@@ -1216,7 +1251,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
     const t = e.touches[0]
     if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
-    stopMomentum()
+    stopMomentum(); hideCoach()
     suppressClick = false // a fresh gesture: never swallow this one's tap
     tId = t.identifier
     tUPP = VBW / (cssW || 1)
@@ -1335,6 +1370,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     disposed = true
     forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
     if (io) { io.disconnect(); io = null }

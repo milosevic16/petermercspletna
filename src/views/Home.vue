@@ -472,6 +472,36 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    the page to the section's graphite while the box expands, so the box's
    opaque edge never sweeps across still-visible text. */
 .op-scrim { position: fixed; inset: 0; z-index: 9998; background: var(--graphite); pointer-events: none; }
+
+/* Coach hint — shown only once the fullscreen zoom has landed, for a few
+   seconds or until the map is touched (opMap.ts). Sits below the Close pill
+   so the two never collide. */
+.op-coach { display: none; }
+@media (max-width: 740px) {
+  .op-map.op-fs .op-coach {
+    display: block;
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 3.9rem);
+    left: 50%;
+    z-index: 3;
+    max-width: min(80%, 22rem);
+    box-sizing: border-box;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(20, 21, 23, 0.82);
+    backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+    border: 1px solid rgba(236, 231, 220, 0.14);
+    color: var(--ivory2);
+    font-family: 'Instrument Sans', Arial, sans-serif;
+    font-size: 0.63rem; font-weight: 600; letter-spacing: 0.11em; line-height: 1.4;
+    text-transform: uppercase; text-align: center; text-wrap: balance;
+    opacity: 0; pointer-events: none;
+    transform: translate(-50%, -6px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .op-map.op-fs .op-coach.show { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .op-coach { transition: none !important; } }
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
    whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).
@@ -535,6 +565,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-d-desc { font-size: 0.9rem; line-height: 1.55; color: #CFC9BC; margin: 0; }
 .op-d-visit { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.7rem; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.05em; color: var(--ivory); text-decoration: none; border-bottom: 1px dashed rgba(236, 231, 220, 0.4); padding-bottom: 1px; font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-d-visit:hover { border-bottom-color: var(--accent); }
+/* Drawn, not typed: the "↗" codepoint defaults to EMOJI presentation on iOS,
+   which put a colour emoji arrow in the middle of the link. This one inherits
+   the text colour and scales with the font. */
+.op-d-visit-arw { width: 0.72em; height: 0.72em; flex: none; display: block; }
 @media (min-width: 741px) { .op-dossier { left: 0; bottom: 0.4rem; max-width: 20rem; } }
 @media (max-width: 740px) {
   .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); }

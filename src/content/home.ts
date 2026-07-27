@@ -326,7 +326,7 @@ const home: Localized<HomeContent> = {
       networkAria: 'Peter Merc’s operating map — practices and organisations',
       visit: 'Visit',
       backLabel: 'Back to top',
-      coach: 'Tap a node to open the map',
+      coach: 'Tap the nodes to explore the map',
       exit: 'Close',
       hub: {
         label: 'PM',
@@ -661,7 +661,7 @@ const home: Localized<HomeContent> = {
       networkAria: 'Operativni zemljevid Petra Merca — področja in organizacije',
       visit: 'Obišči',
       backLabel: 'Nazaj na vrh',
-      coach: 'Tapnite vozlišče za odprtje zemljevida',
+      coach: 'Tapnite vozlišča za raziskovanje',
       exit: 'Zapri',
       hub: {
         label: 'PM',
