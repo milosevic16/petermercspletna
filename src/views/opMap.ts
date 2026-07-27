@@ -181,6 +181,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // still-bright page text (which read as a glitchy hard cut).
   let scrim: HTMLDivElement | null = null
   let scrimAnim: Animation | null = null
+  // A still of the collapsed graph, held over the overlay's first frames and
+  // faded out — the handoff crossfade (see enterFullscreen).
+  let ghost: HTMLCanvasElement | null = null
+  let ghostTimer = 0
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
@@ -1000,6 +1004,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
   }
+  function dropGhost() {
+    if (ghostTimer) { clearTimeout(ghostTimer); ghostTimer = 0 }
+    if (!ghost) return
+    const g = ghost; ghost = null
+    g.remove()
+  }
   function dropScrim(fadeMs: number) {
     const s = scrim
     if (!s) return
@@ -1019,6 +1029,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
     if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
     dossier.style.transform = ''; container.classList.remove('op-entering')
+    dropGhost()
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
   }
   function enterFullscreen() {
@@ -1028,6 +1039,33 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // anything moves: the overlay's first frame must reproduce it exactly.
     const first = container.getBoundingClientRect()
     const sheetFirst = dossier.getBoundingClientRect() // the preview sheet's slot, for the shared-element glide
+    // Handoff crossfade. Everything below is measured so the overlay's first
+    // frame reproduces this one exactly — but a trigger that lands mid-scroll
+    // can still leave a few pixels in it: on iOS the compositor's scroll
+    // position runs ahead of the one these rects are read from, locking the
+    // page can resize the visual viewport, and swapping in the placeholder
+    // reflows the column behind. Rather than chase each cause, keep a still of
+    // the outgoing frame pinned where it was and fade it out over the incoming
+    // one. When the two match (they do on a stationary page) it is invisible;
+    // when they don't, the step becomes a blend instead of a jump.
+    if (!reduced) {
+      dropGhost()
+      try {
+        const cr = canvas.getBoundingClientRect()
+        if (canvas.width && canvas.height && cr.width && cr.height) {
+          const g = document.createElement('canvas')
+          g.width = canvas.width; g.height = canvas.height
+          const gx = g.getContext('2d')
+          if (gx) {
+            gx.drawImage(canvas, 0, 0)
+            g.className = 'op-ghost'
+            g.style.left = cr.left + 'px'; g.style.top = cr.top + 'px'
+            g.style.width = cr.width + 'px'; g.style.height = cr.height + 'px'
+            ghost = g
+          }
+        }
+      } catch { /* a tainted or zero-sized canvas simply gets no crossfade */ }
+    }
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
@@ -1050,7 +1088,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       scrim.className = 'op-scrim'
       document.body.appendChild(scrim)
       try {
-        scrimAnim = scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease' })
+        scrimAnim = scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' })
         scrimAnim.onfinish = () => { scrimAnim = null }
       } catch { /* noop */ }
     }
@@ -1114,6 +1152,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // (which clears the bitmap) would otherwise reach the screen for one
     // frame before the draw loop repaints — a visible blank flash.
     draw(performance.now())
+    // The still goes on last so it sits above the overlay, and starts fading
+    // immediately: by the time the zoom has any distance to cover, it is gone.
+    if (ghost) {
+      document.body.appendChild(ghost)
+      try {
+        const ga = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out' })
+        ga.onfinish = dropGhost; ga.oncancel = dropGhost
+      } catch { dropGhost() }
+      ghostTimer = window.setTimeout(dropGhost, 600) // belt if onfinish never fires
+    }
     // preventScroll: plain focus() scroll-reveals the button in the (still
     // programmatically scrollable) locked document — a hidden shift under the
     // overlay. Animated entries focus the pill when it appears at landing
@@ -1183,7 +1231,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
     stopMomentum(); panX = 0; panY = 0
-    dropScrim(0); hideCoach()
+    dropScrim(0); dropGhost(); hideCoach()
     fsState = 'collapsed'
   }
   // Focus set for the Tab-trap (mobile fullscreen only).
@@ -1377,6 +1425,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     disposed = true
     forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
+    dropGhost()
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()

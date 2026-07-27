@@ -591,6 +591,11 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    the page to the section's graphite while the box expands, so the box's
    opaque edge never sweeps across still-visible text. */
 .op-scrim { position: fixed; inset: 0; z-index: 9998; background: var(--graphite); pointer-events: none; }
+/* Handoff crossfade: a still of the collapsed graph (opMap.ts snapshots the
+   canvas at entry), pinned where it was and faded out over the overlay's first
+   frames so the step between the two layouts blends rather than jumps. Above
+   the overlay, but inert — it must never swallow the first tap. */
+.op-ghost { position: fixed; z-index: 10000; pointer-events: none; }
 
 /* Coach hint — shown only once the fullscreen zoom has landed, for a few
    seconds or until the map is touched (opMap.ts). Sits below the Close pill
