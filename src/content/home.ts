@@ -53,12 +53,23 @@ interface FacetEntry {
   subsections: FacetSubsection[]
 }
 
+/** One dot on the timeline. */
+interface TimelineEntry {
+  year: string
+  title: string
+  caption: string
+}
+
 interface MediaCard {
   kicker: string
+  /** publication date, shown opposite the kicker; omitted when unknown. */
+  date?: string
   title: string
   desc: string
   href: string
   external: boolean
+  /** per-card call to action (Listen / Watch); falls back to `media.cta`. */
+  cta?: string
   titleAttr?: string
 }
 
@@ -115,8 +126,16 @@ export interface HomeContent {
     eyebrow: string
     chyron: string
     aside: string
-    entries: Array<{ year: string; title: string; caption: string }>
-    note: string
+    /**
+     * Two tracks on one line. Desktop: `above` sits over the line on accent
+     * dots, `below` under it on ink dots. Mobile: the line runs down the middle
+     * with `above` to its left and `below` to its right, same dot colours.
+     * Each track is chronological on its own; the two are not aligned to a
+     * shared year axis — ten entries and six cannot share x-positions and stay
+     * readable, so each track spreads across the full width.
+     */
+    above: TimelineEntry[]
+    below: TimelineEntry[]
   }
   writing: {
     eyebrow: string
@@ -270,7 +289,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Supervisor',
               credential: 'financial supervision — supervisory board @ JonatanMars Invest',
               paragraphHtml:
-                'In regulated finance, growth must be matched by sound governance. As President of the Supervisory Board at <strong style="font-weight:600;">JonatanMars Invest</strong>, a regulated asset management and brokerage company, I provide strategic oversight of management, governance, risk and regulatory compliance. I bring experience from banking, capital markets, fintech and corporate law to the boardroom, helping ensure that ambitious business decisions are supported by robust controls and long-term accountability.',
+                'In regulated finance, growth must be matched by sound governance. As President of the Supervisory Board at JonatanMars Invest, a regulated asset management and brokerage company, I provide strategic oversight of management, governance, risk and regulatory compliance. I bring experience from banking, capital markets, fintech and corporate law to the boardroom, helping ensure that ambitious business decisions are supported by robust controls and long-term accountability.',
               list: [
                 { key: 'Board', detail: 'President of the Supervisory Board @ JonatanMars Invest' },
                 { key: 'Oversight', detail: 'Management, governance, risk and regulatory compliance' },
@@ -368,7 +387,9 @@ const home: Localized<HomeContent> = {
               credential: 'media & stages',
               paragraphHtml:
                 'Through media appearances, conference stages, panels and podcasts, I explain developments in technology, finance, regulation and venture capital in a clear and practical way. I contribute as a speaker, commentator and moderator, connecting technical detail with the broader business and societal context.',
-              list: [],
+              list: [
+                { key: 'Appearances', detail: 'Every public appearance — TV, podcasts and articles', href: 'https://lemur.legal/media' },
+              ],
             },
           ],
         },
@@ -431,11 +452,46 @@ const home: Localized<HomeContent> = {
       nextAria: 'Scroll coverage forward',
       cards: [
         {
+          kicker: 'Podcast — Money How',
+          date: '2 Jul 2026',
+          title: 'MiCA is here: are crypto investors truly better protected now?',
+          desc: 'On the impact of MiCA on the European crypto market, Binance’s position in the EU, and what the new regime changes for crypto service providers and investors.',
+          href: 'https://money-how.si/podcast/mica-je-tu-so-kriptovlagatelji-zdaj-res-bolj-varni/',
+          external: true,
+          cta: 'Listen',
+        },
+        {
+          kicker: 'Article — Bloomberg Adria',
+          date: '30 Jun 2026',
+          title: 'Confirmed: Binance did not obtain a licence and is shutting down services in the EU. What should users do?',
+          desc: 'Quoted as an expert on Binance’s EU licence, the MiCA regime, and what it means for users in practice.',
+          href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
+          external: true,
+        },
+        {
+          kicker: 'Television — RTV SLO',
+          date: '9 Jun 2026',
+          title: 'Flip the Coin: the instalment society',
+          desc: 'Why seemingly affordable instalments are rarely as harmless as they look, and how small monthly commitments turn into an expensive trap.',
+          href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
+          external: true,
+          cta: 'Watch',
+        },
+        {
+          kicker: 'Interview — Delo',
+          date: '8 May 2026',
+          title: 'You would not be far off in saying that Europe could be heading back to the Middle Ages',
+          desc: 'On digital sovereignty, control over data, technological infrastructure and business resilience.',
+          href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
+          external: true,
+        },
+        {
           kicker: 'Interview — AmCham Slovenija',
           title: 'Think Forward — the interview',
           desc: 'On camera for AmCham’s Think Forward series — tech law and building Lemur Legal.',
           href: 'https://www.youtube.com/watch?v=ci0cpjHI-F8',
           external: true,
+          cta: 'Watch',
         },
         {
           kicker: 'Column — Podjetnik.si',
@@ -444,17 +500,9 @@ const home: Localized<HomeContent> = {
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
         },
-        {
-          kicker: 'Series — Bloomberg Adria · link ⚠',
-          title: 'Kriptovalute: praktični koraki za upravljanje',
-          desc: 'Bloomberg Adria’s crypto-education series, made with industry experts — Peter among them.',
-          href: '#media',
-          external: false,
-          titleAttr: 'Bloomberg Adria link to confirm ⚠',
-        },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; archive destination (lemur.legal/media vs the blog) still to confirm.',
+      note: 'Drop a photo straight onto each card — it sticks. ⚠ The four newest cards are still waiting on their images.',
       archive: {
         seg: 'Archive',
         title: 'Every interview, column and mention — collected on Lemur Legal',
@@ -466,16 +514,26 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Personal timeline',
       chyron: 'Personal timeline',
       aside: 'direction #tech',
-      entries: [
-        { year: '2008', title: 'Bank of Slovenia', caption: 'Legal counsel — banking supervision' },
-        { year: '2013', title: 'Ph.D. in law', caption: 'Doctorate — financial law' },
-        { year: '2016', title: 'Fintech Factory', caption: 'Consultancy founded' },
-        { year: '2017', title: 'Lemur Legal', caption: 'Tech-law office opens, Ljubljana' },
-        { year: '2018', title: 'Blocksquare', caption: 'RWA tokenization, co-founded' },
-        { year: '2021', title: 'Suricate Ventures', caption: 'Early-stage fund, co-founded' },
-        { year: '2024', title: 'The MiCA era', caption: 'Licensing practice & Bloctopus Intelligence' },
+      above: [
+        { year: '2015', title: 'Ph.D. in banking law', caption: 'Faculty of Law, University of Ljubljana' },
+        { year: '2017', title: 'Blockchain Think Tank Slovenia', caption: 'Co-founder' },
+        { year: '2019', title: 'Alma Mater Europaea', caption: 'Academic career begins' },
+        { year: '2020', title: 'Horizon 2020', caption: 'External expert' },
+        { year: '2021', title: 'Slovenian Council for Digitalisation', caption: 'Member' },
+        { year: '2026', title: 'NATO DIANA', caption: 'External evaluator' },
       ],
-      note: '⚠ Years indicative — send corrections and they drop straight in.',
+      below: [
+        { year: '2008', title: 'NLB d.d.', caption: 'Legal counsel — capital markets & regulatory compliance' },
+        { year: '2009', title: 'Municipality of Ljubljana', caption: 'Finance Committee, member' },
+        { year: '2014', title: 'Hypo Alpe Adria Bank', caption: 'Legal counsel — regulatory compliance' },
+        { year: '2016', title: 'Abanka d.d.', caption: 'Member of the supervisory board' },
+        { year: '2016', title: 'Lemur Legal', caption: 'Tech-law office opens' },
+        { year: '2018', title: 'Blocksquare', caption: 'RWA tokenization, co-founded' },
+        { year: '2021', title: 'Suricate Ventures', caption: 'Early-stage VC fund, co-founded' },
+        { year: '2025', title: 'IBEX Equity Partners', caption: 'Early-stage defence-tech VC fund, co-founded' },
+        { year: '2026', title: 'Bloctopus Intelligence', caption: 'Blockchain forensics, co-founded' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Brokerage company, supervisory board' },
+      ],
     },
     writing: {
       eyebrow: 'Writing',
@@ -613,7 +671,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Nadzornik',
               credential: 'finančni nadzor — nadzorni svet @ JonatanMars Invest',
               paragraphHtml:
-                'V regulirani finančni panogi mora rast spremljati zdravo upravljanje. Kot predsednik nadzornega sveta v družbi <strong style="font-weight:600;">JonatanMars Invest</strong>, regulirani družbi za upravljanje premoženja in borzno posredovanje, zagotavljam strateški nadzor nad vodenjem, upravljanjem, tveganji in regulativno skladnostjo. V sejno sobo prinašam izkušnje iz bančništva, kapitalskih trgov, fintecha in gospodarskega prava ter pomagam zagotoviti, da ambiciozne poslovne odločitve podpirajo trdni kontrolni mehanizmi in dolgoročna odgovornost.',
+                'V regulirani finančni panogi mora rast spremljati zdravo upravljanje. Kot predsednik nadzornega sveta v družbi JonatanMars Invest, regulirani družbi za upravljanje premoženja in borzno posredovanje, zagotavljam strateški nadzor nad vodenjem, upravljanjem, tveganji in regulativno skladnostjo. V sejno sobo prinašam izkušnje iz bančništva, kapitalskih trgov, fintecha in gospodarskega prava ter pomagam zagotoviti, da ambiciozne poslovne odločitve podpirajo trdni kontrolni mehanizmi in dolgoročna odgovornost.',
               list: [
                 { key: 'Nadzorni svet', detail: 'Predsednik nadzornega sveta @ JonatanMars Invest' },
                 { key: 'Nadzor', detail: 'Vodenje, upravljanje, tveganja in regulativna skladnost' },
@@ -711,7 +769,9 @@ const home: Localized<HomeContent> = {
               credential: 'mediji in odri',
               paragraphHtml:
                 'Prek medijskih nastopov, konferenčnih odrov, panelov in podkastov razumljivo in praktično pojasnjujem dogajanje v tehnologiji, financah, regulativi in tveganem kapitalu. Sodelujem kot govorec, komentator in moderator ter povezujem tehnične podrobnosti s širšim poslovnim in družbenim kontekstom.',
-              list: [],
+              list: [
+                { key: 'Nastopi', detail: 'Vsi javni nastopi — TV, podkasti in članki', href: 'https://lemur.legal/media' },
+              ],
             },
           ],
         },
@@ -774,11 +834,46 @@ const home: Localized<HomeContent> = {
       nextAria: 'Pomakni prispevke naprej',
       cards: [
         {
+          kicker: 'Podkast — Money How',
+          date: '2. jul. 2026',
+          title: 'MiCA je tu: so kriptovlagatelji zdaj res bolj varni?',
+          desc: 'O vplivu MiCA na evropski kripto trg, položaju Binancea v EU in o tem, kaj nova ureditev spreminja za ponudnike kripto storitev in vlagatelje.',
+          href: 'https://money-how.si/podcast/mica-je-tu-so-kriptovlagatelji-zdaj-res-bolj-varni/',
+          external: true,
+          cta: 'Poslušaj',
+        },
+        {
+          kicker: 'Članek — Bloomberg Adria',
+          date: '30. jun. 2026',
+          title: 'Potrjeno: Binance ni pridobil licence in ukinja storitve v EU. Kaj naj storijo uporabniki?',
+          desc: 'Kot strokovnjak o licenci Binancea v EU, ureditvi MiCA in o tem, kaj to v praksi pomeni za uporabnike.',
+          href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
+          external: true,
+        },
+        {
+          kicker: 'Televizija — RTV SLO',
+          date: '9. jun. 2026',
+          title: 'Platimo po svoje: družba obrokov',
+          desc: 'Zakaj navidezno ugodni obroki redko ostanejo tako nedolžni, kot se zdijo, in kako se majhne mesečne obveznosti spremenijo v drago past.',
+          href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
+          external: true,
+          cta: 'Oglej si',
+        },
+        {
+          kicker: 'Intervju — Delo',
+          date: '8. maj 2026',
+          title: 'Ne bi zelo zgrešili, če bi rekli, da gre Evropa lahko nazaj v srednji vek',
+          desc: 'O digitalni suverenosti, nadzoru nad podatki, tehnološki infrastrukturi in odpornosti podjetij.',
+          href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
+          external: true,
+        },
+        {
           kicker: 'Intervju — AmCham Slovenija',
           title: 'Think Forward — intervju',
           desc: 'Pred kamero v AmChamovi seriji Think Forward — tehnološko pravo in gradnja Lemur Legal.',
           href: 'https://www.youtube.com/watch?v=ci0cpjHI-F8',
           external: true,
+          cta: 'Oglej si',
         },
         {
           kicker: 'Kolumna — Podjetnik.si',
@@ -787,17 +882,9 @@ const home: Localized<HomeContent> = {
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
         },
-        {
-          kicker: 'Serija — Bloomberg Adria · povezava ⚠',
-          title: 'Kriptovalute: praktični koraki za upravljanje',
-          desc: 'Izobraževalna kripto serija Bloomberg Adria, posneta z industrijskimi strokovnjaki — med njimi Peter.',
-          href: '#media',
-          external: false,
-          titleAttr: 'Povezava Bloomberg Adria za potrditev ⚠',
-        },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; cilj arhiva (lemur.legal/media ali blog) še potrjujemo.',
+      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Štiri najnovejše kartice še čakajo na slike.',
       archive: {
         seg: 'Arhiv',
         title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',
@@ -809,16 +896,26 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Osebna kronologija',
       chyron: 'Osebna kronologija',
       aside: 'smer #tech',
-      entries: [
-        { year: '2008', title: 'Banka Slovenije', caption: 'Pravni svetovalec — bančni nadzor' },
-        { year: '2013', title: 'Doktorat iz prava', caption: 'Doktorat — finančno pravo' },
-        { year: '2016', title: 'Fintech Factory', caption: 'Ustanovljeno svetovalno podjetje' },
-        { year: '2017', title: 'Lemur Legal', caption: 'Odprtje pisarne za tehnološko pravo, Ljubljana' },
-        { year: '2018', title: 'Blocksquare', caption: 'Tokenizacija stvarnega premoženja, soustanovitelj' },
-        { year: '2021', title: 'Suricate Ventures', caption: 'Sklad za zgodnje faze, soustanovitelj' },
-        { year: '2024', title: 'Doba MiCA', caption: 'Praksa licenciranja in Bloctopus Intelligence' },
+      above: [
+        { year: '2015', title: 'Doktorat iz bančnega prava', caption: 'Pravna fakulteta Univerze v Ljubljani' },
+        { year: '2017', title: 'Blockchain Think Tank Slovenija', caption: 'Soustanovitelj' },
+        { year: '2019', title: 'Alma Mater Europaea', caption: 'Začetek akademske poti' },
+        { year: '2020', title: 'Obzorje 2020', caption: 'Zunanji strokovnjak' },
+        { year: '2021', title: 'Svet za digitalizacijo Republike Slovenije', caption: 'Član' },
+        { year: '2026', title: 'NATO DIANA', caption: 'Zunanji ocenjevalec' },
       ],
-      note: '⚠ Letnice so okvirne — pošljite popravke in takoj jih vnesemo.',
+      below: [
+        { year: '2008', title: 'NLB d.d.', caption: 'Pravni svetovalec — kapitalski trgi in regulativna skladnost' },
+        { year: '2009', title: 'Mestna občina Ljubljana', caption: 'Član odbora za finance' },
+        { year: '2014', title: 'Hypo Alpe Adria Bank', caption: 'Pravni svetovalec — regulativna skladnost' },
+        { year: '2016', title: 'Abanka d.d.', caption: 'Član nadzornega sveta' },
+        { year: '2016', title: 'Lemur Legal', caption: 'Odprtje pisarne za tehnološko pravo' },
+        { year: '2018', title: 'Blocksquare', caption: 'Tokenizacija stvarnega premoženja, soustanovitelj' },
+        { year: '2021', title: 'Suricate Ventures', caption: 'Sklad tveganega kapitala za zgodnje faze, soustanovitelj' },
+        { year: '2025', title: 'IBEX Equity Partners', caption: 'Sklad za obrambne tehnologije v zgodnjih fazah, soustanovitelj' },
+        { year: '2026', title: 'Bloctopus Intelligence', caption: 'Forenzika blockchaina, soustanovitelj' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Borznoposredniška družba, nadzorni svet' },
+      ],
     },
     writing: {
       eyebrow: 'Objave',

@@ -129,17 +129,19 @@
               <div :id="'media-slot-' + (ci + 1)" style="width:100%; height:100%; display:block;"></div>
             </div>
             <div style="padding:1.1rem 1.2rem 1.25rem; display:flex; flex-direction:column; gap:0.55rem; flex:1;">
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ card.kicker }}</span>
+              <span style="display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:0.3rem 0.8rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;"><span>{{ card.kicker }}</span><span v-if="card.date" style="flex:none; letter-spacing:0.1em; font-variant-numeric:tabular-nums;">{{ card.date }}</span></span>
               <span style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.22rem; line-height:1.3; color:var(--ivory);">{{ card.title }}</span>
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; line-height:1.5; color:var(--ivory2);">{{ card.desc }}</span>
-              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ card.cta || t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
             </div>
           </a>
         </div>
         <p style="margin:1.2rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:#948E81;">{{ t.media.note }}</p>
         <!-- Same row as a `writing` segment, in the dark section's palette. -->
         <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); border-bottom:1px solid rgba(236,231,220,0.12);">
-          <a :data-reveal="t.media.cards.length" :href="t.media.archive.href" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid rgba(236,231,220,0.12); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
+          <!-- reveal 0: the row sits below the note in its own band and crosses the
+               threshold alone, so it should not wait out the card strip's stagger. -->
+          <a data-reveal="0" :href="t.media.archive.href" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid rgba(236,231,220,0.12); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
             <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ t.media.archive.seg }}</span>
             <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3; color:var(--ivory);">{{ t.media.archive.title }}</span>
             <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.archive.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
@@ -148,7 +150,9 @@
       </div>
     </section>
 
-    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 0;">
+    <!-- Bottom padding is the section's own: the two-track timeline ends in the
+         lower track's text, where a trailing note used to provide the gap. -->
+    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 clamp(3rem, 6vw, 4.5rem);">
       <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
         <h2 style="margin:0 0 clamp(2.2rem, 5vw, 3.4rem); display:flex; align-items:center; gap:1.1rem;">
           <span style="display:inline-flex; align-items:center; background:var(--graphite); border-left:3px solid var(--accent); color:#D6D1C5; padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.timeline.eyebrow }}</span>
@@ -156,34 +160,46 @@
           <em style="font-family:'Spectral', Georgia, serif; font-weight:400; font-style:italic; font-size:0.9rem; color:var(--ink2);">{{ t.timeline.aside }}</em>
         </h2>
         <div class="pm-desktop-only">
-          <div id="tl-h" style="position:relative;">
-            <span aria-hidden="true" style="position:absolute; top:6px; left:0; right:0; height:2px; background:var(--line);"></span>
-            <span data-tl-line="" aria-hidden="true" style="position:absolute; top:6px; left:0; right:0; height:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
-            <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:1.2rem;">
-              <div v-for="(e, ei) in t.timeline.entries" :key="e.year" :id="'tl-' + ei" data-tl-item="" style="position:relative; padding-top:2.1rem;">
-                <span data-tl-dot="" aria-hidden="true" style="position:absolute; top:0; left:0; width:14px; height:14px; box-sizing:border-box; border-radius:50%; border:3px solid var(--accent); background:var(--paper);"></span>
-                <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.72rem; font-weight:600; letter-spacing:0.14em; color:var(--accent); font-variant-numeric:tabular-nums;">{{ e.year }}</span>
-                <strong style="display:block; margin-top:0.35rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.02rem; line-height:1.3; color:var(--ink);">{{ e.title }}</strong>
-                <span style="display:block; margin-top:0.3rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; line-height:1.5; color:var(--ink2);">{{ e.caption }}</span>
+          <div id="tl-h" class="tl-h">
+            <div class="tl-track tl-track-up" :style="{ gridTemplateColumns: `repeat(${t.timeline.above.length}, 1fr)` }">
+              <div v-for="e in t.timeline.above" :key="'up-' + e.year + e.title" data-tl-item="" class="tl-cell">
+                <span class="tl-txt">
+                  <span class="tl-year">{{ e.year }}</span>
+                  <strong class="tl-title">{{ e.title }}</strong>
+                  <span class="tl-cap">{{ e.caption }}</span>
+                </span>
+                <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
+              </div>
+              <!-- The rail is this track's bottom border; the fill overlays it, so
+                   neither track has to know the other's height to line dots up. -->
+              <span data-tl-line="" aria-hidden="true" class="tl-fill"></span>
+            </div>
+            <div class="tl-track tl-track-dn" :style="{ gridTemplateColumns: `repeat(${t.timeline.below.length}, 1fr)` }">
+              <div v-for="e in t.timeline.below" :key="'dn-' + e.year + e.title" data-tl-item="" class="tl-cell">
+                <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
+                <span class="tl-txt">
+                  <span class="tl-year">{{ e.year }}</span>
+                  <strong class="tl-title">{{ e.title }}</strong>
+                  <span class="tl-cap">{{ e.caption }}</span>
+                </span>
               </div>
             </div>
           </div>
         </div>
         <div class="pm-mobile-only">
-          <div id="tl-v" style="position:relative; padding-left:2.1rem;">
-            <span aria-hidden="true" style="position:absolute; top:4px; bottom:4px; left:6px; width:2px; background:var(--line);"></span>
-            <span data-tl-line="" aria-hidden="true" style="position:absolute; top:4px; bottom:4px; left:6px; width:2px; background:var(--accent); transform:scaleY(0); transform-origin:top;"></span>
-            <div style="display:flex; flex-direction:column; gap:1.5rem;">
-              <div v-for="e in t.timeline.entries" :key="e.year" data-tl-item="" style="position:relative;">
-                <span data-tl-dot="" aria-hidden="true" style="position:absolute; top:0.1rem; left:-2.1rem; width:14px; height:14px; box-sizing:border-box; border-radius:50%; border:3px solid var(--accent); background:var(--paper);"></span>
-                <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.72rem; font-weight:600; letter-spacing:0.14em; color:var(--accent); font-variant-numeric:tabular-nums;">{{ e.year }}</span>
-                <strong style="display:block; margin-top:0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.05rem; line-height:1.3; color:var(--ink);">{{ e.title }}</strong>
-                <span style="display:block; margin-top:0.2rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; line-height:1.5; color:var(--ink2);">{{ e.caption }}</span>
-              </div>
+          <div id="tl-v" class="tl-v">
+            <span aria-hidden="true" class="tl-v-base"></span>
+            <span data-tl-line="" aria-hidden="true" class="tl-v-fill"></span>
+            <div v-for="e in timelineMerged" :key="e.side + e.year + e.title" data-tl-item="" class="tl-v-row" :class="'tl-v-' + e.side">
+              <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
+              <span class="tl-txt">
+                <span class="tl-year">{{ e.year }}</span>
+                <strong class="tl-title">{{ e.title }}</strong>
+                <span class="tl-cap">{{ e.caption }}</span>
+              </span>
             </div>
           </div>
         </div>
-        <p style="margin:1.4rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.timeline.note }}</p>
       </div>
     </section>
 
@@ -278,7 +294,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { initEffects } from './Home.effects'
 import { initOpMap } from './opMap'
 import { useRootVars } from '@/composables/useTheme'
@@ -293,6 +309,15 @@ import home, { withOrgLinks } from '@/content/home'
 // lifetime of a mount and initEffects re-runs with the new language's copy.
 const t = usePageContent(home)
 useHead(home)
+
+// The two timeline tracks are separate rows on desktop, but the mobile rail is
+// a single column, so there they merge back into one chronology — each entry
+// keeps its track in `side`, which picks the rail side and the dot colour.
+// Sort is stable, so an `above` entry leads a `below` one from the same year.
+const timelineMerged = computed(() => [
+  ...t.value.timeline.above.map((e) => ({ ...e, side: 'above' })),
+  ...t.value.timeline.below.map((e) => ({ ...e, side: 'below' })),
+].sort((a, b) => Number(a.year) - Number(b.year)))
 
 // This page's design tokens (baked from the original #pm-root inline vars).
 // Applied at runtime so pages with different palettes never clobber each other.
@@ -387,6 +412,52 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
+
+/* ---- Timeline: two tracks on one rail -----------------------------------
+   Desktop: `above` sits over the line on accent dots, `below` under it on ink
+   dots. The rail is the upper track's bottom border, so a dot pinned to the
+   bottom of an upper cell and one pinned to the top of a lower cell land on
+   the same centre line without either track measuring the other.
+   Mobile: the rail runs down the middle, `above` to its left and `below` to
+   its right, with the two tracks merged into one chronology (timelineMerged).
+   Each track spreads across the full width rather than sharing a year axis —
+   six entries and ten cannot share x-positions and stay readable. */
+.tl-txt { display: flex; flex-direction: column; gap: 0.28rem; min-width: 0; }
+.tl-year { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
+.tl-title { font-family: 'Spectral', Georgia, serif; font-weight: 600; line-height: 1.28; color: var(--ink); }
+.tl-cap { font-family: 'Instrument Sans', Arial, sans-serif; line-height: 1.45; color: var(--ink2); }
+.tl-dot { width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 3px solid; background: var(--paper); }
+
+.tl-h { display: flex; flex-direction: column; }
+.tl-track { display: grid; gap: 0 0.75rem; }
+.tl-track-up { position: relative; border-bottom: 2px solid var(--line); }
+.tl-cell { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.tl-track-up .tl-cell { justify-content: flex-end; padding-bottom: 1.35rem; }
+.tl-track-dn .tl-cell { padding-top: 1.35rem; }
+.tl-h .tl-title { font-size: 0.95rem; }
+.tl-h .tl-cap { font-size: 0.75rem; }
+.tl-h .tl-dot { position: absolute; left: 0; }
+/* -8px centres a 14px dot on the 2px rail from either side. */
+.tl-track-up .tl-dot { bottom: -8px; border-color: var(--accent); }
+.tl-track-dn .tl-dot { top: -8px; border-color: var(--ink); }
+.tl-track-up .tl-year { color: var(--accent); }
+.tl-track-dn .tl-year { color: var(--ink); }
+.tl-fill { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; }
+
+.tl-v { position: relative; display: flex; flex-direction: column; gap: 1.6rem; }
+.tl-v-base, .tl-v-fill { position: absolute; top: 0.4rem; bottom: 0.4rem; left: 50%; width: 2px; margin-left: -1px; }
+.tl-v-base { background: var(--line); }
+.tl-v-fill { background: var(--accent); transform: scaleY(0); transform-origin: top; }
+.tl-v-row { position: relative; display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.7rem; }
+.tl-v .tl-title { font-size: 1.02rem; }
+.tl-v .tl-cap { font-size: 0.8rem; }
+.tl-v .tl-dot { position: absolute; left: 50%; margin-left: -7px; top: 0.12rem; }
+.tl-v-above .tl-txt { grid-column: 1; text-align: right; }
+.tl-v-above .tl-dot { border-color: var(--accent); }
+.tl-v-above .tl-year { color: var(--accent); }
+.tl-v-below .tl-txt { grid-column: 2; text-align: left; }
+.tl-v-below .tl-dot { border-color: var(--ink); }
+.tl-v-below .tl-year { color: var(--ink); }
 
 /* Operating-map node labels. font-size is in SVG user units, so it scales down
    with the whole svg; on mobile (narrow column) that got too small, so bump it
