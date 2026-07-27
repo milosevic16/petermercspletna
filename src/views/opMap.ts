@@ -170,6 +170,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // section scrolls past like any other and only a node tap re-opens it.
   let armed = true
   let seenAway = false
+  let openPending = 0
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
   // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
@@ -181,13 +182,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // still-bright page text (which read as a glitchy hard cut).
   let scrim: HTMLDivElement | null = null
   let scrimAnim: Animation | null = null
-  // A still of the collapsed graph, held over the overlay's first frames and
-  // faded out — the handoff crossfade (see enterFullscreen).
-  let ghost: HTMLCanvasElement | null = null
-  let ghostTimer = 0
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
+  let overflowLocked = false
   const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
   // World units mirror the old SVG viewBox: height fixed at 760 units, width
   // follows the container aspect so the map FILLS it (a fixed wide box got
@@ -970,17 +968,34 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // page provably never moves while the map is fullscreen.
   const snapLockedY = () => { try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) } }
   const onLockedScroll = () => { if (fsState === 'fullscreen' && Math.abs((window.scrollY || 0) - lockedY) > 1) snapLockedY() }
+  // The lock has two halves, and keeping them apart is what makes the handoff
+  // clean. The touchmove guard is the half that actually stops iOS scrolling,
+  // and it changes no styles, so it goes on at once. overflow:hidden is only
+  // the belt to that guard's braces — but it is also the one part that reflows
+  // the document, and on iOS it can take the scroll offset with it. Applied in
+  // the handoff frame, that landed right where the eye was: the page behind
+  // stepped while the overlay held still. It now waits for the zoom to land,
+  // by which point the overlay covers everything it could disturb.
   function lockScroll() {
-    const d = document.documentElement, b = document.body
     lockedY = window.scrollY || 0
-    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
-    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     window.addEventListener('scroll', onLockedScroll, { passive: true })
   }
-  function unlockScroll() {
+  function lockOverflow() {
+    if (overflowLocked) return
+    const d = document.documentElement, b = document.body
+    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
+    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
+    overflowLocked = true
+  }
+  function unlockOverflow() {
+    if (!overflowLocked) return
     const d = document.documentElement, b = document.body
     d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
+    overflowLocked = false
+  }
+  function unlockScroll() {
+    unlockOverflow()
     document.removeEventListener('touchmove', onDocTouchMove)
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
@@ -1000,15 +1015,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // done at entry time: mid-zoom the Close pill hovered over a still-moving
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
+    lockOverflow() // deferred to here on purpose (see lockScroll)
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
-  }
-  function dropGhost() {
-    if (ghostTimer) { clearTimeout(ghostTimer); ghostTimer = 0 }
-    if (!ghost) return
-    const g = ghost; ghost = null
-    g.remove()
   }
   function dropScrim(fadeMs: number) {
     const s = scrim
@@ -1029,7 +1039,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
     if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
     dossier.style.transform = ''; container.classList.remove('op-entering')
-    dropGhost()
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
   }
   function enterFullscreen() {
@@ -1039,38 +1048,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // anything moves: the overlay's first frame must reproduce it exactly.
     const first = container.getBoundingClientRect()
     const sheetFirst = dossier.getBoundingClientRect() // the preview sheet's slot, for the shared-element glide
-    // Handoff crossfade. Everything below is measured so the overlay's first
-    // frame reproduces this one exactly — but a trigger that lands mid-scroll
-    // can still leave a few pixels in it: on iOS the compositor's scroll
-    // position runs ahead of the one these rects are read from, locking the
-    // page can resize the visual viewport, and swapping in the placeholder
-    // reflows the column behind. Rather than chase each cause, keep a still of
-    // the outgoing frame pinned where it was and fade it out over the incoming
-    // one. When the two match (they do on a stationary page) it is invisible;
-    // when they don't, the step becomes a blend instead of a jump.
-    if (!reduced) {
-      dropGhost()
-      try {
-        const cr = canvas.getBoundingClientRect()
-        if (canvas.width && canvas.height && cr.width && cr.height) {
-          const g = document.createElement('canvas')
-          g.width = canvas.width; g.height = canvas.height
-          const gx = g.getContext('2d')
-          if (gx) {
-            gx.drawImage(canvas, 0, 0)
-            g.className = 'op-ghost'
-            g.style.left = cr.left + 'px'; g.style.top = cr.top + 'px'
-            g.style.width = cr.width + 'px'; g.style.height = cr.height + 'px'
-            ghost = g
-          }
-        }
-      } catch { /* a tainted or zero-sized canvas simply gets no crossfade */ }
-    }
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
     fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
     armed = false          // the once-per-load auto-open is spent on ANY entry
+    cancelAutoOpen()
     if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
@@ -1152,16 +1135,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // (which clears the bitmap) would otherwise reach the screen for one
     // frame before the draw loop repaints — a visible blank flash.
     draw(performance.now())
-    // The still goes on last so it sits above the overlay, and starts fading
-    // immediately: by the time the zoom has any distance to cover, it is gone.
-    if (ghost) {
-      document.body.appendChild(ghost)
-      try {
-        const ga = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out' })
-        ga.onfinish = dropGhost; ga.oncancel = dropGhost
-      } catch { dropGhost() }
-      ghostTimer = window.setTimeout(dropGhost, 600) // belt if onfinish never fires
-    }
     // preventScroll: plain focus() scroll-reveals the button in the (still
     // programmatically scrollable) locked document — a hidden shift under the
     // overlay. Animated entries focus the pill when it appears at landing
@@ -1190,6 +1163,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       lastFocused = null
     }
     resetGesture(); suppressClick = false; stopMomentum(); hideCoach()
+    unlockOverflow() // released while the overlay still hides the reflow
     // Recentre as it closes: the collapsed preview is always the whole graph
     // around the hub, never the branch that happened to be open. The glide is
     // cut to the exit's own length so the recentre and the shrink land
@@ -1231,7 +1205,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
     stopMomentum(); panX = 0; panY = 0
-    dropScrim(0); dropGhost(); hideCoach()
+    dropScrim(0); hideCoach()
     fsState = 'collapsed'
   }
   // Focus set for the Tab-trap (mobile fullscreen only).
@@ -1394,6 +1368,33 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // also disconnects this observer). Skipped under reduced motion: grabbing
   // the viewport on scroll is exactly the surprise that preference asks to
   // avoid — a node tap still opens the overlay.
+  // ...and only once the scroll has actually STOPPED. Opening mid-fling is
+  // where the handoff frame goes wrong: the overlay is placed from rects read
+  // on the main thread while iOS is still scrolling on the compositor, so the
+  // two disagree by however far the fling has travelled since — which is
+  // exactly the step that reads as the layout resetting. Waiting for quiet
+  // costs a beat and makes the geometry exact. It also reads better: the map
+  // opens because you settled on it, not because you swept past it.
+  function armAutoOpen() {
+    if (openPending) { clearTimeout(openPending); openPending = 0 }
+    else window.addEventListener('scroll', onPendingScroll, { passive: true })
+    openPending = window.setTimeout(tryAutoOpen, 150)
+  }
+  function cancelAutoOpen() {
+    if (openPending) { clearTimeout(openPending); openPending = 0 }
+    window.removeEventListener('scroll', onPendingScroll)
+  }
+  const onPendingScroll = () => { if (openPending) { clearTimeout(openPending); openPending = window.setTimeout(tryAutoOpen, 150) } }
+  function tryAutoOpen() {
+    cancelAutoOpen()
+    if (!armed || reduced || isDesktop() || fsState !== 'collapsed' || !seenAway) return
+    // Re-check against live geometry: the section may have scrolled back out
+    // while we waited, and the observer's numbers are from before the wait.
+    const r = container.getBoundingClientRect()
+    const vh = window.innerHeight || 0
+    const shown = Math.min(r.bottom, vh) - Math.max(r.top, 0)
+    if (shown >= Math.min(r.height, vh) - Math.max(12, r.height * 0.03)) enterFullscreen()
+  }
   if (typeof IntersectionObserver !== 'undefined' && !reduced) {
     io = new IntersectionObserver((ents) => {
       for (const en of ents) {
@@ -1408,7 +1409,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
         const bh = en.boundingClientRect.height
         const rb = en.rootBounds
         const needed = (rb ? Math.min(bh, rb.height) : bh) - Math.max(12, bh * 0.03)
-        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
+        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') armAutoOpen()
       }
     }, { threshold: Array.from({ length: 51 }, (_, i) => i / 50) })
     io.observe(container)
@@ -1425,7 +1426,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     disposed = true
     forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
-    dropGhost()
+    cancelAutoOpen()
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
