@@ -113,50 +113,58 @@
       </div>
     </section>
 
-    <!-- Photo bridge: a full-bleed portrait band easing the operating map into
-         Media. Both neighbours are graphite, so the overlay dissolves each edge
-         into them and the photo reads as surfacing out of one section and
-         sinking into the next. Decor, not a section: no data-screen-label or
-         data-chyron, and it stays out of the progress bar's id list. The img
-         carries 14% vertical headroom (inset -7%) so the scroll parallax in
-         Home.effects.ts (±6%) never exposes an edge; data-reveal fades the band
-         in on first approach via the shared reveal observer. -->
-    <div id="bridge" data-reveal="0" style="position:relative; height:clamp(300px, 52vh, 620px); overflow:hidden; background:var(--graphite);">
-      <img id="bridge-img" src="/assets/99cac89a.jpg" :alt="t.media.bridgeAlt" loading="lazy" decoding="async" style="position:absolute; inset:-7% 0; width:100%; height:114%; object-fit:cover; object-position:30% 24%; filter:grayscale(1) contrast(1.02); will-change:transform;">
-      <!-- Two layers: the edge fades into the neighbours' graphite, plus a flat
-           scrim that pulls the photo's bright projection screen down into the
-           section's moody register instead of glaring against it. -->
-      <div aria-hidden="true" style="position:absolute; inset:0; background:linear-gradient(to bottom, var(--graphite) 0%, rgba(38,40,44,0) 32%, rgba(38,40,44,0) 62%, var(--graphite) 100%), linear-gradient(rgba(38,40,44,0.26), rgba(38,40,44,0.26)); pointer-events:none;"></div>
-    </div>
-
-    <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--graphite); color:var(--ivory); padding:clamp(2.2rem, 5vw, 3.2rem) 0 clamp(4.5rem, 10vw, 7rem);">
-      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
-        <h2 style="margin:0 0 clamp(1.6rem, 3.5vw, 2.4rem); display:flex; align-items:center; gap:1.1rem;">
-          <span style="display:inline-flex; align-items:center; background:var(--ivory); border-left:3px solid var(--accent); color:var(--graphite); padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.media.eyebrow }}</span>
-          <span aria-hidden="true" data-rule="" style="flex:1; border-top:1px solid color-mix(in oklab, var(--graphite) 78%, #ECE7DC);"></span>
-          <span style="display:inline-flex; gap:0.5rem;">
-            <button type="button" data-on-click="mediaPrev" :aria-label="t.media.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
-            <button type="button" data-on-click="mediaNext" :aria-label="t.media.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
-          </span>
-        </h2>
-        <div id="media-strip" style="display:flex; gap:1.4rem; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:0.9rem;">
-          <a v-for="(card, ci) in t.media.cards" :key="ci" :data-reveal="ci" :href="card.href" :target="card.external ? '_blank' : undefined" :rel="card.external ? 'noopener' : undefined" :title="card.titleAttr" style="display:flex; flex-direction:column; flex:0 0 min(84%, 22rem); scroll-snap-align:start; min-width:0; background:color-mix(in oklab, var(--graphite) 88%, #FFFFFF); border:1px solid rgba(236,231,220,0.12); border-left:3px solid transparent; text-decoration:none; color:inherit; transition:transform 0.25s cubic-bezier(0.2,0.7,0.2,1), border-color 0.25s cubic-bezier(0.2,0.7,0.2,1), background 0.25s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateY(-5px); border-left-color:var(--accent); background:color-mix(in oklab, var(--graphite) 82%, #FFFFFF);">
-            <div style="aspect-ratio:16/10; overflow:hidden; background:color-mix(in oklab, var(--graphite) 72%, #000000);">
-              <div :id="'media-slot-' + (ci + 1)" style="width:100%; height:100%; display:block;"></div>
-            </div>
-            <div style="padding:1.1rem 1.2rem 1.25rem; display:flex; flex-direction:column; gap:0.55rem; flex:1;">
-              <span style="display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:0.3rem 0.8rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;"><span>{{ card.kicker }}</span><span v-if="card.date" style="flex:none; letter-spacing:0.1em; font-variant-numeric:tabular-nums;">{{ card.date }}</span></span>
-              <span style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.22rem; line-height:1.3; color:var(--ivory);">{{ card.title }}</span>
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; line-height:1.5; color:var(--ivory2);">{{ card.desc }}</span>
-              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ card.cta || t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-            </div>
-          </a>
+    <!-- Photo backdrop + media: the portrait is the media section's opening.
+         Its top dissolves out of the operating map's graphite, the header and
+         card strip ride on the photo, and the photo settles into the section's
+         paper below — the page's light half begins mid-photograph. The archive
+         row keeps its grey: it closes the section as a graphite band. -->
+    <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--paper); color:var(--ivory); padding:0;">
+      <div style="position:relative; padding:clamp(9rem, 26vh, 15rem) 0 clamp(2.4rem, 5vw, 3.4rem);">
+        <!-- Backdrop (decor, not a bar section). The img carries 14% vertical
+             headroom (inset -7%) so the scroll parallax in Home.effects.ts
+             (±6%) never exposes an edge; data-reveal fades the photo in on
+             first approach via the shared reveal observer. -->
+        <div id="bridge" data-reveal="0" style="position:absolute; inset:0; overflow:hidden; background:var(--graphite);">
+          <img id="bridge-img" src="/assets/99cac89a.jpg" :alt="t.media.bridgeAlt" loading="lazy" decoding="async" style="position:absolute; inset:-7% 0; width:100%; height:114%; object-fit:cover; object-position:28% 32%; filter:grayscale(1) contrast(1.02); will-change:transform;">
+          <!-- Fade stack: graphite out of #record at the top, paper into the
+               section at the bottom, and a flat scrim between them that keeps
+               the photo's bright projection screen in the moody register. The
+               fade layer paints on top, so the scrim never tints either seam. -->
+          <div aria-hidden="true" style="position:absolute; inset:0; background:linear-gradient(to bottom, var(--graphite) 0%, rgba(38,40,44,0) 26%, rgba(38,40,44,0) 55%, var(--paper) 97%), linear-gradient(rgba(38,40,44,0.26), rgba(38,40,44,0.26)); pointer-events:none;"></div>
         </div>
-        <p style="margin:1.2rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:#948E81;">{{ t.media.note }}</p>
-        <!-- Row-style link out to the full archive, in the dark section's palette. -->
-        <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); border-bottom:1px solid rgba(236,231,220,0.12);">
-          <!-- reveal 0: the row sits below the note in its own band and crosses the
-               threshold alone, so it should not wait out the card strip's stagger. -->
+        <div style="position:relative; max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
+          <h2 style="margin:0 0 clamp(1.6rem, 3.5vw, 2.4rem); display:flex; align-items:center; gap:1.1rem;">
+            <span style="display:inline-flex; align-items:center; background:var(--ivory); border-left:3px solid var(--accent); color:var(--graphite); padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.media.eyebrow }}</span>
+            <span aria-hidden="true" data-rule="" style="flex:1; border-top:1px solid color-mix(in oklab, var(--graphite) 78%, #ECE7DC);"></span>
+            <span style="display:inline-flex; gap:0.5rem;">
+              <button type="button" data-on-click="mediaPrev" :aria-label="t.media.prevAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">‹</button>
+              <button type="button" data-on-click="mediaNext" :aria-label="t.media.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
+            </span>
+          </h2>
+          <div id="media-strip" style="display:flex; gap:1.4rem; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:0.9rem;">
+            <a v-for="(card, ci) in t.media.cards" :key="ci" :data-reveal="ci" :href="card.href" :target="card.external ? '_blank' : undefined" :rel="card.external ? 'noopener' : undefined" :title="card.titleAttr" style="display:flex; flex-direction:column; flex:0 0 min(84%, 22rem); scroll-snap-align:start; min-width:0; background:color-mix(in oklab, var(--graphite) 88%, #FFFFFF); border:1px solid rgba(236,231,220,0.12); border-left:3px solid transparent; text-decoration:none; color:inherit; transition:transform 0.25s cubic-bezier(0.2,0.7,0.2,1), border-color 0.25s cubic-bezier(0.2,0.7,0.2,1), background 0.25s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateY(-5px); border-left-color:var(--accent); background:color-mix(in oklab, var(--graphite) 82%, #FFFFFF);">
+              <div style="aspect-ratio:16/10; overflow:hidden; background:color-mix(in oklab, var(--graphite) 72%, #000000);">
+                <div :id="'media-slot-' + (ci + 1)" style="width:100%; height:100%; display:block;"></div>
+              </div>
+              <div style="padding:1.1rem 1.2rem 1.25rem; display:flex; flex-direction:column; gap:0.55rem; flex:1;">
+                <span style="display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:0.3rem 0.8rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;"><span>{{ card.kicker }}</span><span v-if="card.date" style="flex:none; letter-spacing:0.1em; font-variant-numeric:tabular-nums;">{{ card.date }}</span></span>
+                <span style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.22rem; line-height:1.3; color:var(--ivory);">{{ card.title }}</span>
+                <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; line-height:1.5; color:var(--ivory2);">{{ card.desc }}</span>
+                <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ card.cta || t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
+        <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.media.note }}</p>
+      </div>
+      <!-- The archive row stays grey: a graphite band closes the section, and
+           the row inside keeps its dark-palette styling untouched. -->
+      <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); background:var(--graphite); padding:clamp(0.6rem, 2vw, 1.2rem) 0 clamp(4.5rem, 10vw, 7rem);">
+        <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem); border-bottom:1px solid rgba(236,231,220,0.12);">
+          <!-- reveal 0: the row sits in its own band and crosses the threshold
+               alone, so it should not wait out the card strip's stagger. -->
           <a data-reveal="0" :href="t.media.archive.href" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid rgba(236,231,220,0.12); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
             <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ t.media.archive.seg }}</span>
             <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3; color:var(--ivory);">{{ t.media.archive.title }}</span>
