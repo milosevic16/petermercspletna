@@ -202,7 +202,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // depends on the scale, the scale on the box — but a contracting one (ratio ≈
   // labelWidth/availWidth ≈ 0.4), so a few passes settle it.
   const LBL_MARGIN = 8 // world units of air around a measured title
-  function fitBox(id: string, k: number) {
+  // Which titles this view actually paints (see lblShow in render): the focus's
+  // children everywhere, plus the spine behind it on mobile.
+  function paintedLabelIds(id: string, desktop: boolean) {
+    const childIds = byId[id].kids
+    const ids = desktop ? childIds.slice() : ancestors(id).concat(childIds)
+    return ids.filter((nid) => nid !== 'pm' && nid !== id)
+  }
+  function fitBox(id: string, k: number, wrapW: number, centreAll: boolean) {
     const desktop = isDesktop()
     const path = ancestors(id), childIds = byId[id].kids
     const ids: Record<string, 1> = {}; path.concat(childIds).concat(['pm']).forEach((x) => (ids[x] = 1))
@@ -222,10 +229,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const n = byId[nid]
       grow(n.x - pad, n.y - pad, n.x + pad, n.y + pad)
       if (k <= 0 || nid === 'pm' || nid === id) return // hub has no label; focus uses focusName below
-      // only titles this view actually paints: the focus's children everywhere,
-      // plus the spine behind it on mobile (see lblShow in render)
       if (desktop && childIds.indexOf(nid) < 0) return
-      const b = measureLbl(labelGeom(nid, id, k, desktop))
+      const b = measureLbl(labelGeom(nid, id, k, desktop, wrapW, centreAll))
       grow(b.x - LBL_MARGIN, b.y - LBL_MARGIN, b.x + b.w + LBL_MARGIN, b.y + b.h + LBL_MARGIN)
     })
     if (k > 0 && id !== 'pm') { // the serif focus title under the focused node
@@ -238,8 +243,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     }
     return { minx, miny, maxx, maxy }
   }
-  function fitAt(id: string, k: number) {
-    const b = fitBox(id, k)
+  function fitAt(id: string, k: number, wrapW: number, centreAll: boolean) {
+    const b = fitBox(id, k, wrapW, centreAll)
     const bw = b.maxx - b.minx, bh = b.maxy - b.miny // pad is already folded in
     const cx = (b.minx + b.maxx) / 2, cy = (b.miny + b.maxy) / 2
     const ins = insets()
@@ -254,16 +259,76 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const bandCy = -VBH / 2 + ins.top + availH / 2 // vertical centre of the free band
     return { tx: bandCx - s * cx, ty: bandCy - s * cy, s }
   }
-  function fit(id: string) {
+  function fitFor(id: string, wrapW: number, centreAll: boolean) {
     const ppu = Math.min(cssW / VBW, cssH / VBH) || 1
-    let out = fitAt(id, 0) // seed with dots only — label world size needs a scale
+    let out = fitAt(id, 0, wrapW, centreAll) // seed with dots only — label size needs a scale
     for (let i = 0; i < 5; i++) {
-      const next = fitAt(id, Math.max(0.05, out.s * ppu))
+      const next = fitAt(id, Math.max(0.05, out.s * ppu), wrapW, centreAll)
       const settled = Math.abs(next.s - out.s) < 0.004
       out = next
       if (settled) break
     }
     return out
+  }
+  // Do any two painted titles collide at this fit? Boxes are in the shared world
+  // space, so an overlap here is exactly an overlap on screen. The de-clutter
+  // pass can hide a spine title, but never an ACTIVE one, so a wrap that makes
+  // two children's titles touch has to be rejected outright.
+  function fitCollides(id: string, s: number, wrapW: number, centreAll: boolean) {
+    const desktop = isDesktop()
+    const k = Math.max(0.05, s * (Math.min(cssW / VBW, cssH / VBH) || 1))
+    const boxes = paintedLabelIds(id, desktop).map((nid) => measureLbl(labelGeom(nid, id, k, desktop, wrapW, centreAll)))
+    if (id !== 'pm') { // the serif focus title shares the same space
+      const f = byId[id]
+      const fs = desktop ? 17 : 18 / k
+      const y = desktop ? f.y + 38 : f.y + 25 + fs * 0.92 + 5
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `600 ${fs.toFixed(2)}px ${SERIF}`
+      const w = ctx.measureText(f.label).width; ctx.restore()
+      boxes.push({ x: f.x - w / 2, y: y - fs, w, h: fs * 1.3 })
+    }
+    for (let a = 0; a < boxes.length; a++) {
+      for (let b = a + 1; b < boxes.length; b++) {
+        const A = boxes[a], B = boxes[b]
+        if (!(A.x + A.w < B.x || A.x > B.x + B.w || A.y + A.h < B.y || A.y > B.y + B.h)) return true
+      }
+    }
+    return false
+  }
+  // Wrap width is a lever, not a constant: a narrow wrap makes a title tall and
+  // slim, a wide one short and broad. Which is better depends entirely on the
+  // branch — the ones that hang sideways are width-bound with most of their
+  // height going spare, so slim titles buy real zoom there, while a branch that
+  // stacks vertically wants the opposite. Rather than pick one compromise for
+  // all of them, try the candidates and keep whichever frames the branch largest
+  // without letting two titles touch. Desktop passes a single candidate, so its
+  // framing is untouched.
+  // Placement is the other lever, and it matters more than the wrap: a title
+  // anchored to the SIDE of an outer node adds its full width to the box, while
+  // centring it over the node adds only half. Whether centring collides depends
+  // on the exact branch, so both modes are candidates and the real boxes decide —
+  // far better than the conservative distance heuristic, which rejected layouts
+  // that in fact had room.
+  const WRAPS = [20, 17, 14, 12]
+  let leafWrap = 20      // the winning pair, reused by render() so it draws
+  let leafCentre = false // exactly what fit() sized the camera for
+  function fit(id: string) {
+    if (isDesktop()) { leafWrap = 20; leafCentre = false; return fitFor(id, 20, false) }
+    type F = { tx: number; ty: number; s: number }
+    let best: F | null = null, bestW = WRAPS[0], bestC = false
+    let any: F | null = null, anyW = WRAPS[0], anyC = false
+    for (const centreAll of [false, true]) {
+      for (const w of WRAPS) {
+        const f = fitFor(id, w, centreAll)
+        if (!any || f.s > any.s) { any = f; anyW = w; anyC = centreAll }
+        if (fitCollides(id, f.s, w, centreAll)) continue
+        if (!best || f.s > best.s) { best = f; bestW = w; bestC = centreAll }
+      }
+    }
+    // every candidate collided (a branch too dense for its longest name): take
+    // the roomiest framing and let the de-clutter pass sort out what it can.
+    leafWrap = best ? bestW : anyW
+    leafCentre = best ? bestC : anyC
+    return (best || any) as F
   }
   function setDossier(id: string) {
     const n = byId[id]
@@ -408,7 +473,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // bigger nodes + far bigger tap targets on touch
     return id === focus ? (desktop ? 18 : 28) : byId[id].depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
   }
-  function labelGeom(id: string, focus: string, k: number, desktop: boolean): Lbl {
+  function labelGeom(id: string, focus: string, k: number, desktop: boolean, wrapW: number, centreAll = false): Lbl {
     const node = byId[id]
     const isCat = node.depth === 1
     // On mobile the font is pinned to a fixed CSS px size (counter-scaled against
@@ -436,7 +501,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // absorbs the extra width, which it has to spare. Category titles keep the
     // narrow wrap: they are uppercase and letter-spaced, so one line of those
     // would run half the width of the screen.
-    const lines = wrap(node.label, desktop ? 20 : isCat ? 13 : 20)
+    const lines = wrap(node.label, desktop ? 20 : isCat ? 13 : wrapW)
     // Long uppercase category labels clip if placed to the side at the
     // horizontal extremes of a narrow phone, so centre those above/below the
     // node instead. Vertical-extreme categories keep side labels.
@@ -448,13 +513,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // each other. Thresholds are fixed distances, not derived from the font, so
     // the choice can't oscillate while the camera fit iterates.
     let centred = !desktop && isCat && Math.abs(node.x) > Math.abs(node.y)
-    if (!desktop && !isCat && sibs.length > 1) {
+    if (!desktop && !isCat && centreAll) centred = true
+    else if (!desktop && !isCat && sibs.length > 1) {
       centred = sibs.every((sk) => {
         if (sk === id) return true
         const o = byId[sk]
         // Vertical clearance has to grow with the TALLER of the two titles: a
         // three-line name needs far more room below its node than a one-liner.
-        const tall = Math.max(lines.length, wrap(o.label, 20).length)
+        const tall = Math.max(lines.length, wrap(o.label, wrapW).length)
         return Math.abs(node.x - o.x) > 160 || Math.abs(node.y - o.y) > 44 + tall * 26
       })
     }
@@ -523,7 +589,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       // (desktop keeps active-only, exactly as before — it never showed the spine)
       const lblShow = (id !== focusId && (active || (!desktop && t === 'spine'))) ? 1 : 0
       twTo(v.lblOp, now, lblShow, animate ? 500 : 0, cssEase)
-      v.lbl = labelGeom(id, focusId, k, desktop)
+      v.lbl = labelGeom(id, focusId, k, desktop, leafWrap, leafCentre) // both chosen by fit()
       // edges
       if (t === 'active' || t === 'spine') { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = t === 'active' ? 0.5 : 0.4 }
       else if (!desktop && discovered.has(id)) { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = 0.16 } // discovered edge stays drawn
