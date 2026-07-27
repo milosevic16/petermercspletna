@@ -113,18 +113,27 @@
       </div>
     </section>
 
-    <!-- Photo backdrop + media: the portrait is the media section's opening.
+    <!-- The hairline keeping the map and the photo visibly separate is an
+         OPAQUE grey, not the usual rgba(236,231,220,0.12): a border paints over
+         its own element's background, and this section's background is paper,
+         so a translucent divider here renders as a white line rather than a
+         grey one. rgb(62,63,65) is that same 12% ivory pre-mixed over graphite.
+         Photo backdrop + media: the portrait is the media section's opening.
          Its top dissolves out of the operating map's graphite, the header and
          card strip ride on the photo, and the photo settles into the section's
          paper below — the page's light half begins mid-photograph. The archive
          row keeps its grey: it closes the section as a graphite band. -->
-    <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--paper); color:var(--ivory); padding:0;">
+    <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--paper); color:var(--ivory); padding:0; border-top:1px solid rgb(62,63,65);">
       <div style="position:relative; padding:clamp(9rem, 26vh, 15rem) 0 clamp(2.4rem, 5vw, 3.4rem);">
         <!-- Backdrop (decor, not a bar section). The img carries 14% vertical
              headroom (inset -7%) so the scroll parallax in Home.effects.ts
-             (±6%) never exposes an edge; data-reveal fades the photo in on
-             first approach via the shared reveal observer. -->
-        <div id="bridge" data-reveal="0" style="position:absolute; inset:0; overflow:hidden; background:var(--graphite);">
+             (±6%) never exposes an edge.
+             Deliberately NOT data-reveal: the shared observer starts a hidden
+             element at opacity 0, and with the section behind it now paper that
+             showed as a white band between the map and the photo until the
+             reveal fired. A backdrop has to be painted from the first frame —
+             its own graphite covers the area while the image decodes. -->
+        <div id="bridge" style="position:absolute; inset:0; overflow:hidden; background:var(--graphite);">
           <img id="bridge-img" src="/assets/99cac89a.jpg" :alt="t.media.bridgeAlt" loading="lazy" decoding="async" style="position:absolute; inset:-7% 0; width:100%; height:114%; object-fit:cover; object-position:28% 32%; filter:grayscale(1) contrast(1.02); will-change:transform;">
           <!-- Fade stack: graphite out of #record at the top, paper into the
                section at the bottom, and a flat scrim between them that keeps
@@ -161,7 +170,8 @@
       </div>
       <!-- The archive row stays grey: a graphite band closes the section, and
            the row inside keeps its dark-palette styling untouched. -->
-      <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); background:var(--graphite); padding:clamp(0.6rem, 2vw, 1.2rem) 0 clamp(4.5rem, 10vw, 7rem);">
+      <!-- Equal padding top and bottom: the row sits centred in the belt. -->
+      <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); background:var(--graphite); padding:clamp(2.6rem, 6vw, 4rem) 0;">
         <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem); border-bottom:1px solid rgba(236,231,220,0.12);">
           <!-- reveal 0: the row sits in its own band and crosses the threshold
                alone, so it should not wait out the card strip's stagger. -->
