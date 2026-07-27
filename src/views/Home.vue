@@ -113,6 +113,22 @@
       </div>
     </section>
 
+    <!-- Photo bridge: a full-bleed portrait band easing the operating map into
+         Media. Both neighbours are graphite, so the overlay dissolves each edge
+         into them and the photo reads as surfacing out of one section and
+         sinking into the next. Decor, not a section: no data-screen-label or
+         data-chyron, and it stays out of the progress bar's id list. The img
+         carries 14% vertical headroom (inset -7%) so the scroll parallax in
+         Home.effects.ts (±6%) never exposes an edge; data-reveal fades the band
+         in on first approach via the shared reveal observer. -->
+    <div id="bridge" data-reveal="0" style="position:relative; height:clamp(300px, 52vh, 620px); overflow:hidden; background:var(--graphite);">
+      <img id="bridge-img" src="/assets/99cac89a.jpg" :alt="t.media.bridgeAlt" loading="lazy" decoding="async" style="position:absolute; inset:-7% 0; width:100%; height:114%; object-fit:cover; object-position:30% 24%; filter:grayscale(1) contrast(1.02); will-change:transform;">
+      <!-- Two layers: the edge fades into the neighbours' graphite, plus a flat
+           scrim that pulls the photo's bright projection screen down into the
+           section's moody register instead of glaring against it. -->
+      <div aria-hidden="true" style="position:absolute; inset:0; background:linear-gradient(to bottom, var(--graphite) 0%, rgba(38,40,44,0) 32%, rgba(38,40,44,0) 62%, var(--graphite) 100%), linear-gradient(rgba(38,40,44,0.26), rgba(38,40,44,0.26)); pointer-events:none;"></div>
+    </div>
+
     <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--graphite); color:var(--ivory); padding:clamp(2.2rem, 5vw, 3.2rem) 0 clamp(4.5rem, 10vw, 7rem);">
       <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
         <h2 style="margin:0 0 clamp(1.6rem, 3.5vw, 2.4rem); display:flex; align-items:center; gap:1.1rem;">

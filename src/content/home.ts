@@ -114,6 +114,8 @@ export interface HomeContent {
   media: {
     eyebrow: string
     chyron: string
+    /** Alt for the full-bleed portrait band that eases the map into this section. */
+    bridgeAlt: string
     prevAria: string
     nextAria: string
     cards: MediaCard[]
@@ -443,6 +445,7 @@ const home: Localized<HomeContent> = {
     media: {
       eyebrow: 'On record — media',
       chyron: 'Media & press',
+      bridgeAlt: 'Peter Merc speaking on stage, microphone in hand',
       prevAria: 'Scroll coverage back',
       nextAria: 'Scroll coverage forward',
       cards: [
@@ -817,6 +820,7 @@ const home: Localized<HomeContent> = {
     media: {
       eyebrow: 'Za zapisnik — mediji',
       chyron: 'Mediji in tisk',
+      bridgeAlt: 'Peter Merc med nastopom na odru, z mikrofonom v roki',
       prevAria: 'Pomakni prispevke nazaj',
       nextAria: 'Pomakni prispevke naprej',
       cards: [

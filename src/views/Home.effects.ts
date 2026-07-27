@@ -298,6 +298,34 @@ export function initEffects(copy: HomeContent): () => void {
               this._c.push(() => tio.disconnect());
             }, 60);
 
+            // photo bridge: let the portrait lag the scroll (parallax) while on
+            // screen. The img carries 14% headroom, so ±6% never shows an edge.
+            // Reduced motion keeps the band a still photo with its edge fades.
+            var bridge = document.getElementById('bridge');
+            var bridgeImg = document.getElementById('bridge-img');
+            if (bridge && bridgeImg && !reduced) {
+              var brOn = false;
+              var brBusy = false;
+              var brDraw = () => {
+                var r = bridge.getBoundingClientRect();
+                var bvh = window.innerHeight || 800;
+                // +1 band fully below the viewport's centre-line, -1 fully above
+                var p = ((r.top + r.height / 2) - bvh / 2) / ((bvh + r.height) / 2);
+                p = Math.max(-1, Math.min(1, p));
+                bridgeImg.style.transform = 'translate3d(0,' + (p * 6).toFixed(2) + '%,0)';
+              };
+              var brio = new IntersectionObserver((ens) => {
+                ens.forEach((en) => { brOn = en.isIntersecting; if (brOn) brDraw(); });
+              }, { rootMargin: '10% 0px' });
+              brio.observe(bridge);
+              this._c.push(() => brio.disconnect());
+              __fx.on(window, 'scroll', () => {
+                if (!brOn || brBusy) return;
+                brBusy = true;
+                requestAnimationFrame(() => { brBusy = false; if (brOn) brDraw(); });
+              }, { passive: true });
+            }
+
             // network draw-in
             var svg = document.querySelector('#network svg');
             if (svg && svg.getBoundingClientRect().top > vh * 0.92) {
