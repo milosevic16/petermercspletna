@@ -89,14 +89,8 @@
 
         <!-- Interactive zoomable map is built into #op-map by opMap.ts on mount.
              The list below is the server-rendered content (SEO + no-JS fallback);
-             it is hidden once the interactive map goes live.
-             #op-runway is the mobile scroll runway: taller than the viewport, with
-             the map inside it position:sticky — page scroll through the runway is
-             what scrubs the map's zoom-to-fullscreen (see opMap.ts). On desktop it
-             is a plain pass-through wrapper. -->
-        <div id="op-runway">
-          <div id="op-map" class="op-map" role="group" :aria-label="t.record.networkAria"></div>
-        </div>
+             it is hidden once the interactive map goes live. -->
+        <div id="op-map" class="op-map" role="group" :aria-label="t.record.networkAria"></div>
         <ol class="op-fallback">
           <li><strong>{{ t.record.hub.name }}</strong> — {{ t.record.hub.desc }}</li>
           <li v-for="cat in t.record.tree" :key="cat.key">
@@ -424,114 +418,55 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 /* Give the map its height only once it's live, so the no-JS / pre-hydration
    state doesn't reserve a tall empty well above the SEO fallback list. */
 .op-map.op-live { height: clamp(430px, 72svh, 640px); }
-/* ---- immersive scroll (mobile only) -------------------------------------
-   No tap-to-open, no Close button. The page's own scroll drives the map:
-   #op-runway is one viewport taller than the stage (the extra length set by
-   opMap.ts via --op-runway = zoom scrub + a dwell that absorbs momentum), the
-   stage (.op-map) is position:sticky inside it, and scroll progress scrubs the
-   stage's scale from preview to fullscreen — proportional and reversible, not a
-   triggered animation. While "engaged" (fully zoomed and pinned) touches on the
-   CANVAS pan the graph; the sheet below and the up-zone strip above carry no
-   touch listeners, so a swipe starting on either scrolls the page natively —
-   that IS the exit, downward or back up. */
+/* phones: the collapsed preview is a moderate in-page section the page scrolls
+   straight past — completely inert to scroll; only a NODE tap (or the one-shot
+   auto-open on arrival) opens the fullscreen overlay below. Node + label sizes
+   are pinned in opMap.ts (counter-scaled per camera). */
 @media (max-width: 740px) {
-  #op-runway {
-    position: relative;
-    /* full-bleed out of the padded text column, like the old fullscreen was */
-    margin-left: calc(-1 * clamp(1.25rem, 5vw, 4rem));
-    margin-right: calc(-1 * clamp(1.25rem, 5vw, 4rem));
-    background: var(--graphite); /* shows around the scaled-down stage: seamless */
-  }
-  #op-runway.op-runway-live {
-    height: calc(100vh + var(--op-runway, 115vh));
-    height: calc(100dvh + var(--op-runway, 115vh));
-  }
-  .op-map { margin-top: 0; }
-  .op-map.op-live {
-    position: sticky; top: 0;
+  .op-map { margin-top: 0.2rem; }
+  .op-map.op-live { height: clamp(500px, 74svh, 660px); min-height: 500px; background: var(--graphite); }
+}
+@supports not (height: 100svh) {
+  @media (max-width: 740px) { .op-map.op-live { height: clamp(500px, 74vh, 660px); } }
+}
+/* ---- fullscreen takeover (mobile only) ----------------------------------
+   Two completely separate states, no scroll coupling. Entering portals .op-map
+   to <body> as a fixed overlay and a WAAPI FLIP zooms it out of the section's
+   box (see enterFullscreen in opMap.ts); .op-map-ph holds the section's
+   in-flow height meanwhile, so the page layout never shifts. */
+@media (max-width: 740px) {
+  .op-map-ph { width: 100%; } /* reserves in-flow height while the map is lifted out */
+  .op-map.op-live.op-fs {
+    position: fixed; top: 0; left: 0;
+    width: 100vw;
     height: 100vh;  /* fallback */
     height: 100dvh; /* dynamic vh: owns the whole visible area under the URL bar */
-    min-height: 0;
+    min-height: 0; margin: 0;
+    /* above everything, including the fixed bottom progress bar (z-index 70) —
+       the bar stays untouched in the page and simply shows again on close */
+    z-index: 9999;
     background: var(--graphite);
-    /* above the fixed bottom progress bar (z-index 70): while the map owns the
-       viewport the bar must neither show through nor steal taps via its
-       invisible jump buttons */
-    z-index: 80;
   }
-  /* Only the GRAPH zooms during the scrub — the stage, sheet and up-zone stay
-     full-size, so the section looks like the classic preview from the first
-     pixel and the canvas alone grows into place. will-change keeps its layer
-     stable across the per-frame scale writes. */
-  #op-canvas { transform-origin: 50% 44%; will-change: transform; }
-  /* engaged: only the CANVAS takes the touch stream (its non-passive listeners
-     are wired in JS at the same moment). The sheet and up-zone keep native
-     scrolling — they are the exits. touch-action on an HTML canvas IS honored
-     by iOS WebKit (unlike SVG), and the doc-level guard in opMap.ts backstops. */
-  .op-map.op-eng #op-canvas { touch-action: none; overscroll-behavior: none; }
-  /* the up-zone: a subtle invitation at the top — swipe here to scroll back up
-     the site, or TAP it to glide out. Chevron + soft accent glow; visible only
-     while engaged. Sits UNDER the back button (z-index) so it stays tappable. */
-  .op-upzone {
-    position: absolute; top: 0; left: 0; right: 0; height: 48px;
-    margin: 0; padding: 0; border: 0; /* it's a <button> — flatten the chrome */
-    z-index: 1; pointer-events: none; opacity: 0;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: opacity 0.45s ease;
-    background: radial-gradient(120% 100% at 50% 0%, color-mix(in oklab, var(--accent) 26%, transparent) 0%, transparent 62%);
-  }
-  .op-map.op-eng .op-upzone { pointer-events: auto; opacity: 1; }
-  .op-upzone-chev {
-    position: absolute; top: 7px; left: 50%; margin-left: -11px;
-    color: var(--ivory); opacity: 0.85;
-    animation: op-upzone-bob 2.2s ease-in-out infinite;
-  }
-  @keyframes op-upzone-bob {
-    0%, 100% { transform: translateY(0); opacity: 0.55; }
-    50% { transform: translateY(-3px); opacity: 0.95; }
-  }
-  @media (prefers-reduced-motion: reduce) { .op-upzone-chev { animation: none; } }
-  /* the down-zone: mirror of the up-zone at the bottom edge — where the fixed
-     progress bar normally lives. While engaged the bar fades out (see
-     html.op-immersed below) and this glow + chevron take its place: swipe up
-     or tap to continue DOWN the site. */
-  .op-downzone {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    height: calc(58px + env(safe-area-inset-bottom));
-    margin: 0; padding: 0; border: 0;
-    z-index: 1; pointer-events: none; opacity: 0;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: opacity 0.45s ease;
-    background: radial-gradient(120% 100% at 50% 100%, color-mix(in oklab, var(--accent) 26%, transparent) 0%, transparent 62%);
-  }
-  .op-map.op-eng .op-downzone { pointer-events: auto; opacity: 1; }
-  .op-downzone-chev {
-    position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); left: 50%; margin-left: -11px;
-    color: var(--ivory); opacity: 0.85;
-    animation: op-downzone-bob 2.2s ease-in-out infinite;
-  }
-  @keyframes op-downzone-bob {
-    0%, 100% { transform: translateY(0); opacity: 0.55; }
-    50% { transform: translateY(3px); opacity: 0.95; }
-  }
-  @media (prefers-reduced-motion: reduce) { .op-downzone-chev { animation: none; } }
-  /* engaged: the sheet lifts to sit above the down-zone strip */
-  .op-map.op-eng .op-dossier { bottom: calc(54px + env(safe-area-inset-bottom)); }
-  .op-dossier { transition: opacity 0.4s ease, transform 0.4s ease, bottom 0.35s ease; }
-  /* The fixed progress bar yields while the map is immersed. !important is
-     required, not sloppiness: the bar carries `animation: chyron-rise … both`,
-     and a filled animation's final keyframe (opacity:1) outranks any normal
-     declaration in the cascade — only an !important author rule beats it. */
-  div[data-if="barOn"] > div { transition: opacity 0.3s ease; }
-  html.op-immersed div[data-if="barOn"] > div { opacity: 0 !important; pointer-events: none !important; }
-  /* The zoom curve is written from JS (see scrubFrame in opMap.ts), not a CSS
-     view-timeline: measured against this layout the timeline's mapping for a
-     subject wrapping a sticky child was non-monotonic. will-change keeps the
-     canvas on a stable layer for the per-frame transform writes. */
+  /* collapsed: page scrolls over the map. fullscreen: free 2D pan + the overlay
+     intercepts every touch so the page can't scroll. touch-action:none must sit
+     on the CONTAINER: iOS WebKit applies it unreliably on embedded content,
+     letting a drag be claimed for a native page pan — after which every touchmove
+     arrives cancelable:false and JS preventDefault can't take the gesture back
+     (the "pan never follows the finger" iPhone bug). A document-level touchmove
+     guard in opMap.ts (lockScroll) backstops even that. */
+  .op-map.op-live.op-fs { touch-action: none; overscroll-behavior: none; }
+  .op-map.op-fs #op-canvas { touch-action: none; overscroll-behavior: none; }
+  /* the description keeps its own native scroll (also exempted by the JS guard) */
+  .op-map.op-fs .op-d-desc { touch-action: pan-y; }
+  /* the Close pill clears the notch/status bar while the overlay owns the screen */
+  .op-map.op-fs .op-back { top: calc(0.55rem + env(safe-area-inset-top)); }
 }
+@supports not (height: 100dvh) {
+  @media (max-width: 740px) { .op-map.op-live.op-fs { height: 100vh; } }
+}
+/* Inert on desktop even if op-fs is ever toggled there. */
 @media (min-width: 741px) {
-  .op-upzone, .op-downzone { display: none; } /* desktop keeps the classic inline map */
+  .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
@@ -540,13 +475,13 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    nothing to tile or lazily rasterize; node/label styling lives in draw(). */
 #op-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
-   Not engaged: the map is scenery the page scrolls through. touch-action: pan-y
-   reserves vertical drags for native page scroll (taps still register and
-   navigate); combined with attaching NO non-passive touchmove listener until the
-   scrub engages (see wireTouch in opMap.ts) it lets iOS WebKit scroll the page
-   over the map. Engaged sets touch-action:none above and drives the pan via
-   touch events. The rest suppresses long-press callout / selection / tap
-   highlight so a drag is clean. */
+   Collapsed: the map is just an inert preview, so the page scrolls over it
+   normally. touch-action: pan-y reserves vertical drags for native page scroll
+   (taps still register, so tap-a-node-to-open keeps working); combined with
+   attaching NO non-passive touchmove listener while collapsed (see wireTouch in
+   opMap.ts) it lets iOS WebKit scroll the page over the map. Fullscreen sets
+   touch-action:none above and drives the pan via touch events. The rest
+   suppresses long-press callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
   #op-canvas {
     touch-action: pan-y;
@@ -604,12 +539,12 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-d-name { font-size: 1.12rem; }
   /* bound the sheet so the band the camera reserves for it stays small even for
      the longest description; the camera measures whatever height it lands at.
-     One height in every state — the sheet growing at the engage moment would
-     shift the camera's reserved band and cause a visible refit jump mid-scrub. */
-  /* overscroll CHAINS (no `contain`): once the description hits its scroll
-     limit the swipe continues into the PAGE — the sheet is the downward exit,
-     and overflowing text must not become a dead zone for it */
-  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+     `contain`: the page is locked while fullscreen — hitting the description's
+     scroll limit must not rubber-band the document behind the overlay. */
+  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* Collapsed (preview): keep the panel compact so it doesn't crowd the graph —
+     the camera reserves less, so the graph reads bigger. Full text in fullscreen. */
+  .op-map.op-live:not(.op-fs) .op-d-desc { max-height: 2.9em; }
 }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
@@ -619,5 +554,6 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-fallback > li > strong:first-child { color: #D6C9A9; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82rem; }
 .op-fallback strong { color: var(--ivory); font-weight: 600; }
 .op-fallback a { color: var(--ivory); }
-#op-runway.op-runway-live + .op-fallback { display: none; } /* hidden once the map is live */
+.op-map.op-live + .op-fallback,
+.op-map-ph + .op-fallback { display: none; } /* hidden while live, incl. while the map is portaled to <body> */
 </style>

@@ -12,7 +12,7 @@
 // (checkerboarding). A canvas draws the complete scene synchronously every
 // frame (~30 dots + labels — trivial), so there is nothing to tile, defer, or
 // "load in". The draw loop only runs while something animates; a static scene
-// costs nothing. HTML overlays (dossier, back button, up-zone) are plain DOM.
+// costs nothing. HTML overlays (dossier, back button) are plain DOM.
 
 export interface OpMapNode {
   key: string
@@ -136,38 +136,33 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     + '<h3 class="op-d-name"></h3><p class="op-d-desc"></p>'
     + '<a class="op-d-visit" target="_blank" rel="noopener" hidden></a>'
     + '</div>'
-  // The up-zone: the subtle chevron + accent glow strip at the top while the map
-  // is engaged. It carries NO touch listeners on purpose — a swipe starting here
-  // scrolls the page natively — and a TAP on it glides the page back above the
-  // map (see the click handler where the scroll engine lives), so it works both
-  // as a gesture surface and as a button.
-  const upzone = h('button', 'op-upzone') as HTMLButtonElement
-  upzone.type = 'button'
-  upzone.tabIndex = -1
-  upzone.setAttribute('aria-hidden', 'true')
-  upzone.innerHTML =
-    '<svg class="op-upzone-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
-    + '<path d="M5 14.5 L12 7.5 L19 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-    + '</svg>'
-  const downzone = h('button', 'op-downzone') as HTMLButtonElement
-  downzone.type = 'button'
-  downzone.tabIndex = -1
-  downzone.setAttribute('aria-hidden', 'true')
-  downzone.innerHTML =
-    '<svg class="op-downzone-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
-    + '<path d="M5 9.5 L12 16.5 L19 9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-    + '</svg>'
-  container.append(upzone, downzone, pmback, dossier)
+  container.append(pmback, dossier)
 
   // ---- state + camera -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
   let focusRingId: string | null = null
   let hoverId: string | null = null
-  // ---- immersive-scroll state (mobile only) -------------------------------
-  // "engaged" = the scroll scrub has reached fullscreen and the stage is pinned:
-  // the canvas owns the touch stream (pan) until a scroll from the sheet or the
-  // up-zone moves the page off the engage window again.
-  let engaged = false
+  // ---- fullscreen state (mobile only) --------------------------------------
+  // Two completely separate states, nothing in between (no scroll coupling):
+  //   collapsed  — an inert in-page preview. The page scrolls straight past it;
+  //                the ONLY live interaction is a tap on a node, which opens
+  //                the overlay. Empty space is dead; scroll never enters.
+  //   fullscreen — a position:fixed overlay over the viewport. The page behind
+  //                it cannot scroll; the canvas owns the touch stream (pan).
+  //                Exit ONLY via the Close button or Escape.
+  type FsState = 'collapsed' | 'fullscreen'
+  let fsState: FsState = 'collapsed'
+  // Auto-open arms ONCE per page load: the first arrival at the section opens
+  // the overlay by itself; ANY entry consumes the arm, so after a close the
+  // section scrolls past like any other and only a node tap re-opens it.
+  let armed = true
+  let seenAway = false
+  let placeholder: HTMLDivElement | null = null
+  let fsAnim: Animation | null = null
+  let fsSafety = 0
+  let lastFocused: HTMLElement | null = null
+  let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
+  const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
   // World units mirror the old SVG viewBox: height fixed at 760 units, width
   // follows the container aspect so the map FILLS it (a fixed wide box got
   // letterboxed into a portrait phone, shrinking every node to ~5px).
@@ -175,8 +170,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let cssW = 1, cssH = 1
   function updateViewBox() {
     // clientWidth/Height, not getBoundingClientRect: the rect is scaled while the
-    // scroll scrub transforms the stage, which would bake a distorted aspect
-    // into the world box if a ResizeObserver re-render lands mid-scrub.
+    // enter/exit FLIP animates the container, which would bake a distorted aspect
+    // into the world box if a ResizeObserver re-render lands mid-animation.
     cssW = container.clientWidth || 1
     cssH = container.clientHeight || 1
     VBH = 760
@@ -186,10 +181,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const OP = { active: 1, spine: 0.5, hint: 0, context: 0 }
   // Viewport space the HTML overlays occupy, in world units. On mobile the
-  // up-zone strip sits at the top and the dossier is a full-width sheet pinned to the
-  // bottom; the camera must fit the graph into what's LEFT, or the lowest nodes
-  // land under (and behind) the sheet where taps never reach them. Desktop is
-  // already height-bound with no slack, so it gets no insets.
+  // Close pill sits at the top and the dossier is a full-width sheet pinned to
+  // the bottom; the camera must fit the graph into what's LEFT, or the lowest
+  // nodes land under (and behind) the sheet where taps never reach them.
+  // Desktop is already height-bound with no slack, so it gets no insets.
   function insets() {
     // offsetWidth/offsetHeight: untransformed layout boxes, immune to the FLIP.
     const px2u = VBH / (container.clientHeight || 1)
@@ -201,7 +196,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       const leftPx = dossier.classList.contains('show') ? dossier.offsetWidth + 30 : 0
       return { top: 0, bottom: 0, left: leftPx * px2u, right: (leftPx ? 150 : 0) * px2u }
     }
-    // top band: the up-zone glow strip (and the back button when shown)
+    // top band: the Close pill (fullscreen) / back button
     const topPx = Math.max(44, pmback.hidden ? 0 : 40)
     const sheetH = dossier.offsetHeight || 170
     // +28 at the bottom so the lowest node's dot clears the sheet (the band
@@ -210,9 +205,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // measured into the camera box, and every reserved pixel here is one the
     // graph has to give back in scale.
     const sidePx = 14
-    // +44: while engaged the sheet lifts to sit above the down-zone strip; the
-    // reserve covers that in every state so the camera never refits at engage.
-    return { top: (topPx + 8) * px2u, bottom: (sheetH + 28 + 44) * px2u, left: sidePx * px2u, right: sidePx * px2u }
+    return { top: (topPx + 8) * px2u, bottom: (sheetH + 28) * px2u, left: sidePx * px2u, right: sidePx * px2u }
   }
   // The camera must frame the TITLES, not just the dots. A fixed pad around node
   // centres could not do that on a phone: mobile titles are pinned to a constant
@@ -439,11 +432,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let visIO: IntersectionObserver | null = null
   let stageVisible = true // ambient animations (radar ping, pulse) pause off-screen
   let disposed = false
-  // The mobile entrance USED to be a one-shot WAAPI opacity+translateY on the
-  // canvas. It has to go: a WAAPI animation outranks the inline transform the
-  // scrub writes, so for its 600ms the canvas ignored the scroll curve and then
-  // snapped back to it — the visible hitch on arrival. The scroll scrub is the
-  // entrance now. Desktop never had one.
+  // The mobile entrance is the fullscreen FLIP itself (enterFullscreen): one
+  // WAAPI zoom on the CONTAINER. There is deliberately no canvas-level
+  // entrance animation — a second animation layered over the state change is
+  // exactly how the old design's arrival hitches got in. Desktop has none.
 
   // Mobile "persistent discovery": once you've opened a node it stays lit and
   // tappable, so you can pan across the whole explored map instead of watching
@@ -641,19 +633,23 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     pulseChain(selId)
     requestDraw()
   }
-  // While engaged the "back to top" control is ALWAYS offered and means "leave
-  // the map" (its label already says back to top — the top of the page). Off
-  // fullscreen it keeps its original job: return the graph to the PM hub.
+  // The corner control has two faces. Fullscreen: it IS the exit — an X and
+  // the close label, always visible, because there its job is leaving the
+  // overlay. Desktop: the classic hub shortcut (PM disc + "back to top"),
+  // shown once the graph is away from the hub. Mobile collapsed shows NO
+  // controls at all — the preview is inert scenery the page scrolls past.
   function syncBack() {
-    const show = engaged || focusId !== 'pm'
+    const open = fsState === 'fullscreen'
+    const show = open || (isDesktop() && focusId !== 'pm')
     pmback.hidden = !show
-    pmback.classList.toggle('op-exit', engaged)
-    pmback.setAttribute('aria-label', engaged ? (content.exit || 'Close full screen map') : content.backLabel)
+    pmback.classList.toggle('op-exit', open)
+    pmback.setAttribute('aria-label', open ? (content.exit || 'Close full screen map') : content.backLabel)
     setTimeout(() => pmback.classList.toggle('show', show), 10)
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
-    scrollIntoEngage() // mobile, not engaged: glide the page into the fullscreen map
+    // A node tap is the ONE way into the overlay from the collapsed preview.
+    if (!isDesktop() && fsState === 'collapsed') enterFullscreen()
     if (id === 'pm') { onHubActivate(); return }
     if (id === focusId) { goUp(); return }
     const n = byId[id]
@@ -880,262 +876,171 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     return best
   }
 
-  // ---- immersive scroll engine (mobile only) -------------------------------
-  // The page's own scroll drives the map. #op-runway (Home.vue) is one viewport
-  // taller than the stage by RUNZOOM + DWELL px; the stage is position:sticky
-  // inside it. While the runway is consumed the stage stays pinned and scroll
-  // progress p = consumed/RUNZOOM scrubs its scale from SC0 (preview) to 1
-  // (fullscreen) — strictly proportional to scrollY and fully reversible. The
-  // DWELL keeps p=1 for a stretch of scroll so a flick's momentum can't blow
-  // straight through the engaged state; past it, the stage un-pins and slides
-  // away like any section (the downward exit). A gentle magnetic settle finishes
-  // half-scrubbed states so the map always rests either out or engaged.
+  // ---- fullscreen takeover (mobile only) ----------------------------------
+  // Collapsed: the map is a normal in-page section — the page scrolls past it
+  // and NOTHING about the graph reacts to that scroll. Fullscreen: .op-map is
+  // portaled to <body> as a position:fixed overlay and a WAAPI FLIP zooms it
+  // out of the section's box. NOTE: we do NOT use position:fixed on <body> to
+  // lock scroll — on iOS Safari a fixed body mis-positions fixed DESCENDANTS
+  // (the overlay ends up off-screen). The real iOS scroll lock is the
+  // document-level touchmove guard installed by lockScroll plus
+  // touch-action:none on the overlay CONTAINER; overflow:hidden on html/body
+  // is a harmless belt-and-braces that never offsets fixed elements. (It IS
+  // safe here, unlike in the old scroll-coupled design: the overlay is fixed,
+  // not sticky, so re-rooting the scroll container changes nothing.)
   //
-  // While engaged, ONLY canvas-started touches are claimed (wireTouch + the
-  // doc-level guard below — iOS WebKit can otherwise take the drag for a page
-  // pan at gesture start, after which touchmoves arrive cancelable:false and
-  // preventDefault is a silent no-op). The sheet and the up-zone have no touch
-  // listeners, so swipes starting there scroll the page natively: that is the
-  // exit, downward or upward. Both guard and pan listeners are registered ONLY
-  // while engaged — passive:false is a registration-time flag that would drag
-  // every page scroll onto the main thread (and iOS never hands un-prevented
-  // gestures back to native scroll; see wireTouch).
-  const runway = (container.parentElement && container.parentElement.id === 'op-runway')
-    ? container.parentElement as HTMLElement : null
-  if (runway) runway.classList.add('op-runway-live')
-  const SC0 = 0.9 // graph scale at p=0 — subtle: the section itself never shrinks
-  let RUNZOOM = 500, DWELL = 210, ENGOFF = 48
-  const ENG_EPS = 1.5 // sub-pixel layout offsets keep exact scroll targets at p=0.999…
-  // The scrub is written from JS, deliberately. A CSS scroll-driven animation
-  // (view-timeline) looked attractive — compositor-side, no main-thread work —
-  // but measured against this layout it produced a non-monotonic curve: scale
-  // 1.0 at a point that should read 0.92, and a negative start time, because
-  // the timeline's mapping for a subject wrapping a sticky child did not match
-  // its geometry. One transform write per frame is cheap; a curve that is
-  // provably the one designed is worth more than the saved microseconds.
-
-  // Engaged = a real fullscreen LOCK — but NOT via overflow:hidden: putting
-  // overflow on <body> silently makes body the sticky stage's scroll container
-  // (the stage un-pins and the CSS view-timeline re-targets — everything
-  // breaks). Instead the doc-level guard preventDefaults every touch except the
-  // description's inner scroll, and the scrub loop CLAMPS any residual drift
-  // back to the engage anchor each frame. Same freeze, sticky stays intact.
+  // overflow:hidden alone is NOT a reliable touch lock on iOS: WebKit can
+  // still claim a drag for the document (pan/rubber-band) at gesture start —
+  // and once it has, every touchmove arrives cancelable:false and the canvas
+  // handler's preventDefault is silently ignored (the "pan never follows the
+  // finger" iPhone bug). A DOCUMENT-level non-passive touchmove listener that
+  // calls preventDefault while fullscreen is the one mechanism WebKit always
+  // honors: it forces synchronous dispatch and vetoes the native gesture no
+  // matter where the touch lands. The description sheet is exempt so its own
+  // overflow scroll keeps working. Registered only while fullscreen so normal
+  // page scrolling never pays the synchronous-dispatch cost.
   const descEl = dossier.querySelector('.op-d-desc') as HTMLElement
   const onDocTouchMove = (e: TouchEvent) => {
-    if (!engaged) return
-    if (descEl && e.target instanceof Node && descEl.contains(e.target)) return // description keeps its inner scroll
+    if (fsState !== 'fullscreen') return
+    if (descEl && e.target instanceof Node && descEl.contains(e.target)) return
     if (e.cancelable) e.preventDefault()
   }
-  let glideTarget: number | null = null
-  let engLo = 0, engHi = 0
-  // Auto-capture is a first-arrival courtesy. Once the map has been exited the
-  // section behaves like any other — scrolling over it never grabs you again;
-  // re-entry is an explicit node tap (which arms the next capture).
-  let autoCapture = true
-  let armEngage = false
-  function glideTo(top: number) {
-    glideTarget = Math.round(top)
-    try { window.scrollTo({ top: glideTarget, behavior: reduced ? ('instant' as ScrollBehavior) : 'smooth' }) } catch { window.scrollTo(0, glideTarget) }
-    kickScrub()
-  }
-  function engage() {
-    if (engaged || isDesktop() || !runway) return
-    engaged = true
-    glideTarget = null
-    armEngage = false
-    // No re-anchoring jump. Every scroll position in the engage window paints
-    // the identical pinned, fully-zoomed stage, so residual momentum inside it
-    // is invisible — we simply record the window's scroll bounds and let the
-    // fling die there. Only an attempt to LEAVE the window is clamped. (The old
-    // instant scrollTo fought iOS momentum, which cannot be cancelled that way.)
-    const consumed = -runway.getBoundingClientRect().top
-    const y0 = window.scrollY || 0
-    engLo = Math.round(y0 - (consumed - (RUNZOOM - ENG_EPS)))
-    engHi = Math.round(y0 + ((RUNZOOM + DWELL) - consumed))
-    wireTouch()
+  function lockScroll() {
+    const d = document.documentElement, b = document.body
+    lockedY = window.scrollY || 0
+    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
+    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
-    container.classList.add('op-eng')
-    document.documentElement.classList.add('op-immersed') // progress bar yields to the down-zone
-    resetGesture(); suppressClick = false; stopMomentum()
-    syncBack()
-    requestDraw()
   }
-  function disengage() { // low-level: callers own the page unlock + glide-out
-    if (!engaged) return
-    engaged = false
-    unwireTouch()
+  function unlockScroll() {
+    const d = document.documentElement, b = document.body
+    d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
     document.removeEventListener('touchmove', onDocTouchMove)
-    container.classList.remove('op-eng')
-    document.documentElement.classList.remove('op-immersed')
-    stopMomentum(); resetGesture(); suppressClick = false
-    // Recentre: a pan left over from exploring must not follow the graph back
-    // into the preview — drop the offset and refit around the current focus.
+    // A fast fling can leak a few px of root scroll past the lock (the first
+    // touchmove of a gesture may be dispatched non-cancelable). Snap back to
+    // the pinned offset so Close always lands exactly where the page was.
+    try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) }
+  }
+  function stopFsAnim() { if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null } if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 } }
+  function enterFullscreen() {
+    if (isDesktop() || fsState !== 'collapsed') return
+    stopFsAnim()
+    fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
+    armed = false          // the once-per-load auto-open is spent on ANY entry
+    wireTouch()            // pan listeners exist only while fullscreen
+    lastFocused = (document.activeElement as HTMLElement) || null
+    placeholder = document.createElement('div')
+    placeholder.className = 'op-map-ph'
+    const first = container.getBoundingClientRect() // collapsed box, BEFORE portal, for the FLIP
+    placeholder.style.height = first.height + 'px'
+    placeholder.style.marginTop = getComputedStyle(container).marginTop
+    container.parentNode!.insertBefore(placeholder, container)
+    // Portal to <body>: #main carries a filled identity transform from its entrance
+    // animation, which would otherwise make this position:fixed overlay relative to
+    // #main (off-screen when scrolled down) instead of the viewport. <body> is clean.
+    document.body.appendChild(container)
+    container.classList.add('op-fs')
+    container.setAttribute('role', 'dialog')
+    container.setAttribute('aria-modal', 'true')
+    lockScroll()
+    resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
-    syncBack()
-    render()
-  }
-  function exitUp() {
-    if (!runway || !engaged) return
-    autoCapture = false // scrolling over the map must never grab you again
-    const consumed = -runway.getBoundingClientRect().top
-    disengage()
-    glideTo((window.scrollY || 0) - consumed - Math.round((window.innerHeight || 800) * 0.12))
-  }
-  function exitDown() {
-    if (!runway || !engaged) return
-    autoCapture = false
-    const consumed = -runway.getBoundingClientRect().top
-    disengage()
-    glideTo((window.scrollY || 0) - consumed + RUNZOOM + DWELL + (window.innerHeight || 800))
-  }
-  upzone.addEventListener('click', (e) => { e.stopPropagation(); exitUp() })
-  downzone.addEventListener('click', (e) => { e.stopPropagation(); exitDown() })
-  // Swipe exits. Passive detection only: the page is locked while engaged, so
-  // these gestures move nothing by themselves — we read the intent and glide.
-  function wireSwipe(el: HTMLElement, want: 'down' | 'up', act: () => void, descAware = false) {
-    let sy = -1
-    el.addEventListener('touchstart', (e) => { sy = e.touches[0] ? e.touches[0].clientY : -1 }, { passive: true })
-    el.addEventListener('touchend', (e) => {
-      const y0 = sy; sy = -1
-      if (y0 < 0 || !engaged) return
-      const t = e.changedTouches && e.changedTouches[0]
-      if (!t) return
-      // a swipe on still-scrollable description text is reading, not leaving
-      if (descAware && descEl && e.target instanceof Node && descEl.contains(e.target)
-        && descEl.scrollHeight - descEl.scrollTop - descEl.clientHeight > 2) return
-      const dy = t.clientY - y0
-      if (want === 'down' ? dy > 40 : dy < -40) act()
-    }, { passive: true })
-  }
-  wireSwipe(upzone, 'down', exitUp)        // finger moves down = scroll the site up
-  wireSwipe(dossier, 'up', exitDown, true) // finger moves up = continue down the site
-  wireSwipe(downzone, 'up', exitDown)
-  function measureRunway() {
-    if (!runway) return
-    const vh = window.innerHeight || 1
-    // Reduced motion: no zoom scrub to feed — the map pins straight into the
-    // lock; the dwell just gives the sticky range room for the engage anchor.
-    RUNZOOM = reduced ? 1 : Math.round(vh * 0.6)
-    // The dwell is invisible scroll: the stage is pinned and fully zoomed
-    // throughout, so it costs nothing to look at and buys a cushion that
-    // absorbs a fling's momentum inside the engaged state instead of at a wall.
-    DWELL = Math.round(vh * 0.5)
-    ENGOFF = Math.min(48, Math.max(8, Math.round(DWELL / 3)))
-    runway.style.setProperty('--op-runway', (RUNZOOM + DWELL) + 'px')
-  }
-  // The section title block right above the runway zooms in slightly and fades
-  // as the map arrives (and back on the way out) — the same scroll drives both,
-  // so the pin transition reads as one continuous move instead of a glitch.
-  const introEls: HTMLElement[] = runway && runway.parentElement
-    ? (Array.from(runway.parentElement.children) as HTMLElement[]).filter((el) => el !== runway && el.tagName !== 'OL')
-    : []
-  let lastIntroT = -1
-  function applyIntro(rectTop: number, vh: number) {
+    updateViewBox(); render() // fit the camera into the fullscreen box
+    // preventScroll: plain focus() scroll-reveals the button in the (still
+    // programmatically scrollable) locked document — a hidden shift under the overlay.
+    requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
     if (reduced) return
-    const t = Math.max(0, Math.min(1, 1 - rectTop / (vh * 0.55)))
-    if (t === lastIntroT) return
-    lastIntroT = t
-    for (const el of introEls) {
-      if (t <= 0) { el.style.opacity = ''; el.style.transform = '' }
-      else {
-        el.style.opacity = (1 - t).toFixed(3)
-        el.style.transform = `scale(${(1 + 0.06 * t).toFixed(4)}) translateY(${(-14 * t).toFixed(1)}px)`
-      }
-    }
+    // FLIP: grow the fullscreen box out of the collapsed section's box — the
+    // whole entrance is this one smooth zoom into the graph. WAAPI on the
+    // container (an HTML box): composited, no mid-flight layout, smooth on iOS.
+    const last = container.getBoundingClientRect()
+    const sx = Math.max(0.05, first.width / (last.width || 1))
+    const sy = Math.max(0.05, first.height / (last.height || 1))
+    const ox = first.left - last.left, oy = first.top - last.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity'
+    try {
+      fsAnim = container.animate(
+        [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.55 },
+         { opacity: 1, offset: 0.45 },
+         { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
+        { duration: 560, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
+      )
+      fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
+    } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
   }
-  function resetIntro() { lastIntroT = -1; for (const el of introEls) { el.style.opacity = ''; el.style.transform = '' } }
-  let lastP = -1, lastConsumed = 0, dirDown = true, lastTf = '\u0000'
-  // The scrub runs on a continuous rAF loop while the runway is near the
-  // viewport, NOT on scroll events: iOS delivers scroll events sparsely during
-  // momentum, so an event-driven scrub visibly steps between deliveries. The
-  // loop reads the live rect each frame, idles itself out, and any scroll or
-  // touch re-arms it.
-  let loopRAF = 0, stillFrames = 0, lastYSeen = -1
-  let touchHeld = false
-  function scrubFrame() {
-    loopRAF = 0
-    if (!runway || isDesktop()) return
-    const vh = window.innerHeight || 1
-    const rect = runway.getBoundingClientRect()
-    const consumed = -rect.top
-    // direction persists through stillness: at rest, equality must not read as
-    // "down" (it made post-release captures glide the wrong way)
-    if (consumed > lastConsumed + 0.5) dirDown = true
-    else if (consumed < lastConsumed - 0.5) dirDown = false
-    lastConsumed = consumed
-    const p = Math.max(0, Math.min(1, consumed / RUNZOOM))
-    applyIntro(rect.top, vh)
-    // Gate on the OUTPUT, not on p: through the whole approach phase p is
-    // pinned at 0 while the curve is moving, so keying the write off p left the
-    // approach unrendered and then snapped a tenth of a scale in one frame.
-    if (!reduced) {
-      const LIFT = vh * 0.05
-      let tf: string
-      if (consumed >= RUNZOOM - ENG_EPS) tf = '' // engaged: identity, crisp 1:1
-      else if (rect.top > 0) { // approach: rise to cover the fading heading
-        const a = Math.max(0, Math.min(1, 1 - rect.top / (vh * 0.55)))
-        tf = `translateY(${(-LIFT * a).toFixed(1)}px) scale(${(SC0 + 0.055 * a).toFixed(4)})`
-      } else { // pinned: settle the lift over the first half, keep zooming in
-        const u = Math.max(0, Math.min(1, consumed / RUNZOOM))
-        const w = Math.min(1, u / 0.52)
-        tf = `translateY(${(-LIFT * (1 - w)).toFixed(1)}px) scale(${(0.955 + 0.045 * u).toFixed(4)})`
-      }
-      if (tf !== lastTf) { lastTf = tf; canvas.style.transform = tf }
+  function exitFullscreen() {
+    if (fsState !== 'fullscreen') return
+    stopFsAnim()
+    const finish = () => {
+      stopFsAnim()
+      unwireTouch() // collapsed must carry no touch listeners (see wireTouch)
+      container.classList.remove('op-fs')
+      container.removeAttribute('role'); container.removeAttribute('aria-modal')
+      if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
+      if (placeholder) { placeholder.remove(); placeholder = null }
+      unlockScroll()
+      panX = 0; panY = 0 // recentre: the preview always shows the whole graph centred
+      fsState = 'collapsed'
+      updateViewBox(); render() // refit into the collapsed box
+      if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus({ preventScroll: true }) } catch { /* noop */ } }
+      lastFocused = null
     }
-    lastP = p
-    const RUN = RUNZOOM + DWELL
-    if (engaged) {
-      // the freeze: drift INSIDE the window is invisible and left alone (that is
-      // the momentum cushion); only an attempt to leave it is pinned back
-      const y0 = window.scrollY || 0
-      const c = y0 < engLo ? engLo : y0 > engHi ? engHi : 0
-      if (c) { try { window.scrollTo({ top: c, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, c) } }
-    } else if (!touchHeld && glideTarget === null && (autoCapture || armEngage)) {
-      // Arrival captures. Inside the engage window: lock immediately (this is
-      // how a fling "enters fullscreen when it gets there" instead of blowing
-      // through). Mid-band with the finger up: glide to the nearest rest,
-      // directionally — the browser's eased smooth scroll plays the zoom.
-      // glideTarget===null also keeps an EXIT glide from being re-captured as
-      // it passes back through the window.
-      if (consumed >= RUNZOOM - ENG_EPS && consumed <= RUN + 1) engage()
-      else if (p > 0.05 && p < 1) {
-        if (dirDown || p > 0.5) glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
-        else glideTo((window.scrollY || 0) - consumed - Math.round(vh * 0.12))
-      } else if (consumed > RUN + 1 && consumed < RUN + vh * 0.8) {
-        // the stage is part-way slid off below the engage window (scrolling up
-        // from the next section, or released mid-exit): resolve it — up = come
-        // back into the map, down = finish leaving
-        if (dirDown) glideTo((window.scrollY || 0) - consumed + RUN + vh)
-        else glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
-      }
-    }
-    if (glideTarget !== null && Math.abs((window.scrollY || 0) - glideTarget) < 3) glideTarget = null
-    const y = window.scrollY || 0
-    if (y === lastYSeen) stillFrames++
-    else { stillFrames = 0; lastYSeen = y }
-    const near = rect.bottom > -vh && rect.top < vh * 2
-    if (near && (engaged || glideTarget !== null || stillFrames < 90)) loopRAF = requestAnimationFrame(scrubFrame)
+    resetGesture(); suppressClick = false; stopMomentum()
+    if (reduced) { finish(); return }
+    let done = false
+    const end = () => { if (done) return; done = true; container.style.transformOrigin = ''; container.style.willChange = ''; finish() }
+    // Reverse FLIP: shrink the fullscreen box back into the collapsed section's
+    // slot (the placeholder still marks it), then drop back into the page.
+    const cur = container.getBoundingClientRect()
+    const tgt = placeholder ? placeholder.getBoundingClientRect() : cur
+    const sx = Math.max(0.05, tgt.width / (cur.width || 1))
+    const sy = Math.max(0.05, tgt.height / (cur.height || 1))
+    const ox = tgt.left - cur.left, oy = tgt.top - cur.top
+    container.style.transformOrigin = 'top left'
+    container.style.willChange = 'transform, opacity'
+    try {
+      fsAnim = container.animate(
+        [{ transform: 'none', opacity: 1 }, { transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.4 }],
+        { duration: 380, easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)' }
+      )
+      fsAnim.onfinish = end; fsAnim.oncancel = end
+    } catch { end(); return }
+    fsSafety = window.setTimeout(end, 540) // safety if onfinish never fires
   }
-  function kickScrub() { stillFrames = 0; if (!loopRAF) loopRAF = requestAnimationFrame(scrubFrame) }
-  const onScroll = () => kickScrub()
-  const onDocTouchStart = () => { touchHeld = true; glideTarget = null; kickScrub() }
-  const onDocTouchEnd = (e: TouchEvent) => { touchHeld = e.touches.length > 0; kickScrub() }
-  // Tap-to-enter: tapping any node (or the hub) before the map is engaged glides
-  // the page to the engage point — the scrub plays the zoom on the way in.
-  function scrollIntoEngage() {
-    if (!runway || isDesktop() || engaged) return
-    armEngage = true // an explicit tap is the one thing that re-opens the map
-    const consumed = -runway.getBoundingClientRect().top
-    glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
+  // Instant (no animation) teardown of the overlay — for dispose and for a
+  // viewport crossing to desktop mid-fullscreen (tablet rotation), where the
+  // mobile Close button is gone and the body must not stay locked.
+  function forceCollapse() {
+    if (fsState === 'collapsed') return
+    stopFsAnim()
+    unwireTouch()
+    container.style.opacity = ''; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+    container.classList.remove('op-fs')
+    container.removeAttribute('role'); container.removeAttribute('aria-modal')
+    if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)
+    if (placeholder) { placeholder.remove(); placeholder = null }
+    unlockScroll()
+    stopMomentum(); panX = 0; panY = 0
+    fsState = 'collapsed'
   }
-  window.addEventListener('scroll', onScroll, { passive: true })
-  document.addEventListener('touchstart', onDocTouchStart, { passive: true })
-  document.addEventListener('touchend', onDocTouchEnd, { passive: true })
-  document.addEventListener('touchcancel', onDocTouchEnd, { passive: true })
+  // Focus set for the Tab-trap (mobile fullscreen only).
+  const FOCUS_SEL = '.op-back:not([hidden]), .op-d-visit:not([hidden])'
+  function getFocusables(): HTMLElement[] {
+    const nodes = ORDER.filter((id) => !a11yBtn[id].hidden).map((id) => a11yBtn[id] as HTMLElement)
+    const ctrls = Array.from(container.querySelectorAll<HTMLElement>(FOCUS_SEL))
+    return nodes.concat(ctrls)
+  }
 
   // ---- wire clicks / keys / resize -----------------------------------------
   const onCanvasClick = (e: MouseEvent) => {
     const id = hitTest(worldFromEvent(e))
+    if (!isDesktop() && fsState === 'collapsed') {
+      // The collapsed preview is inert except for NODE taps (which open the
+      // overlay via onNodeClick). Empty space must do nothing at all.
+      if (id) { e.stopPropagation(); onNodeClick(id) }
+      return
+    }
     if (id) { e.stopPropagation(); onNodeClick(id); return }
     if (focusId !== 'pm') goUp() // empty space = step back up (old bg-rect click)
   }
@@ -1144,22 +1049,26 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (id !== hoverId) { hoverId = id; canvas.style.cursor = id ? 'pointer' : ''; requestDraw() }
   }
   const onCanvasLeave = () => { if (hoverId) { hoverId = null; canvas.style.cursor = ''; requestDraw() } }
-  const onBack = () => { if (engaged) exitUp(); else go('pm') }
+  const onBack = () => { if (fsState === 'fullscreen') { exitFullscreen(); return } go('pm') }
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && focusId !== 'pm') goUp()
+    if (e.key === 'Escape') {
+      if (fsState === 'fullscreen') { exitFullscreen(); return } // Esc closes the overlay first
+      if (focusId !== 'pm') goUp()
+      return
+    }
+    if (e.key === 'Tab' && fsState === 'fullscreen') { // trap focus in the dialog
+      const f = getFocusables(); if (!f.length) return
+      const first = f[0], last = f[f.length - 1], a = document.activeElement as HTMLElement
+      if (e.shiftKey && (a === first || !container.contains(a))) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (a === last || !container.contains(a))) { e.preventDefault(); first.focus() }
+    }
   }
   const onResize = () => {
+    if (fsState !== 'collapsed' && isDesktop()) forceCollapse()
     // Crossing the phone/desktop breakpoint (rotation, tablet, resized window)
     // switches the fan, so the radial layout has to be rebuilt before refitting.
     if (laidOutDesktop !== isDesktop()) buildLayout(isDesktop())
-    if (isDesktop()) {
-      disengage()
-      canvas.style.transform = ''; lastP = -1; lastTf = '\u0000'
-      resetIntro()
-    }
-    measureRunway()
     render()
-    kickScrub() // re-derive p (and engagement) for the new geometry
   }
   pmback.addEventListener('click', onBack)
   canvas.addEventListener('click', onCanvasClick)
@@ -1168,7 +1077,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   window.addEventListener('keydown', onKey)
   window.addEventListener('resize', onResize)
 
-  // ---- pan gesture (mobile ENGAGED only) -----------------------------------
+  // ---- pan gesture (mobile FULLSCREEN only) --------------------------------
   // Driven by TOUCH events with preventDefault. iOS Safari does not reliably
   // honor touch-action on SVG content and would axis-lock, rubber-band, or
   // cancel a pointer-event drag mid-gesture. Defense in depth on WebKit:
@@ -1176,14 +1085,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // onDocTouchMove preventDefaults canvas-started moves at the document level so
   // the browser can never claim the drag for a native page pan — the failure
   // mode that turns every later touchmove cancelable:false and deadens the
-  // handler. Not engaged / desktop: handlers are not even registered.
+  // handler. Collapsed / desktop: handlers are not even registered.
   let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
   let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
   let tUPP = 1 // world units per CSS px, cached per gesture (no per-move layout reads)
   const DECIDE = 6
   function resetGesture() { tId = -1; tMoved = false }
   const onTouchStart = (e: TouchEvent) => {
-    if (!engaged) return
+    if (fsState !== 'fullscreen') return
     if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
     const t = e.touches[0]
     if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
@@ -1196,7 +1105,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
   }
   const onTouchMove = (e: TouchEvent) => {
-    if (!engaged || tId < 0) return
+    if (fsState !== 'fullscreen' || tId < 0) return
     let t: Touch | null = null
     for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
     if (!t) return
@@ -1219,14 +1128,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     resetGesture()
   }
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
-  // The pan listeners are wired ONLY while engaged. `passive: false` is a
+  // The pan listeners are wired ONLY while fullscreen. `passive: false` is a
   // registration-time flag: merely attaching a non-passive touchmove marks the
   // canvas's box as a non-fast-scrollable region, which pulls a swipe that starts
   // there off the compositor scroll path — and iOS WebKit then does NOT hand the
   // un-prevented gesture back to native scrolling, so the collapsed map swallowed
   // page scroll on load (desktop Chrome does hand it back, which is why it only
-  // broke on iOS). Un-engaged therefore carries zero touch listeners and the page
-  // scrolls over the map natively. Click stays wired: taps navigate in any state.
+  // broke on iOS). Collapsed therefore carries zero touch listeners and the page
+  // scrolls over the map natively. Click stays wired: node taps open the overlay.
   let touchWired = false
   function wireTouch() {
     if (touchWired) return
@@ -1246,19 +1155,34 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   canvas.addEventListener('click', onClickCapture, true)
 
-  measureRunway()
   render()
-  kickScrub() // initial p + engagement for wherever the page loads
   // The world box aspect is derived from the container, whose final size isn't
   // known at mount (layout + webfonts still settling). A ResizeObserver re-fits
   // the moment the real size lands, and again on rotation; the timer is a
   // fallback for browsers without it.
   let ro: ResizeObserver | null = null
-  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => { measureRunway(); render(); kickScrub() }); ro.observe(container) }
+  if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => render()); ro.observe(container) }
   const settleTimer = window.setTimeout(render, 400)
   // Label metrics + canvas text depend on the webfont; re-measure and repaint
   // when it swaps in (canvas text is rasterized, it never reflows on its own).
   try { (document as any).fonts?.ready?.then(() => { if (!disposed) render() }) } catch { /* noop */ }
+
+  // Auto-open (mobile): ARRIVING at the section — scrolling down into it or up
+  // from below — opens the overlay once per page load. seenAway requires the
+  // section to have been genuinely out of view first, so the collapse back
+  // into a visible section can never re-trigger it, and `armed` is consumed by
+  // the first entry of any kind (see enterFullscreen). Skipped under reduced
+  // motion: grabbing the viewport on scroll is exactly the surprise that
+  // preference asks to avoid — a node tap still opens the overlay.
+  if (typeof IntersectionObserver !== 'undefined' && !reduced) {
+    io = new IntersectionObserver((ents) => {
+      for (const en of ents) {
+        if (en.intersectionRatio <= 0.05) { seenAway = true; continue }
+        if (en.intersectionRatio >= 0.55 && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
+      }
+    }, { threshold: [0, 0.05, 0.55, 1] })
+    io.observe(container)
+  }
 
   if (typeof IntersectionObserver !== 'undefined') {
     visIO = new IntersectionObserver((ents) => {
@@ -1269,12 +1193,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   return () => {
     disposed = true
-    disengage()
-    glideTarget = null
-    resetIntro()
-    document.documentElement.classList.remove('op-immersed')
+    forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
-    if (loopRAF) { cancelAnimationFrame(loopRAF); loopRAF = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
     if (io) { io.disconnect(); io = null }
@@ -1283,15 +1203,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     pulse = null
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
-    window.removeEventListener('scroll', onScroll)
-    document.removeEventListener('touchstart', onDocTouchStart)
-    document.removeEventListener('touchend', onDocTouchEnd)
-    document.removeEventListener('touchcancel', onDocTouchEnd)
-    document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (disengage already removes it)
+    document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (unlockScroll already removes it)
     unwireTouch()
-    canvas.style.transform = ''
-    if (runway) { runway.classList.remove('op-runway-live'); runway.style.removeProperty('--op-runway') }
     container.innerHTML = '' // discards canvas + all its listeners
-    container.classList.remove('op-live', 'op-at-top', 'op-eng')
+    container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
 }
