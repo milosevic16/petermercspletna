@@ -445,17 +445,13 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   }
   /* collapsed: page scrolls over the map. fullscreen: free 2D pan + the overlay
      intercepts every touch so the page can't scroll. touch-action:none must sit
-     on the CONTAINER: iOS WebKit applies it unreliably on SVG elements, letting a
-     drag be claimed for a native page pan — after which every touchmove arrives
-     cancelable:false and JS preventDefault can't take the gesture back (the
-     "pan never follows the finger" iPhone bug). A document-level touchmove guard
-     in opMap.ts (lockScroll) backstops even that. */
+     on the CONTAINER: iOS WebKit applies it unreliably on embedded content,
+     letting a drag be claimed for a native page pan — after which every touchmove
+     arrives cancelable:false and JS preventDefault can't take the gesture back
+     (the "pan never follows the finger" iPhone bug). A document-level touchmove
+     guard in opMap.ts (lockScroll) backstops even that. */
   .op-map.op-live.op-fs { touch-action: none; overscroll-behavior: none; }
-  /* will-change keeps the svg ROOT on its own compositor layer: the live pan is a
-     CSS translate3d on it (GPU-composited even in WebKit's legacy SVG engine),
-     not a per-frame rewrite of the inner <g> transform attribute (CPU repaint of
-     the whole SVG on iPhone). */
-  .op-map.op-fs #op-svg { touch-action: none; overscroll-behavior: none; will-change: transform; }
+  .op-map.op-fs #op-canvas { touch-action: none; overscroll-behavior: none; }
   /* the description keeps its own native scroll (also exempted by the JS guard) */
   .op-map.op-fs .op-d-desc { touch-action: pan-y; }
 }
@@ -466,58 +462,28 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 @media (min-width: 741px) {
   .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
-#op-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+/* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
+   engine cannot composite inner SVG elements, so panning either repainted the
+   whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).
+   The canvas paints the complete scene synchronously each frame instead —
+   nothing to tile or lazily rasterize; node/label styling lives in draw(). */
+#op-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
    Collapsed: the map is just a preview, so the page scrolls over it normally
    (touch-action: manipulation = smooth native scroll, no pan). Fullscreen sets
-   touch-action:none below and drives the pan via touch events. The rest
+   touch-action:none above and drives the pan via touch events. The rest
    suppresses long-press callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
-  #op-svg {
+  #op-canvas {
     touch-action: manipulation;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
-  /* decorative focus title floats mid-screen exactly where drags start — it must
-     never be a touch/long-press target (taps fall through to the bg → up-nav). */
-  #op-focusname { pointer-events: none; }
 }
-/* The camera is tweened in JS (rAF) in opMap.ts, NOT via a CSS transition:
-   iOS Safari does not transition an SVG <g>'s transform *attribute*, so this
-   rule was a no-op on iPhone (the snap-instantly bug) and, if kept, would fight
-   the per-frame attribute writes on desktop. reduced-motion is honored in JS. */
-.op-edge { transition: opacity 0.6s ease; }
-/* only active nodes take pointer events — faded ones must not swallow taps */
-.op-node { transition: opacity 0.55s ease; outline: none; pointer-events: none; }
-.op-node.op-click { cursor: pointer; pointer-events: auto; }
-/* Invisible tap target. pointer-events:all so the transparent fill still
-   hit-tests on iOS Safari (the default visiblePainted ignores an unpainted
-   fill → dead taps); scoped to active nodes so faded ones never steal taps. */
-.op-hit { pointer-events: none; }
-.op-node.op-click .op-hit { pointer-events: all; }
-.op-dot { transition: fill 0.35s, stroke 0.35s, r 0.45s cubic-bezier(0.34, 1.4, 0.6, 1); }
-.op-node.op-click:hover .op-dot { stroke: var(--ivory); }
-.op-node:focus-visible .op-dot { stroke: var(--accent); stroke-width: 2.5; }
-.op-node.op-focus .op-dot, .op-node.op-sel .op-dot { fill: var(--accent); stroke: var(--accent); }
-.op-lbl { font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 600; letter-spacing: 0.04em; pointer-events: none; transition: opacity 0.5s ease; }
-.op-node.op-cat .op-lbl { text-transform: uppercase; letter-spacing: 0.11em; fill: #D6C9A9; font-size: 13.5px; }
-.op-node:not(.op-cat) .op-lbl { fill: #C7C1B4; font-size: 14.5px; }
-#op-focusname { font-family: 'Spectral', Georgia, serif; font-weight: 600; font-size: 17px; fill: var(--ivory); text-anchor: middle; opacity: 0; transition: opacity 0.5s ease; }
-#op-focusname.on { opacity: 1; }
-#op-hub .op-core { fill: var(--accent); }
-#op-hub .op-ring { fill: none; stroke: rgba(236, 231, 220, 0.3); stroke-width: 1; opacity: 0; transition: opacity 0.5s; transform-box: fill-box; transform-origin: center; }
-#op-hub.op-top .op-ring { opacity: 1; }
-/* At the hub view, the ring radiates outward like a slow radar ping — an elegant
-   "this is live, tap to explore" invitation. */
-#op-hub.op-top .op-ring { animation: op-hub-ping 3.4s cubic-bezier(0.2, 0.6, 0.2, 1) infinite; }
-@keyframes op-hub-ping {
-  0% { transform: scale(1); opacity: 0.55; }
-  60% { transform: scale(2.7); opacity: 0; }
-  100% { transform: scale(2.7); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) { #op-hub.op-top .op-ring { animation: none; } }
-#op-hub text { fill: #F4F1EA; font-family: 'Instrument Sans', Arial, sans-serif; font-weight: 700; letter-spacing: 0.06em; }
+/* Keyboard/screen-reader layer: one visually-hidden button per clickable node
+   (canvas pixels carry no semantics). Focus draws the ring on the canvas. */
+.op-a11y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
 .op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }

@@ -3,6 +3,16 @@
 // fixed radial layout: PM hub at centre, categories around it, each branch
 // fanning outward; focusing a node glides the camera outward along the spoke
 // while the spine back to PM stays faintly drawn. Runs in onMounted only.
+//
+// RENDERER: a single <canvas>, not SVG. On iPhone WebKit the SVG version could
+// never be smooth: Safari's shipping (legacy) SVG engine cannot composite inner
+// SVG elements, so panning either repainted the whole SVG per frame (chop) or —
+// with the svg promoted to a compositor layer — rasterized it lazily in tiles,
+// which showed up as background-coloured squares chasing the finger
+// (checkerboarding). A canvas draws the complete scene synchronously every
+// frame (~30 dots + labels — trivial), so there is nothing to tile, defer, or
+// "load in". The draw loop only runs while something animates; a static scene
+// costs nothing. HTML overlays (crumbs, dossier, back, coach) are unchanged.
 
 export interface OpMapNode {
   key: string
@@ -21,14 +31,19 @@ export interface OpMapContent {
   exit?: string
 }
 
-const NS = 'http://www.w3.org/2000/svg'
 const NODE_FILL = '#5C5850' // warm grey — reads grey on graphite, not black
 const NODE_STROKE = '#948E81'
 const BRANCH_STROKE = '#B4AEA1'
+const IVORY = '#ECE7DC'
+const CAT_LBL = '#D6C9A9'
+const LEAF_LBL = '#C7C1B4'
+const SANS = '"Instrument Sans", Arial, sans-serif'
+const SERIF = '"Spectral", Georgia, serif'
 
 export function initOpMap(container: HTMLElement, content: OpMapContent): () => void {
   const reduced = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false } })()
   const isDesktop = () => { try { return window.matchMedia('(min-width: 741px)').matches } catch { return true } }
+  const ACCENT = (() => { try { return getComputedStyle(container).getPropertyValue('--accent').trim() || '#D2453E' } catch { return '#D2453E' } })()
 
   // ---- flatten tree + fixed radial layout ---------------------------------
   type N = { key: string; label: string; name: string; desc: string; href: string; depth: number; x: number; y: number; parent: string | null; kids: string[]; leaf: boolean }
@@ -48,6 +63,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const hubNode: OpMapNode = { key: 'pm', label: content.hub.label, name: content.hub.name, desc: content.hub.desc, href: content.hub.href, children: content.tree }
   place(hubNode, 0, 0, null)
+  const ORDER = Object.keys(byId) // stable draw / a11y order
   // Farthest node from centre (~R[3]=520) + margin; clamps mobile drag-pan so the
   // graph can be explored past the current fit but never dragged fully off-screen.
   const GEXT = Math.max(0, ...Object.values(byId).map((n) => Math.max(Math.abs(n.x), Math.abs(n.y)))) + 60
@@ -57,23 +73,30 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // ---- build DOM ----------------------------------------------------------
   container.innerHTML = ''
   container.classList.add('op-live')
-  const el = (t: string, a?: Record<string, string>) => { const e = document.createElementNS(NS, t); if (a) for (const k in a) e.setAttribute(k, a[k]); return e }
   const h = (t: string, cls?: string) => { const e = document.createElement(t); if (cls) e.className = cls; return e }
 
-  const svg = el('svg', { id: 'op-svg', viewBox: '-520 -360 1040 720', preserveAspectRatio: 'xMidYMid meet', role: 'application', 'aria-label': content.hub.name + ' — operating map' }) as SVGSVGElement
-  const gdefs = el('defs')
-  const bg = el('rect', { id: 'op-bg', x: '-520', y: '-360', width: '1040', height: '720', fill: 'transparent' })
-  const camera = el('g', { id: 'op-camera' })
-  const edgesG = el('g', { id: 'op-edges' }), nodesG = el('g', { id: 'op-nodes' })
-  const fxLayer = el('g', { id: 'op-fx', 'aria-hidden': 'true' }); (fxLayer as SVGElement).style.pointerEvents = 'none'
-  const focusName = el('text', { id: 'op-focusname' }) as SVGTextElement
-  const pmhub = el('g', { id: 'op-hub' })
-  pmhub.appendChild(el('circle', { class: 'op-core', r: '32' }))
-  pmhub.appendChild(el('circle', { class: 'op-ring', r: '40' }))
-  const pmTxt = el('text', { 'text-anchor': 'middle', y: '6.5', 'font-size': '18' }); pmTxt.textContent = content.hub.label; pmhub.appendChild(pmTxt)
-  camera.append(edgesG, nodesG, focusName, pmhub, fxLayer)
-  svg.append(gdefs, bg, camera)
-  container.appendChild(svg)
+  const canvas = h('canvas') as HTMLCanvasElement
+  canvas.id = 'op-canvas'
+  canvas.setAttribute('role', 'application')
+  canvas.setAttribute('aria-label', content.hub.name + ' — operating map')
+  container.appendChild(canvas)
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+  const dpr = Math.min(window.devicePixelRatio || 1, 3)
+
+  // Keyboard/screen-reader layer: one visually-hidden button per node (canvas
+  // pixels carry no semantics). Focusing a button draws the accent focus ring on
+  // the canvas; Enter/Space activate natively as clicks.
+  const a11y = h('div', 'op-a11y')
+  const a11yBtn: Record<string, HTMLButtonElement> = {}
+  ORDER.forEach((id) => {
+    const b = h('button') as HTMLButtonElement
+    b.type = 'button'; b.setAttribute('aria-label', byId[id].name); b.hidden = true
+    b.addEventListener('click', () => onNodeClick(id))
+    b.addEventListener('focus', () => { focusRingId = (b.matches(':focus-visible') ? id : null); requestDraw() })
+    b.addEventListener('blur', () => { if (focusRingId === id) { focusRingId = null; requestDraw() } })
+    a11y.appendChild(b); a11yBtn[id] = b
+  })
+  container.appendChild(a11y)
 
   // overlays (HTML)
   const pmback = h('button', 'op-back') as HTMLButtonElement; pmback.type = 'button'; pmback.hidden = true
@@ -97,38 +120,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   fsExit.setAttribute('aria-label', content.exit || 'Close full screen map')
   fsExit.addEventListener('click', (e) => { e.stopPropagation(); exitFullscreen() })
 
-  // ---- render helpers -----------------------------------------------------
-  function wrap(s: string, m: number) { const w = s.split(' '), o: string[] = []; let line = ''; for (const x of w) { if ((line + ' ' + x).trim().length > m && line) { o.push(line.trim()); line = x } else line = (line + ' ' + x).trim() } if (line) o.push(line); return o }
-
-  const nodeEls: Record<string, SVGGElement> = {}, edgeEls: Record<string, SVGLineElement> = {}
-  Object.values(byId).forEach((node) => {
-    if (node.parent) {
-      const p = byId[node.parent]
-      const grad = el('linearGradient', { id: 'opg-' + node.key, gradientUnits: 'userSpaceOnUse', x1: String(p.x), y1: String(p.y), x2: String(node.x), y2: String(node.y) })
-      grad.appendChild(el('stop', { offset: '0', 'stop-color': '#ECE7DC', 'stop-opacity': '0.16' }))
-      grad.appendChild(el('stop', { offset: '0.55', 'stop-color': '#ECE7DC', 'stop-opacity': '0.05' }))
-      grad.appendChild(el('stop', { offset: '1', 'stop-color': '#ECE7DC', 'stop-opacity': '0' }))
-      gdefs.appendChild(grad)
-      const ln = el('line', { x1: String(p.x), y1: String(p.y), x2: String(node.x), y2: String(node.y), class: 'op-edge' }) as SVGLineElement
-      edgesG.appendChild(ln); edgeEls[node.key] = ln
-    }
-    if (node.key === 'pm') return
-    const isCat = node.depth === 1
-    const g = el('g', { class: 'op-node' + (isCat ? ' op-cat' : '') + (node.kids.length ? ' op-branch' : ''), tabindex: '0', role: 'button', 'aria-label': node.name }) as SVGGElement
-    // generous invisible tap target (touch); only active nodes take pointer events
-    g.appendChild(el('circle', { class: 'op-hit', cx: String(node.x), cy: String(node.y), r: '34', fill: 'transparent' }))
-    g.appendChild(el('circle', { class: 'op-dot', cx: String(node.x), cy: String(node.y), r: isCat ? '14' : '12', fill: NODE_FILL, stroke: node.kids.length ? BRANCH_STROKE : NODE_STROKE }))
-    // Label text only — its geometry (anchor, offset, wrap, font size) is set per
-    // render() so it can track the live node radius and, on mobile, a font size
-    // pinned in CSS px (counter-scaled against the camera) instead of shrinking.
-    const txt = el('text', { class: 'op-lbl' })
-    g.appendChild(txt); nodesG.appendChild(g); nodeEls[node.key] = g
-    g.addEventListener('click', (e) => { e.stopPropagation(); onNodeClick(node.key) })
-    g.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNodeClick(node.key) } })
-  })
-
-  // ---- state + render -----------------------------------------------------
+  // ---- state + camera -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
+  let focusRingId: string | null = null
+  let hoverId: string | null = null
   // ---- fullscreen-takeover state (mobile only) ----------------------------
   type FsState = 'collapsed' | 'fullscreen'
   let fsState: FsState = 'collapsed'
@@ -136,32 +131,32 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let fsAnim: Animation | null = null
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
-  const FS_DUR = 320
   const isFullscreen = () => fsState === 'fullscreen'
   const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
-  // The viewBox follows the container's aspect ratio so the map FILLS it. A
-  // fixed wide viewBox got letterboxed into a portrait phone, shrinking every
-  // node to ~5px — untappable.
+  // World units mirror the old SVG viewBox: height fixed at 760 units, width
+  // follows the container aspect so the map FILLS it (a fixed wide box got
+  // letterboxed into a portrait phone, shrinking every node to ~5px).
   let VBW = 1040, VBH = 760
+  let cssW = 1, cssH = 1
   function updateViewBox() {
     // clientWidth/Height, not getBoundingClientRect: the rect is scaled while the
     // enter/exit FLIP animates the container, which would bake a distorted aspect
-    // into the viewBox if a ResizeObserver re-render lands mid-animation.
-    const w = container.clientWidth || 1, hh = container.clientHeight || 1
+    // into the world box if a ResizeObserver re-render lands mid-animation.
+    cssW = container.clientWidth || 1
+    cssH = container.clientHeight || 1
     VBH = 760
-    VBW = Math.max(200, Math.round(VBH * (w / hh)))
-    svg.setAttribute('viewBox', `${Math.round(-VBW / 2)} ${Math.round(-VBH / 2)} ${VBW} ${VBH}`)
+    VBW = Math.max(200, Math.round(VBH * (cssW / cssH)))
+    const pw = Math.round(cssW * dpr), ph = Math.round(cssH * dpr)
+    if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph }
   }
   const OP = { active: 1, spine: 0.5, hint: 0, context: 0 }
-  // Viewport space the HTML overlays occupy, in viewBox units. On mobile the
+  // Viewport space the HTML overlays occupy, in world units. On mobile the
   // crumbs sit at the top and the dossier is a full-width sheet pinned to the
   // bottom; the camera must fit the graph into what's LEFT, or the lowest nodes
   // land under (and behind) the sheet where taps never reach them. Desktop is
   // already height-bound with no slack, so it gets no insets.
   function insets() {
-    // offsetWidth/offsetHeight + clientHeight: untransformed layout boxes, so a
-    // re-render during the enter/exit FLIP (whose scale distorts every
-    // getBoundingClientRect) can't reserve a wrong band for the overlays.
+    // offsetWidth/offsetHeight: untransformed layout boxes, immune to the FLIP.
     const px2u = VBH / (container.clientHeight || 1)
     if (isDesktop()) {
       // The dossier is a bottom-left card. Desktop has no vertical slack (it's
@@ -197,9 +192,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     let s = Math.min(availW / bw, availH / bh); s = Math.max(0.6, Math.min(s, 2.6))
     const bandCx = -VBW / 2 + ins.left + availW / 2 // horizontal centre of the free band
     const bandCy = -VBH / 2 + ins.top + availH / 2 // vertical centre of the free band
-    // Numbers, not a transform string: the camera tween interpolates tx/ty/s
-    // independently (exactly how the old CSS transition decomposed the list), and
-    // applyCamera() adds the pan offset before writing the attribute.
     return { tx: bandCx - s * cx, ty: bandCy - s * cy, s }
   }
   function setDossier(id: string) {
@@ -210,24 +202,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (n.href) { v.hidden = false; v.href = n.href; v.textContent = content.visit + ' ↗' } else v.hidden = true
     dossier.classList.add('show')
   }
-  // ---- camera tween -------------------------------------------------------
-  // iOS Safari/WebKit does NOT run CSS transitions on an SVG <g>'s transform
-  // *attribute* (only on the CSS transform *property*), so the old
-  // "#op-camera { transition: transform … }" snapped instantly on iPhone while
-  // gliding on Chrome. We drop that CSS rule and tween the attribute ourselves
-  // with rAF: works identically on iOS Safari, Chrome, Firefox, matches the
-  // desktop feel (same 0.82s cubic-bezier, and translate/scale eased
-  // independently — exactly how the CSS transition decomposed the list), and
-  // composes with a future drag-to-pan (applyCamera adds panX/panY every frame).
-  type Cam = { tx: number; ty: number; s: number }
-  let cam: Cam = { tx: 0, ty: 0, s: 1 }   // camera as currently painted
-  let camFrom: Cam = cam, camTo: Cam = cam
-  let camRAF = 0, camT0 = 0
-  const CAM_DUR = 1050                      // ms — a slow, smooth zoom (was 820, felt fast/choppy)
-  let panX = 0, panY = 0                    // drag-to-pan offset (viewBox units); 0 today
 
-  // cubic-bezier(0.38,0.02,0.18,1) solved in JS (Newton + bisection fallback),
-  // so the JS tween is byte-for-byte the desktop easing curve.
+  // ---- easing -------------------------------------------------------------
+  // cubic-bezier solved in JS (Newton + bisection fallback) so canvas-side
+  // animations reproduce the exact CSS curves the SVG version used.
   function makeBezier(p1x: number, p1y: number, p2x: number, p2y: number) {
     const cx = 3 * p1x, bx = 3 * (p2x - p1x) - cx, ax = 1 - cx - bx
     const cy = 3 * p1y, by = 3 * (p2y - p1y) - cy, ay = 1 - cy - by
@@ -244,34 +222,49 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       return fy(t)
     }
   }
-  const camEase = makeBezier(0.33, 0, 0.2, 1) // smooth ease-in-out, gentle finish
+  const camEase = makeBezier(0.33, 0, 0.2, 1)   // smooth ease-in-out, gentle finish
+  const cssEase = makeBezier(0.25, 0.1, 0.25, 1) // CSS 'ease'
+  const rEase = makeBezier(0.34, 1.4, 0.6, 1)    // dot-radius pop (slight overshoot)
+  const beatEase = makeBezier(0.2, 0.7, 0.2, 1)
 
-  // Single writer of the camera transform: base tween (cam) + live pan offset.
-  function applyCamera() {
-    camera.setAttribute('transform', `translate(${(cam.tx + panX).toFixed(2)} ${(cam.ty + panY).toFixed(2)}) scale(${cam.s.toFixed(4)})`)
+  // Tiny tweened-value helper: start(v1) re-aims from the CURRENT value, so
+  // interrupted transitions glide seamlessly (matches CSS transition semantics).
+  type Tween = { v0: number; v1: number; t0: number; dur: number; ease: (x: number) => number }
+  const tw = (v: number): Tween => ({ v0: v, v1: v, t0: 0, dur: 0, ease: cssEase })
+  function twCur(a: Tween, now: number) {
+    if (a.dur <= 0 || now >= a.t0 + a.dur) return a.v1
+    return a.v0 + (a.v1 - a.v0) * a.ease((now - a.t0) / a.dur)
   }
+  function twTo(a: Tween, now: number, v1: number, dur: number, ease: (x: number) => number) {
+    if (a.v1 === v1) return
+    a.v0 = twCur(a, now); a.v1 = v1; a.t0 = now; a.dur = reduced ? 0 : dur; a.ease = ease
+  }
+  const twActive = (a: Tween, now: number) => a.dur > 0 && now < a.t0 + a.dur
+
+  // ---- camera tween -------------------------------------------------------
+  type Cam = { tx: number; ty: number; s: number }
+  let cam: Cam = { tx: 0, ty: 0, s: 1 }
+  let camFrom: Cam = cam, camTo: Cam = cam
+  let camT0 = 0, camActive = false
+  const CAM_DUR = 1050 // ms — a slow, smooth zoom
+  let panX = 0, panY = 0 // drag-to-pan offset (world units)
   function setCamera(target: Cam, opts: { animate: boolean }) {
-    if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 } // interrupt any glide in flight
     const near = Math.abs(target.tx - cam.tx) < 0.5 && Math.abs(target.ty - cam.ty) < 0.5 && Math.abs(target.s - cam.s) < 0.002
-    if (!opts.animate || reduced || near) { cam = { tx: target.tx, ty: target.ty, s: target.s }; applyCamera(); return }
-    camFrom = { tx: cam.tx, ty: cam.ty, s: cam.s } // start from wherever we are now → seamless mid-glide re-aim
-    camTo = { tx: target.tx, ty: target.ty, s: target.s }
-    camT0 = 0
-    const step = (now: number) => {
-      if (!camT0) camT0 = now
-      const e = camEase(Math.min(1, (now - camT0) / CAM_DUR))
-      cam = { tx: camFrom.tx + (camTo.tx - camFrom.tx) * e, ty: camFrom.ty + (camTo.ty - camFrom.ty) * e, s: camFrom.s + (camTo.s - camFrom.s) * e }
-      applyCamera()
-      camRAF = e < 1 ? requestAnimationFrame(step) : 0
-    }
-    camRAF = requestAnimationFrame(step)
+    if (!opts.animate || reduced || near) { camActive = false; cam = { ...target }; requestDraw(); return }
+    camFrom = { ...cam }; camTo = { ...target }; camT0 = 0; camActive = true
+    requestDraw()
+  }
+  function stepCamera(now: number) {
+    if (!camActive) return
+    if (!camT0) camT0 = now
+    const e = camEase(Math.min(1, (now - camT0) / CAM_DUR))
+    cam = { tx: camFrom.tx + (camTo.tx - camFrom.tx) * e, ty: camFrom.ty + (camTo.ty - camFrom.ty) * e, s: camFrom.s + (camTo.s - camFrom.s) * e }
+    if (e >= 1) camActive = false
   }
 
-  // ---- drag-to-pan + entrance (mobile only) -------------------------------
-  // Very generous clamp so the pan follows the finger freely and never feels like
-  // it "stops" mid-drag: you can push the graph almost entirely off either edge
-  // (leaving a sliver) and pan back. Symmetric, so diagonal drags never collapse
-  // to one axis by hitting one clamp first.
+  // ---- drag-to-pan + momentum (mobile fullscreen only) ---------------------
+  // Very generous clamp so the pan follows the finger freely and never feels
+  // like it "stops" mid-drag; symmetric, so diagonals never collapse to one axis.
   function panMax() {
     return {
       x: Math.max(VBW * 0.5, cam.s * GEXT + VBW * 0.35),
@@ -279,28 +272,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     }
   }
   const clampTo = (v: number, m: number) => Math.max(-m, Math.min(m, v))
-  // While a finger is down (and through the momentum glide) the pan delta lives in
-  // a CSS translate3d on the <svg> ROOT, not in the camera attribute: shipping iOS
-  // WebKit (legacy SVG engine) cannot composite inner-SVG transforms, so rewriting
-  // the <g> attribute per touchmove repaints the entire SVG each frame — visible
-  // chop on an iPhone. The svg root is an HTML-context box with its own compositing
-  // layer, so the CSS translate tracks the finger at 60fps; the offset is folded
-  // into the camera attribute once, when the gesture/momentum ends. Visually
-  // identical: the outer camera translate is in pre-scale viewBox units, which map
-  // to CSS px by the fixed per-gesture ratio (and the svg has no painted edges of
-  // its own — the container's graphite shows either way).
-  let liveX = 0, liveY = 0 // uncommitted gesture pan, viewBox units
-  let tUPP = 1             // viewBox units per CSS px, cached per gesture
-  function applyLive() {
-    svg.style.transform = (liveX || liveY) ? `translate3d(${(liveX / tUPP).toFixed(2)}px,${(liveY / tUPP).toFixed(2)}px,0)` : ''
-  }
-  function foldLive() { if (liveX || liveY) { panX += liveX; panY += liveY; liveX = 0; liveY = 0; svg.style.transform = ''; applyCamera() } }
-  function clearLive() { liveX = 0; liveY = 0; svg.style.transform = '' }
-  let momRAF = 0
-  function stopMomentum() { if (momRAF) { cancelAnimationFrame(momRAF); momRAF = 0 } }
-  // Fold the live pan offset into the base camera and zero it, so a navigation
-  // glide starts from exactly where the eye is (no snap-back of the pan on nav).
-  function foldPan() { stopMomentum(); foldLive(); if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } }
+  let momActive = false, momVX = 0, momVY = 0
+  function stopMomentum() { momActive = false }
+  // Fold the pan into the base camera and zero it, so a navigation glide starts
+  // from exactly where the eye is (no snap-back of the pan on nav).
+  function foldPan() { stopMomentum(); if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } }
 
   let io: IntersectionObserver | null = null
   let coachEl: HTMLElement | null = null, coachTimer = 0
@@ -316,126 +292,146 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function enterAnim() {
     if (reduced) return
     try {
-      svg.animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
+      canvas.animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
         { duration: 600, easing: 'cubic-bezier(0.2,0.7,0.2,1)', fill: 'backwards' })
     } catch { /* noop */ }
     const f = fit(focusId) // camera "breathe": settle in from ~8% zoomed-out
-    cam = { tx: f.tx, ty: f.ty, s: f.s * 0.92 }; applyCamera()
+    cam = { tx: f.tx, ty: f.ty, s: f.s * 0.92 }
     setCamera(f, { animate: true })
     showCoach()
   }
 
   // Mobile "persistent discovery": once you've opened a node it stays lit and
   // tappable, so you can pan across the whole explored map instead of watching
-  // branches fade in and out. Desktop keeps the focus-only fade (straightforward).
+  // branches fade in and out. Desktop keeps the focus-only fade.
   const discovered = new Set<string>()
   const DISC_OP = 0.45
+
+  // ---- scene model ---------------------------------------------------------
+  // render() computes TARGETS (opacity, radius, label layout, edge style); the
+  // draw loop tweens toward them and paints. Nothing is recomputed per frame.
+  type Lbl = { lines: string[]; fsU: number; x: number; y: number; align: CanvasTextAlign; cat: boolean }
+  type Vis = {
+    op: Tween; r: Tween; lblOp: Tween
+    lbl: Lbl | null
+    clickable: boolean
+    edge: { kind: 'flat'; color: string } | { kind: 'grad' } // flat = active/spine/discovered
+    edgeFlatAlpha: number
+  }
+  const vis: Record<string, Vis> = {}
+  ORDER.forEach((id) => {
+    vis[id] = {
+      op: tw(id === 'pm' || byId[id].depth === 1 ? 1 : 0), r: tw(12), lblOp: tw(0),
+      lbl: null, clickable: false, edge: { kind: 'grad' }, edgeFlatAlpha: 0,
+    }
+  })
+  let hubOp = 1 // snaps (the old #op-hub had no opacity transition)
+  let edgeW = 1.3
+  const focusName = { text: '', x: 0, y: 0, fs: 17, op: tw(0) }
+
+  function wrap(s: string, m: number) { const w = s.split(' '), o: string[] = []; let line = ''; for (const x of w) { if ((line + ' ' + x).trim().length > m && line) { o.push(line.trim()); line = x } else line = (line + ' ' + x).trim() } if (line) o.push(line); return o }
+
+  function labelFont(fsU: number) { return `600 ${fsU.toFixed(2)}px ${SANS}` }
+  function measureLbl(l: Lbl): { x: number; y: number; w: number; h: number } {
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = labelFont(l.fsU)
+    try { (ctx as any).letterSpacing = (l.cat ? 0.11 * l.fsU : 0.04 * l.fsU).toFixed(2) + 'px' } catch { /* noop */ }
+    let w = 0
+    for (const ln of l.lines) w = Math.max(w, ctx.measureText(l.cat ? ln.toUpperCase() : ln).width)
+    ctx.restore()
+    const hgt = l.lines.length * l.fsU * 1.06 + l.fsU * 0.2
+    const x0 = l.align === 'center' ? l.x - w / 2 : l.align === 'right' ? l.x - w : l.x
+    return { x: x0, y: l.y - l.fsU, w, h: hgt }
+  }
 
   // Animate ONLY on user navigation (go/onNodeClick/goUp/back/hub). Layout-driven
   // re-renders (resize/observer/settle/fonts) snap so they never tween.
   function render(animate = false) {
+    const now = performance.now()
     const path = ancestors(focusId), childIds = byId[focusId].kids
     const grand: Record<string, 1> = {}; childIds.forEach((c) => byId[c].kids.forEach((g) => (grand[g] = 1)))
     const tier = (id: string): keyof typeof OP => (id === focusId || childIds.indexOf(id) >= 0) ? 'active' : path.indexOf(id) >= 0 ? 'spine' : grand[id] ? 'hint' : 'context'
     const desktop = isDesktop()
-    // Everything on the current focus path/branch counts as discovered (mobile).
     if (!desktop) { discovered.add(focusId); childIds.forEach((c) => discovered.add(c)); path.forEach((p) => discovered.add(p)) }
-    // The dossier window is the single description surface, desktop and mobile:
-    // select a node and its description shows here. Fill it BEFORE fit() so its
-    // measured height (mobile, where it's a full-width sheet) can be reserved out
-    // of the camera's usable band, otherwise the lowest nodes sit behind it.
+    // The dossier window is the single description surface, desktop and mobile.
+    // Fill it BEFORE fit() so its measured height (mobile, where it's a full-width
+    // sheet) can be reserved out of the camera's usable band.
     setDossier(selId)
     updateViewBox()
     const camTgt = fit(focusId)
-    // CSS px per user unit at the current camera; lets us pin on-screen sizes.
-    // (client metrics — see updateViewBox for why not getBoundingClientRect.)
-    const ppu = Math.min((container.clientWidth || 1) / VBW, (container.clientHeight || 1) / VBH)
+    // CSS px per world unit at the TARGET camera; pins on-screen sizes on mobile.
+    const ppu = Math.min(cssW / VBW, cssH / VBH)
     const k = camTgt.s * ppu || 1
-    Object.keys(nodeEls).forEach((id) => {
-      const g = nodeEls[id], node = byId[id], t = tier(id), active = t === 'active'
+    edgeW = 1.3 / camTgt.s
+    ORDER.forEach((id) => {
+      if (id === 'pm') return
+      const v = vis[id], node = byId[id], t = tier(id), active = t === 'active'
       const disc = !desktop && discovered.has(id) // discovered stays visible + tappable on mobile
-      g.style.opacity = String(disc && OP[t] === 0 ? DISC_OP : OP[t])
-      g.classList.toggle('op-click', active || disc)
-      g.classList.toggle('op-focus', id === focusId)
-      g.classList.toggle('op-sel', id === selId && id !== focusId)
+      const opTgt = disc && OP[t] === 0 ? DISC_OP : OP[t]
+      twTo(v.op, now, opTgt, animate ? 550 : 0, cssEase)
+      v.clickable = active || disc
+      a11yBtn[id].hidden = !v.clickable
       // bigger nodes + far bigger tap targets on touch
       const rDot = id === focusId ? (desktop ? 18 : 28) : node.depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
-      ;(g.querySelector('.op-dot') as SVGCircleElement).setAttribute('r', String(rDot))
-      ;(g.querySelector('.op-hit') as SVGCircleElement).setAttribute('r', String(rDot + (desktop ? 14 : 26)))
-      // Label: geometry tracks the live radius; on mobile the font is pinned to a
-      // fixed CSS px size (14/15px) by expressing it in counter-scaled user units,
-      // so it stays legible and never rescales as the camera zooms. Desktop keeps
-      // its original 13.5/14.5-unit sizing, so its output is byte-identical.
-      const lbl = g.querySelector('.op-lbl') as SVGTextElement
-      // Show discovered titles too, dimmed: the node group's 0.45 opacity does the
-      // fading, so active labels read ~1.0 and discovered ones ~0.45 (on desktop
-      // `disc` is always false, so this stays the active-only original behavior).
-      lbl.style.opacity = (id !== focusId && (active || disc)) ? '1' : '0'
-      if (node.parent) {
-        const isCat = node.depth === 1
-        const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 13) / k
-        const pn = byId[node.parent], dxp = node.x - pn.x, dyp = node.y - pn.y
-        const gap = rDot + 9
-        const lns = wrap(node.label, desktop ? 20 : 13)
-        // Long uppercase category labels clip if placed to the side at the
-        // horizontal extremes of a narrow phone, so centre those above/below the
-        // node instead. Vertical-extreme categories keep side labels (they have
-        // the horizontal room). Desktop + deeper nodes: original side/middle logic.
-        let anchor: string, tx: number, ty: number
-        if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
-          anchor = 'middle'; tx = node.x
-          ty = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lns.length - 1) * fsU
-        } else {
-          anchor = Math.abs(dxp) < 18 ? 'middle' : dxp > 0 ? 'start' : 'end'
-          tx = node.x + (anchor === 'middle' ? 0 : dxp > 0 ? gap : -gap)
-          ty = node.y + (anchor === 'middle'
-            ? (dyp >= 0 ? gap + fsU : -gap - (lns.length - 1) * fsU)
-            : fsU * 0.34 - (lns.length - 1) * fsU * 0.5)
-        }
-        if (lbl.getAttribute('data-lines') !== lns.join('|')) {
-          lbl.textContent = ''
-          lns.forEach((l) => { const ts = el('tspan'); ts.textContent = l; lbl.appendChild(ts) })
-          lbl.setAttribute('data-lines', lns.join('|'))
-        }
-        lbl.setAttribute('x', tx.toFixed(1)); lbl.setAttribute('y', ty.toFixed(1)); lbl.setAttribute('text-anchor', anchor)
-        lbl.style.fontSize = fsU.toFixed(2) + 'px'
-        Array.from(lbl.children).forEach((ts, i) => { (ts as SVGTSpanElement).setAttribute('x', tx.toFixed(1)); (ts as SVGTSpanElement).setAttribute('dy', i ? fsU.toFixed(1) : '0') })
+      twTo(v.r, now, rDot, animate ? 450 : 0, rEase)
+      // Label: geometry tracks the target radius; on mobile the font is pinned to
+      // a fixed CSS px size (counter-scaled against the camera) so it stays
+      // legible and never rescales as the camera zooms.
+      const lblShow = (id !== focusId && (active || disc)) ? 1 : 0
+      twTo(v.lblOp, now, lblShow, animate ? 500 : 0, cssEase)
+      const isCat = node.depth === 1
+      const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 13) / k
+      const pn = byId[node.parent as string], dxp = node.x - pn.x, dyp = node.y - pn.y
+      const gap = rDot + 9
+      const lns = wrap(node.label, desktop ? 20 : 13)
+      // Long uppercase category labels clip if placed to the side at the
+      // horizontal extremes of a narrow phone, so centre those above/below the
+      // node instead. Vertical-extreme categories keep side labels.
+      let align: CanvasTextAlign, tx: number, ty: number
+      if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
+        align = 'center'; tx = node.x
+        ty = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lns.length - 1) * fsU
+      } else {
+        align = Math.abs(dxp) < 18 ? 'center' : dxp > 0 ? 'left' : 'right'
+        tx = node.x + (align === 'center' ? 0 : dxp > 0 ? gap : -gap)
+        ty = node.y + (align === 'center'
+          ? (dyp >= 0 ? gap + fsU : -gap - (lns.length - 1) * fsU)
+          : fsU * 0.34 - (lns.length - 1) * fsU * 0.5)
       }
+      v.lbl = { lines: lns, fsU, x: tx, y: ty, align, cat: isCat }
+      // edges
+      if (t === 'active' || t === 'spine') { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = t === 'active' ? 0.5 : 0.4 }
+      else if (!desktop && discovered.has(id)) { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = 0.16 } // discovered edge stays drawn
+      else v.edge = { kind: 'grad' }
     })
-    Object.keys(edgeEls).forEach((id) => {
-      const t = tier(id), e = edgeEls[id]
-      e.setAttribute('stroke-width', (1.3 / camTgt.s).toFixed(2))
-      if (t === 'active' || t === 'spine') e.setAttribute('stroke', 'rgba(236,231,220,' + (t === 'active' ? 0.5 : 0.4) + ')')
-      else if (!desktop && discovered.has(id)) e.setAttribute('stroke', 'rgba(236,231,220,0.16)') // discovered edge stays drawn
-      else e.setAttribute('stroke', 'url(#opg-' + id + ')')
-    })
-    pmhub.style.opacity = String(OP[tier('pm')])
-    pmhub.classList.toggle('op-top', focusId === 'pm')
+    hubOp = OP[tier('pm')]
     if (focusId !== 'pm') {
-      const f = byId[focusId]; focusName.textContent = f.label; focusName.setAttribute('x', String(f.x))
-      if (desktop) { focusName.style.fontSize = ''; focusName.setAttribute('y', (f.y + 38).toFixed(1)) }
-      else { const fnU = 18 / k; focusName.style.fontSize = fnU.toFixed(2) + 'px'; focusName.setAttribute('y', (f.y + 25 + fnU * 0.92 + 5).toFixed(1)) }
-      focusName.classList.add('on')
-    } else focusName.classList.remove('on')
+      const f = byId[focusId]
+      focusName.text = f.label; focusName.x = f.x
+      if (desktop) { focusName.fs = 17; focusName.y = f.y + 38 }
+      else { focusName.fs = 18 / k; focusName.y = f.y + 25 + focusName.fs * 0.92 + 5 }
+      twTo(focusName.op, now, 1, animate ? 500 : 0, cssEase)
+    } else twTo(focusName.op, now, 0, animate ? 500 : 0, cssEase)
     // De-clutter titles: never let two visible titles overlap, in any state. Place
     // greedily by priority (active > spine > discovered, shallower first); hide any
     // lower-priority title whose box hits an already-placed one — its dot stays
     // (tappable) and the title returns once there's room. Active titles are never
-    // hidden (the layout keeps them clear). getBBox is in the shared camera user
-    // space, so an overlap there is exactly an overlap on screen.
+    // hidden. Boxes are measured in shared world space, so an overlap there is
+    // exactly an overlap on screen.
     {
-      const placed: { x: number; y: number; width: number; height: number }[] = []
-      if (focusId !== 'pm') { try { placed.push(focusName.getBBox()) } catch { /* noop */ } }
+      const placed: { x: number; y: number; w: number; h: number }[] = []
+      if (focusId !== 'pm') {
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `600 ${focusName.fs.toFixed(2)}px ${SERIF}`
+        const w = ctx.measureText(focusName.text).width; ctx.restore()
+        placed.push({ x: focusName.x - w / 2, y: focusName.y - focusName.fs, w, h: focusName.fs * 1.3 })
+      }
       const prio = (id: string) => { const t = tier(id); return t === 'active' ? 3 : t === 'spine' ? 2 : 1 }
-      Object.keys(nodeEls)
-        .filter((id) => (nodeEls[id].querySelector('.op-lbl') as SVGTextElement).style.opacity !== '0')
+      ORDER
+        .filter((id) => id !== 'pm' && vis[id].lbl && vis[id].lblOp.v1 > 0)
         .sort((a, b) => prio(b) - prio(a) || byId[a].depth - byId[b].depth)
         .forEach((id) => {
-          const l = nodeEls[id].querySelector('.op-lbl') as SVGTextElement
-          let bb: { x: number; y: number; width: number; height: number }
-          try { bb = l.getBBox() } catch { return }
-          const hit = placed.some((p) => !(bb.x + bb.width < p.x || bb.x > p.x + p.width || bb.y + bb.height < p.y || bb.y > p.y + p.height))
-          if (hit && prio(id) < 3) l.style.opacity = '0'
+          const bb = measureLbl(vis[id].lbl as Lbl)
+          const hit = placed.some((p) => !(bb.x + bb.w < p.x || bb.x > p.x + p.w || bb.y + bb.h < p.y || bb.y > p.y + p.h))
+          if (hit && prio(id) < 3) twTo(vis[id].lblOp, now, 0, 0, cssEase)
           else placed.push(bb)
         })
     }
@@ -450,20 +446,230 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     pmback.hidden = focusId === 'pm'
     setTimeout(() => pmback.classList.toggle('show', focusId !== 'pm'), 10)
     container.classList.toggle('op-at-top', focusId === 'pm')
-    // (dossier is set at the top of render(), before fit() measures it)
     pulseChain(selId)
+    requestDraw()
   }
   function go(id: string) { foldPan(); focusId = id; selId = id; render(true) }
   function onNodeClick(id: string) {
     // Mobile + collapsed: one tap both enters the fullscreen takeover and drills in.
-    // enterFullscreen() snaps the camera into the big box; the nav below then glides
-    // to the tapped node as the "drill-in".
     if (!isDesktop() && fsState === 'collapsed') enterFullscreen()
+    if (id === 'pm') { onHubActivate(); return }
     if (id === focusId) { goUp(); return }
     const n = byId[id]
     if (n.kids.length) go(id); else { foldPan(); selId = id; render(true) }
   }
+  function onHubActivate() { if (focusId !== 'pm') go('pm') }
   function goUp() { const p = byId[focusId].parent; if (p) go(p); else { foldPan(); selId = 'pm'; render(true) } }
+
+  // ---- traveling pulse (time-based, drawn each frame) ----------------------
+  // The waypoint offset list is precomputed exactly like the old WAAPI moveKf
+  // keyframes (mid waypoints appear twice: arrive + leave, dwell apart), so the
+  // canvas dot travels byte-for-byte the same schedule.
+  type Pulse = { kf: { off: number; x: number; y: number }[]; dur: number; t0: number } | null
+  let pulse: Pulse = null
+  function pulseChain(key: string) {
+    pulse = null
+    if (reduced || key === 'pm') return
+    const chain: { x: number; y: number }[] = []; let pk: string | null = key, guard = 0
+    while (pk && guard++ < 16) { chain.push({ x: byId[pk].x, y: byId[pk].y }); if (pk === 'pm') break; pk = byId[pk].parent }
+    if (chain.length < 2) return
+    const cum = [0]; let total = 0
+    for (let i = 1; i < chain.length; i++) { total += Math.hypot(chain[i].x - chain[i - 1].x, chain[i].y - chain[i - 1].y); cum.push(total) }
+    const dwell = 0.11, mids = Math.max(0, chain.length - 2), travelFrac = 1 - dwell * mids
+    const dur = Math.round((950 + total * 2.6) / travelFrac)
+    const kf: { off: number; x: number; y: number }[] = []; let acc = 0
+    chain.forEach((w, i) => {
+      const off = (total ? cum[i] / total : i / (chain.length - 1)) * travelFrac
+      kf.push({ off: off + acc, x: w.x, y: w.y })
+      if (i > 0 && i < chain.length - 1) { acc += dwell; kf.push({ off: off + acc, x: w.x, y: w.y }) }
+    })
+    pulse = { kf, dur, t0: performance.now() }
+    requestDraw()
+  }
+  function pulseAt(p: number): { x: number; y: number } {
+    const kf = (pulse as NonNullable<Pulse>).kf
+    if (p <= kf[0].off) return kf[0]
+    for (let i = 0; i < kf.length - 1; i++) {
+      const a = kf[i], b = kf[i + 1]
+      if (p <= b.off) {
+        const f = b.off > a.off ? (p - a.off) / (b.off - a.off) : 1
+        return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }
+      }
+    }
+    return kf[kf.length - 1]
+  }
+
+  // ---- draw loop ------------------------------------------------------------
+  let drawRAF = 0
+  function requestDraw() { if (!drawRAF) drawRAF = requestAnimationFrame(frame) }
+  function frame(now: number) {
+    drawRAF = 0
+    stepCamera(now)
+    if (momActive) {
+      momVX *= 0.93; momVY *= 0.93
+      if (Math.hypot(momVX, momVY) < 0.25) momActive = false
+      else {
+        const m = panMax()
+        panX = clampTo(panX + momVX, m.x); panY = clampTo(panY + momVY, m.y)
+      }
+    }
+    draw(now)
+    // keep animating while anything is live; otherwise the loop idles.
+    const anims = ORDER.some((id) => {
+      const v = vis[id]
+      return twActive(v.op, now) || twActive(v.r, now) || twActive(v.lblOp, now)
+    }) || twActive(focusName.op, now)
+    const ambient = !reduced && (pulse !== null || focusId === 'pm')
+    if (camActive || momActive || anims || ambient) requestDraw()
+  }
+
+  function draw(now: number) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const u2p = Math.min(cssW / VBW, cssH / VBH)
+    const sc = dpr * u2p * cam.s
+    const ox = dpr * (cssW / 2 + (cam.tx + panX) * u2p)
+    const oy = dpr * (cssH / 2 + (cam.ty + panY) * u2p)
+    ctx.setTransform(sc, 0, 0, sc, ox, oy)
+    ctx.lineCap = 'round'
+    // edges under everything
+    ORDER.forEach((id) => {
+      if (id === 'pm') return
+      const v = vis[id], n = byId[id], p = byId[n.parent as string]
+      ctx.lineWidth = edgeW
+      if (v.edge.kind === 'flat') {
+        ctx.globalAlpha = v.edgeFlatAlpha
+        ctx.strokeStyle = v.edge.color
+      } else {
+        // faint gradient fading outward from the parent (context edges)
+        const g = ctx.createLinearGradient(p.x, p.y, n.x, n.y)
+        g.addColorStop(0, 'rgba(236,231,220,0.16)')
+        g.addColorStop(0.55, 'rgba(236,231,220,0.05)')
+        g.addColorStop(1, 'rgba(236,231,220,0)')
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = g
+      }
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(n.x, n.y); ctx.stroke()
+    })
+    // nodes + labels
+    ORDER.forEach((id) => {
+      if (id === 'pm') return
+      const v = vis[id], n = byId[id]
+      const op = twCur(v.op, now)
+      if (op < 0.01) return
+      const r = twCur(v.r, now)
+      const focus = id === focusId, sel = id === selId && id !== focusId
+      ctx.globalAlpha = op
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = focus || sel ? ACCENT : NODE_FILL
+      ctx.fill()
+      ctx.lineWidth = 1
+      ctx.strokeStyle = focus || sel ? ACCENT : hoverId === id && v.clickable ? IVORY : (n.kids.length ? BRANCH_STROKE : NODE_STROKE)
+      ctx.stroke()
+      if (focusRingId === id) { // keyboard focus ring
+        ctx.lineWidth = 2.5
+        ctx.strokeStyle = ACCENT
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 3, 0, Math.PI * 2); ctx.stroke()
+      }
+      const lop = twCur(v.lblOp, now)
+      if (v.lbl && lop > 0.01) {
+        const l = v.lbl
+        ctx.globalAlpha = op * lop
+        ctx.font = labelFont(l.fsU)
+        try { (ctx as any).letterSpacing = (l.cat ? 0.11 * l.fsU : 0.04 * l.fsU).toFixed(2) + 'px' } catch { /* noop */ }
+        ctx.fillStyle = l.cat ? CAT_LBL : LEAF_LBL
+        ctx.textAlign = l.align; ctx.textBaseline = 'alphabetic'
+        l.lines.forEach((ln, i) => ctx.fillText(l.cat ? ln.toUpperCase() : ln, l.x, l.y + i * l.fsU))
+        try { (ctx as any).letterSpacing = '0px' } catch { /* noop */ }
+      }
+    })
+    // focus name (serif title under the focused node)
+    {
+      const op = twCur(focusName.op, now)
+      if (op > 0.01 && focusName.text) {
+        ctx.globalAlpha = op
+        ctx.font = `600 ${focusName.fs.toFixed(2)}px ${SERIF}`
+        ctx.fillStyle = IVORY
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+        ctx.fillText(focusName.text, focusName.x, focusName.y)
+      }
+    }
+    // hub (accent core + ring + PM), with radar ping + pulse heartbeat
+    if (hubOp > 0.01) {
+      ctx.globalAlpha = hubOp
+      let beat = 1
+      if (pulse && !reduced) {
+        const ph = ((now - pulse.t0) % pulse.dur) / pulse.dur
+        // heartbeat at the start of each pulse cycle (440ms), like the old beat()
+        const bt = ph * pulse.dur
+        if (bt < 440) { const q = beatEase(bt / 440); beat = 1 + 0.13 * Math.sin(q * Math.PI) }
+      }
+      ctx.beginPath(); ctx.arc(0, 0, 32 * beat, 0, Math.PI * 2)
+      ctx.fillStyle = ACCENT; ctx.fill()
+      if (focusId === 'pm' && !reduced) {
+        // radar ping: 3.4s cycle, ring grows 1 -> 2.7 while fading (60% of cycle)
+        const pp = (now % 3400) / 3400
+        if (pp < 0.6) {
+          const q = pp / 0.6
+          ctx.globalAlpha = hubOp * 0.55 * (1 - q)
+          ctx.beginPath(); ctx.arc(0, 0, 40 * (1 + 1.7 * q), 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(236,231,220,0.6)'; ctx.lineWidth = 1; ctx.stroke()
+        }
+        ctx.globalAlpha = hubOp
+      }
+      ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2)
+      ctx.strokeStyle = 'rgba(236,231,220,0.3)'; ctx.lineWidth = 1; ctx.stroke()
+      ctx.font = `700 18px ${SANS}`
+      try { (ctx as any).letterSpacing = (0.06 * 18).toFixed(2) + 'px' } catch { /* noop */ }
+      ctx.fillStyle = '#F4F1EA'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+      ctx.fillText(content.hub.label, 0.5, 6.5)
+      try { (ctx as any).letterSpacing = '0px' } catch { /* noop */ }
+      if (focusRingId === 'pm') {
+        ctx.lineWidth = 2.5; ctx.strokeStyle = ACCENT
+        ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.stroke()
+      }
+    }
+    // traveling pulse dot on top
+    if (pulse && !reduced) {
+      const ph = ((now - pulse.t0) % pulse.dur) / pulse.dur
+      const pos = pulseAt(ph)
+      const fade = ph < 0.14 ? ph / 0.14 : ph > 0.8 ? Math.max(0, (1 - ph) / 0.2) : 1
+      ctx.globalAlpha = 0.16 * fade
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 10, 0, Math.PI * 2); ctx.fillStyle = ACCENT; ctx.fill()
+      ctx.globalAlpha = fade
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 4.5, 0, Math.PI * 2); ctx.fillStyle = ACCENT; ctx.fill()
+    }
+    ctx.globalAlpha = 1
+  }
+
+  // ---- hit testing ----------------------------------------------------------
+  function worldFromEvent(e: { clientX: number; clientY: number }): { x: number; y: number } {
+    const r = canvas.getBoundingClientRect()
+    const u2p = Math.min(cssW / VBW, cssH / VBH) || 1
+    const cx = (e.clientX - r.left) * (cssW / (r.width || 1)) // FLIP-scaled rect → css px
+    const cy = (e.clientY - r.top) * (cssH / (r.height || 1))
+    return {
+      x: ((cx - cssW / 2) / u2p - (cam.tx + panX)) / cam.s,
+      y: ((cy - cssH / 2) / u2p - (cam.ty + panY)) / cam.s,
+    }
+  }
+  function hitTest(w: { x: number; y: number }): string | null {
+    const desktop = isDesktop()
+    // hub first (drawn on top); pad in world units, like the old generous op-hit
+    if (hubOp > 0.01 && Math.hypot(w.x, w.y) <= 40 + (desktop ? 8 : 18)) return 'pm'
+    const pad = (desktop ? 14 : 26)
+    let best: string | null = null, bestD = Infinity
+    ORDER.forEach((id) => {
+      if (id === 'pm') return
+      const v = vis[id]
+      if (!v.clickable) return // faded nodes must not swallow taps
+      const n = byId[id]
+      const d = Math.hypot(w.x - n.x, w.y - n.y)
+      if (d <= v.r.v1 + pad && d < bestD) { best = id; bestD = d }
+    })
+    return best
+  }
 
   // ---- fullscreen takeover (mobile only) ----------------------------------
   // Collapsed: the map is a normal in-page section (no pan; the page scrolls past).
@@ -474,19 +680,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // installed by lockScroll (see onDocTouchMove) plus touch-action:none on the
   // overlay CONTAINER; overflow:hidden on html/body is a harmless belt-and-braces
   // that never offsets fixed elements. The enter/exit animation is a plain WAAPI
-  // opacity+scale (works on iOS; no fragile rect math).
+  // opacity+scale FLIP on the container (an HTML box — composites fine on iOS).
+  //
   // overflow:hidden on html/body is NOT a reliable touch scroll lock on iOS:
   // WebKit can still claim a drag for the document (pan/rubber-band) at gesture
-  // start — and once it has, every touchmove arrives cancelable:false and the svg
-  // handler's preventDefault is silently ignored, which is exactly the "pan never
-  // follows the finger" iPhone bug (touch-action:none on an SVG element is just as
-  // unreliable there). A DOCUMENT-level non-passive touchmove listener that calls
-  // preventDefault while fullscreen is the one mechanism WebKit always honors: it
-  // forces synchronous dispatch and vetoes the native gesture no matter where the
-  // touch lands (graph, sheet chrome, crumbs, the left-edge strip the pan skips,
-  // or the page band the FLIP hasn't covered yet). The description sheet is exempt
-  // so its own overflow scroll keeps working. Registered only while fullscreen so
-  // normal page scrolling never pays the synchronous-dispatch cost.
+  // start — and once it has, every touchmove arrives cancelable:false and the
+  // canvas handler's preventDefault is silently ignored, which is exactly the
+  // "pan never follows the finger" iPhone bug. A DOCUMENT-level non-passive
+  // touchmove listener that calls preventDefault while fullscreen is the one
+  // mechanism WebKit always honors: it forces synchronous dispatch and vetoes the
+  // native gesture no matter where the touch lands. The description sheet is
+  // exempt so its own overflow scroll keeps working. Registered only while
+  // fullscreen so normal page scrolling never pays the synchronous-dispatch cost.
   const descEl = dossier.querySelector('.op-d-desc') as HTMLElement
   const onDocTouchMove = (e: TouchEvent) => {
     if (fsState !== 'fullscreen') return
@@ -525,28 +730,27 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     container.setAttribute('role', 'dialog')
     container.setAttribute('aria-modal', 'true')
     lockScroll()
-    resetGesture(); suppressClick = false; stopMomentum(); clearLive()
+    resetGesture(); suppressClick = false; stopMomentum()
     panX = 0; panY = 0
     updateViewBox(); render() // fit the camera into the fullscreen box
     // preventScroll: plain focus() scroll-reveals the button in the (still
     // programmatically scrollable) locked document — a hidden shift under the overlay.
     requestAnimationFrame(() => { try { fsExit.focus({ preventScroll: true }) } catch { /* noop */ } })
     if (reduced) return
-    // FLIP: grow the fullscreen box out of the collapsed section's box. Now that the
-    // overlay is correctly viewport-fixed (portaled to body), the rects are right, so
-    // this reads as the section smoothly enlarging into fullscreen. WAAPI = composited.
+    // FLIP: grow the fullscreen box out of the collapsed section's box. WAAPI on
+    // the container (HTML) — composited, smooth on iOS.
     const last = container.getBoundingClientRect()
     const sx = Math.max(0.05, first.width / (last.width || 1))
     const sy = Math.max(0.05, first.height / (last.height || 1))
     const ox = first.left - last.left, oy = first.top - last.top
     container.style.transformOrigin = 'top left'
-    container.style.willChange = 'transform, opacity' // GPU-composite the grow → smooth on iOS
+    container.style.willChange = 'transform, opacity'
     try {
       fsAnim = container.animate(
         [{ transform: `translate(${ox}px,${oy}px) scale(${sx},${sy})`, opacity: 0.55 },
          { opacity: 1, offset: 0.45 },
          { transform: 'translate(0px,0px) scale(1,1)', opacity: 1 }],
-        { duration: 520, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' } // smooth, decisive ease-out
+        { duration: 520, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }
       )
       fsAnim.onfinish = () => { container.style.transformOrigin = ''; container.style.willChange = ''; fsAnim = null }
     } catch { container.style.transformOrigin = ''; container.style.willChange = '' }
@@ -561,13 +765,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
       if (placeholder) { placeholder.remove(); placeholder = null }
       unlockScroll()
-      clearLive(); panX = 0; panY = 0
+      panX = 0; panY = 0
       fsState = 'collapsed'
       updateViewBox(); render() // refit into the collapsed box
       if (lastFocused && document.contains(lastFocused)) { try { lastFocused.focus({ preventScroll: true }) } catch { /* noop */ } }
       lastFocused = null
     }
-    resetGesture(); suppressClick = false; stopMomentum(); clearLive()
+    resetGesture(); suppressClick = false; stopMomentum()
     if (reduced) { finish(); return }
     let done = false
     const end = () => { if (done) return; done = true; container.style.transformOrigin = ''; container.style.willChange = ''; finish() }
@@ -601,63 +805,29 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder)
     if (placeholder) { placeholder.remove(); placeholder = null }
     unlockScroll()
-    stopMomentum(); clearLive(); panX = 0; panY = 0
+    stopMomentum(); panX = 0; panY = 0
     fsState = 'collapsed'
   }
   // Focus set for the Tab-trap (mobile fullscreen only).
   const FOCUS_SEL = '.op-back:not([hidden]), .op-crumb, .op-fs-exit, .op-d-visit:not([hidden])'
   function getFocusables(): HTMLElement[] {
-    const nodes = Array.from(container.querySelectorAll<HTMLElement>('.op-node.op-click'))
+    const nodes = ORDER.filter((id) => !a11yBtn[id].hidden).map((id) => a11yBtn[id] as HTMLElement)
     const ctrls = Array.from(container.querySelectorAll<HTMLElement>(FOCUS_SEL))
     return nodes.concat(ctrls)
   }
 
-  // ---- traveling pulse (ported from the previous graph's _pulseChain) ------
-  let pulseAnims: Animation[] = [], pulseTimer = 0, pulseEl: SVGGElement | null = null
-  function pulseStop() {
-    pulseAnims.forEach((a) => { try { a.cancel() } catch { /* noop */ } }); pulseAnims = []
-    if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = 0 }
-    if (pulseEl && pulseEl.parentNode) pulseEl.parentNode.removeChild(pulseEl); pulseEl = null
+  // ---- wire clicks / keys / resize -----------------------------------------
+  const onCanvasClick = (e: MouseEvent) => {
+    const id = hitTest(worldFromEvent(e))
+    if (id) { e.stopPropagation(); onNodeClick(id); return }
+    if (focusId !== 'pm') goUp() // empty space = step back up (old bg-rect click)
   }
-  function pulseChain(key: string) {
-    pulseStop()
-    if (reduced || key === 'pm') return
-    const chain: { x: number; y: number }[] = []; let pk: string | null = key, guard = 0
-    while (pk && guard++ < 16) { chain.push({ x: byId[pk].x, y: byId[pk].y }); if (pk === 'pm') break; pk = byId[pk].parent }
-    if (chain.length < 2) return
-    const start = chain[0]
-    const cum = [0]; let total = 0
-    for (let i = 1; i < chain.length; i++) { total += Math.hypot(chain[i].x - chain[i - 1].x, chain[i].y - chain[i - 1].y); cum.push(total) }
-    const dwell = 0.11, mids = Math.max(0, chain.length - 2), travelFrac = 1 - dwell * mids
-    const dur = Math.round((950 + total * 2.6) / travelFrac)
-    const g = el('g') as SVGGElement; (g as SVGElement).style.pointerEvents = 'none'
-    g.appendChild(el('circle', { cx: String(start.x), cy: String(start.y), r: '10', fill: 'var(--accent)', opacity: '0.16' }))
-    g.appendChild(el('circle', { cx: String(start.x), cy: String(start.y), r: '4.5', fill: 'var(--accent)' }))
-    fxLayer.appendChild(g)
-    const moveKf: Keyframe[] = []; let acc = 0
-    chain.forEach((w, i) => {
-      const tf = `translate(${(w.x - start.x).toFixed(1)}px,${(w.y - start.y).toFixed(1)}px)`
-      const off = (total ? cum[i] / total : i / (chain.length - 1)) * travelFrac
-      moveKf.push({ transform: tf, offset: +(off + acc).toFixed(4) })
-      if (i > 0 && i < chain.length - 1) { acc += dwell; moveKf.push({ transform: tf, offset: +(off + acc).toFixed(4) }) }
-    })
-    const fadeKf: Keyframe[] = [{ opacity: 0, offset: 0 }, { opacity: 1, offset: 0.14 }, { opacity: 1, offset: 0.8 }, { opacity: 0, offset: 1 }]
-    if (g.animate) {
-      pulseAnims.push(g.animate(moveKf, { duration: dur, easing: 'linear', iterations: Infinity }))
-      pulseAnims.push(g.animate(fadeKf, { duration: dur, easing: 'ease-in-out', iterations: Infinity }))
-    }
-    pulseEl = g
-    const beat = () => {
-      const core = pmhub.querySelector('.op-core') as SVGElement
-      if (core && (core as any).animate) { core.style.transformBox = 'fill-box'; core.style.transformOrigin = 'center'; core.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.13)' }, { transform: 'scale(1)' }], { duration: 440, easing: 'cubic-bezier(0.2,0.7,0.2,1)' }) }
-    }
-    pulseTimer = window.setInterval(beat, dur)
+  const onCanvasMove = (e: MouseEvent) => {
+    const id = hitTest(worldFromEvent(e))
+    if (id !== hoverId) { hoverId = id; canvas.style.cursor = id ? 'pointer' : ''; requestDraw() }
   }
-
-  // ---- wire back / bg / keys / resize -------------------------------------
+  const onCanvasLeave = () => { if (hoverId) { hoverId = null; canvas.style.cursor = ''; requestDraw() } }
   const onBack = () => go('pm')
-  const onBg = () => { if (focusId !== 'pm') goUp() }
-  const onHub = () => { if (!isDesktop() && fsState === 'collapsed') enterFullscreen(); if (focusId !== 'pm') go('pm') }
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       if (isFullscreen()) { exitFullscreen(); return } // Esc leaves fullscreen first
@@ -673,51 +843,35 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   const onResize = () => { if (fsState !== 'collapsed' && isDesktop()) forceCollapse(); render() }
   pmback.addEventListener('click', onBack)
-  bg.addEventListener('click', onBg)
-  ;(pmhub as SVGElement).style.cursor = 'pointer'
-  pmhub.addEventListener('click', onHub)
+  canvas.addEventListener('click', onCanvasClick)
+  canvas.addEventListener('mousemove', onCanvasMove)
+  canvas.addEventListener('mouseleave', onCanvasLeave)
   window.addEventListener('keydown', onKey)
   window.addEventListener('resize', onResize)
 
   // ---- pan gesture (mobile FULLSCREEN only) --------------------------------
-  // Driven by TOUCH events with preventDefault. iOS Safari does not reliably honor
-  // touch-action:none on an SVG and would axis-lock, rubber-band, or cancel a
-  // pointer-event drag mid-gesture ("stops following the finger"; diagonals
-  // collapsing to one axis). Defense in depth on WebKit: touch-action:none also
-  // sits on the fullscreen CONTAINER (an HTML box, where it IS honored), and
-  // onDocTouchMove (see lockScroll) preventDefaults at the document level so the
-  // browser can never claim the drag for a native page pan — the failure mode that
-  // turns every later touchmove cancelable:false and deadens the svg handler.
-  // Collapsed/desktop: handlers no-op, page scrolls.
+  // Driven by TOUCH events with preventDefault. iOS Safari does not reliably
+  // honor touch-action on SVG/canvas content and would axis-lock, rubber-band, or
+  // cancel a pointer-event drag mid-gesture. Defense in depth on WebKit:
+  // touch-action:none also sits on the fullscreen CONTAINER (an HTML box, where
+  // it IS honored), and onDocTouchMove (see lockScroll) preventDefaults at the
+  // document level so the browser can never claim the drag for a native page
+  // pan — the failure mode that turns every later touchmove cancelable:false and
+  // deadens the handler. Collapsed/desktop: handlers no-op, page scrolls.
   let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
   let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
+  let tUPP = 1 // world units per CSS px, cached per gesture (no per-move layout reads)
   const DECIDE = 6
   function resetGesture() { tId = -1; tMoved = false }
-  function startMomentum() {
-    let vx = tVX, vy = tVY
-    const stepM = () => {
-      vx *= 0.93; vy *= 0.93
-      if (Math.hypot(vx, vy) < 0.25) { momRAF = 0; foldLive(); return }
-      const m = panMax()
-      liveX = clampTo(panX + liveX + vx, m.x) - panX
-      liveY = clampTo(panY + liveY + vy, m.y) - panY
-      applyLive()
-      momRAF = requestAnimationFrame(stepM)
-    }
-    momRAF = requestAnimationFrame(stepM)
-  }
   const onTouchStart = (e: TouchEvent) => {
     if (fsState !== 'fullscreen') return
     if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
     const t = e.touches[0]
     if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
-    stopMomentum(); foldLive(); hideCoach() // catching mid-momentum commits it first
+    stopMomentum(); hideCoach()
     suppressClick = false // a fresh gesture: never swallow this one's tap
     tId = t.identifier
-    // px→units is scale-independent (the camera translate sits outside the scale).
-    // Cached once per gesture: clientWidth so the FLIP's transform can't distort
-    // it, and no per-move getBoundingClientRect (layout thrash at touch rate).
-    tUPP = VBW / (container.clientWidth || 1)
+    tUPP = VBW / (cssW || 1)
     tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
     tMoved = false
     tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
@@ -731,37 +885,37 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const dx = t.clientX - tSX, dy = t.clientY - tSY
     if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true }
     const m = panMax()
-    liveX = clampTo(tPX0 + dx * tUPP, m.x) - panX
-    liveY = clampTo(tPY0 + dy * tUPP, m.y) - panY
+    panX = clampTo(tPX0 + dx * tUPP, m.x)
+    panY = clampTo(tPY0 + dy * tUPP, m.y)
     const now = e.timeStamp, dt = now - tLT
     if (dt > 0) { tVX = ((t.clientX - tLX) * tUPP / dt) * 16; tVY = ((t.clientY - tLY) * tUPP / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
-    applyLive() // composited CSS write only — never render() during a pan
+    requestDraw() // one synchronous canvas paint per frame — nothing to tile or defer
   }
   const onTouchEnd = () => {
     if (tId < 0) return
     if (tMoved) {
       suppressClick = true // swallow the click iOS synthesizes after a drag
-      if (!reduced && Math.hypot(tVX, tVY) > 0.4) startMomentum(); else foldLive()
+      if (!reduced && Math.hypot(tVX, tVY) > 0.4) { momVX = tVX; momVY = tVY; momActive = true; requestDraw() }
     }
     resetGesture()
   }
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
-  svg.addEventListener('touchstart', onTouchStart, { passive: true })
-  svg.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
-  svg.addEventListener('touchend', onTouchEnd)
-  svg.addEventListener('touchcancel', onTouchEnd)
-  svg.addEventListener('click', onClickCapture, true)
+  canvas.addEventListener('touchstart', onTouchStart, { passive: true })
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
+  canvas.addEventListener('touchend', onTouchEnd)
+  canvas.addEventListener('touchcancel', onTouchEnd)
+  canvas.addEventListener('click', onClickCapture, true)
 
   render()
-  // The viewBox aspect is derived from the container, whose final size isn't
+  // The world box aspect is derived from the container, whose final size isn't
   // known at mount (layout + webfonts still settling). A ResizeObserver re-fits
   // the moment the real size lands, and again on rotation; the timer is a
   // fallback for browsers without it.
   let ro: ResizeObserver | null = null
   if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(() => render()); ro.observe(container) }
   const settleTimer = window.setTimeout(render, 400)
-  // The dossier's height (which the camera reserves out of the usable band)
-  // depends on how the description wraps, which changes when the webfont swaps in.
+  // Label metrics + canvas text depend on the webfont; re-measure and repaint
+  // when it swaps in (canvas text is rasterized, it never reflows on its own).
   try { (document as any).fonts?.ready?.then(() => render()) } catch { /* noop */ }
 
   // Entrance: when the section scrolls into view on mobile, lift the map in,
@@ -776,16 +930,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   return () => {
     forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
-    if (camRAF) { cancelAnimationFrame(camRAF); camRAF = 0 }
+    if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     if (io) { io.disconnect(); io = null }
     if (ro) ro.disconnect()
-    pulseStop()
+    pulse = null
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
     document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (unlockScroll already removes it)
-    container.innerHTML = '' // discards svg + all its pointer/click listeners
+    container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
 }
