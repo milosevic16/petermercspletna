@@ -140,7 +140,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     '<svg class="op-upzone-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
     + '<path d="M5 14.5 L12 7.5 L19 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
     + '</svg>'
-  container.append(upzone, pmback, dossier)
+  const downzone = h('button', 'op-downzone') as HTMLButtonElement
+  downzone.type = 'button'
+  downzone.tabIndex = -1
+  downzone.setAttribute('aria-hidden', 'true')
+  downzone.innerHTML =
+    '<svg class="op-downzone-chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">'
+    + '<path d="M5 9.5 L12 16.5 L19 9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '</svg>'
+  container.append(upzone, downzone, pmback, dossier)
 
   // ---- state + camera -----------------------------------------------------
   let focusId = 'pm', selId = 'pm'
@@ -193,7 +201,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // measured into the camera box, and every reserved pixel here is one the
     // graph has to give back in scale.
     const sidePx = 14
-    return { top: (topPx + 8) * px2u, bottom: (sheetH + 28) * px2u, left: sidePx * px2u, right: sidePx * px2u }
+    // +44: while engaged the sheet lifts to sit above the down-zone strip; the
+    // reserve covers that in every state so the camera never refits at engage.
+    return { top: (topPx + 8) * px2u, bottom: (sheetH + 28 + 44) * px2u, left: sidePx * px2u, right: sidePx * px2u }
   }
   // The camera must frame the TITLES, not just the dots. A fixed pad around node
   // centres could not do that on a phone: mobile titles are pinned to a constant
@@ -883,103 +893,196 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     ? container.parentElement as HTMLElement : null
   if (runway) runway.classList.add('op-runway-live')
   const SC0 = 0.9 // graph scale at p=0 — subtle: the section itself never shrinks
-  let RUNZOOM = 500, DWELL = 460
+  let RUNZOOM = 500, DWELL = 210, ENGOFF = 48
+  const ENG_EPS = 1.5 // sub-pixel layout offsets keep exact scroll targets at p=0.999…
+  // Compositor-driven scrub where the platform can (CSS scroll-driven animation,
+  // Safari 26 / Chrome 115+): the canvas scale is then bound to the runway's
+  // view-timeline entirely off the main thread — zero jitter by construction.
+  // Elsewhere the rAF loop below writes the same transform as a fallback.
+  const cssScrub = !!runway && !reduced && typeof CSS !== 'undefined'
+    && CSS.supports('animation-timeline: --a') && CSS.supports('timeline-scope: --a')
+  if (cssScrub) document.documentElement.classList.add('op-cssscrub')
+
+  // Engaged = a real fullscreen LOCK — but NOT via overflow:hidden: putting
+  // overflow on <body> silently makes body the sticky stage's scroll container
+  // (the stage un-pins and the CSS view-timeline re-targets — everything
+  // breaks). Instead the doc-level guard preventDefaults every touch except the
+  // description's inner scroll, and the scrub loop CLAMPS any residual drift
+  // back to the engage anchor each frame. Same freeze, sticky stays intact.
+  const descEl = dossier.querySelector('.op-d-desc') as HTMLElement
   const onDocTouchMove = (e: TouchEvent) => {
     if (!engaged) return
-    if (e.target === canvas && e.cancelable) e.preventDefault()
+    if (descEl && e.target instanceof Node && descEl.contains(e.target)) return // description keeps its inner scroll
+    if (e.cancelable) e.preventDefault()
+  }
+  let glideTarget: number | null = null
+  let engagedY = 0
+  function glideTo(top: number) {
+    glideTarget = Math.round(top)
+    try { window.scrollTo({ top: glideTarget, behavior: reduced ? ('instant' as ScrollBehavior) : 'smooth' }) } catch { window.scrollTo(0, glideTarget) }
+    kickScrub()
   }
   function engage() {
-    if (engaged || isDesktop()) return
+    if (engaged || isDesktop() || !runway) return
     engaged = true
+    glideTarget = null
+    // invisible re-anchor: every scroll position in the engage window shows the
+    // identical pinned, fully-zoomed stage, so this jump cannot be seen. It also
+    // cancels any in-flight fling/glide before the lock lands.
+    const consumed = -runway.getBoundingClientRect().top
+    engagedY = Math.round((window.scrollY || 0) + (RUNZOOM + ENGOFF - consumed))
+    try { window.scrollTo({ top: engagedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, engagedY) }
     wireTouch()
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     container.classList.add('op-eng')
+    document.documentElement.classList.add('op-immersed') // progress bar yields to the down-zone
     resetGesture(); suppressClick = false; stopMomentum()
     requestDraw()
   }
-  function disengage() {
+  function disengage() { // low-level: callers own the page unlock + glide-out
     if (!engaged) return
     engaged = false
     unwireTouch()
     document.removeEventListener('touchmove', onDocTouchMove)
     container.classList.remove('op-eng')
+    document.documentElement.classList.remove('op-immersed')
     stopMomentum(); resetGesture(); suppressClick = false
     requestDraw()
   }
+  function exitUp() {
+    if (!runway || !engaged) return
+    const consumed = -runway.getBoundingClientRect().top
+    disengage()
+    glideTo((window.scrollY || 0) - consumed - Math.round((window.innerHeight || 800) * 0.12))
+  }
+  function exitDown() {
+    if (!runway || !engaged) return
+    const consumed = -runway.getBoundingClientRect().top
+    disengage()
+    glideTo((window.scrollY || 0) - consumed + RUNZOOM + DWELL + (window.innerHeight || 800))
+  }
+  upzone.addEventListener('click', (e) => { e.stopPropagation(); exitUp() })
+  downzone.addEventListener('click', (e) => { e.stopPropagation(); exitDown() })
+  // Swipe exits. Passive detection only: the page is locked while engaged, so
+  // these gestures move nothing by themselves — we read the intent and glide.
+  function wireSwipe(el: HTMLElement, want: 'down' | 'up', act: () => void, descAware = false) {
+    let sy = -1
+    el.addEventListener('touchstart', (e) => { sy = e.touches[0] ? e.touches[0].clientY : -1 }, { passive: true })
+    el.addEventListener('touchend', (e) => {
+      const y0 = sy; sy = -1
+      if (y0 < 0 || !engaged) return
+      const t = e.changedTouches && e.changedTouches[0]
+      if (!t) return
+      // a swipe on still-scrollable description text is reading, not leaving
+      if (descAware && descEl && e.target instanceof Node && descEl.contains(e.target)
+        && descEl.scrollHeight - descEl.scrollTop - descEl.clientHeight > 2) return
+      const dy = t.clientY - y0
+      if (want === 'down' ? dy > 40 : dy < -40) act()
+    }, { passive: true })
+  }
+  wireSwipe(upzone, 'down', exitUp)        // finger moves down = scroll the site up
+  wireSwipe(dossier, 'up', exitDown, true) // finger moves up = continue down the site
+  wireSwipe(downzone, 'up', exitDown)
   function measureRunway() {
     if (!runway) return
     const vh = window.innerHeight || 1
-    // Reduced motion: no zoom scrub to feed, so no scrub runway — the map pins
-    // and engages immediately, and only the dwell holds it. Anything longer is
-    // a feedback-free stretch of scroll for those users.
+    // Reduced motion: no zoom scrub to feed — the map pins straight into the
+    // lock; the dwell just gives the sticky range room for the engage anchor.
     RUNZOOM = reduced ? 1 : Math.round(vh * 0.6)
-    DWELL = Math.round(vh * 0.55)
+    DWELL = Math.round(vh * 0.25)
+    ENGOFF = Math.min(48, Math.max(8, Math.round(DWELL / 3)))
     runway.style.setProperty('--op-runway', (RUNZOOM + DWELL) + 'px')
   }
-  let lastP = -1
-  const ENG_EPS = 1.5 // sub-pixel layout offsets keep exact scroll targets at p=0.999…
-  // The scrub runs on a continuous rAF loop while the runway is anywhere near
-  // the viewport, NOT on scroll events: iOS delivers scroll events sparsely
-  // during momentum, so an event-driven scrub visibly steps ("jitters") between
-  // deliveries. Reading the live rect every frame follows the real scroll
-  // position at display rate. The loop idles itself out (~1.5s of stillness or
-  // the runway far off-screen) and any scroll event or touch re-arms it.
+  // The section title block right above the runway zooms in slightly and fades
+  // as the map arrives (and back on the way out) — the same scroll drives both,
+  // so the pin transition reads as one continuous move instead of a glitch.
+  const introEls: HTMLElement[] = runway && runway.parentElement
+    ? (Array.from(runway.parentElement.children) as HTMLElement[]).filter((el) => el !== runway && el.tagName !== 'OL')
+    : []
+  let lastIntroT = -1
+  function applyIntro(rectTop: number, vh: number) {
+    if (reduced) return
+    const t = Math.max(0, Math.min(1, 1 - rectTop / (vh * 0.55)))
+    if (t === lastIntroT) return
+    lastIntroT = t
+    for (const el of introEls) {
+      if (t <= 0) { el.style.opacity = ''; el.style.transform = '' }
+      else {
+        el.style.opacity = (1 - t).toFixed(3)
+        el.style.transform = `scale(${(1 + 0.06 * t).toFixed(4)}) translateY(${(-14 * t).toFixed(1)}px)`
+      }
+    }
+  }
+  function resetIntro() { lastIntroT = -1; for (const el of introEls) { el.style.opacity = ''; el.style.transform = '' } }
+  let lastP = -1, lastConsumed = 0, dirDown = true
+  // The scrub runs on a continuous rAF loop while the runway is near the
+  // viewport, NOT on scroll events: iOS delivers scroll events sparsely during
+  // momentum, so an event-driven scrub visibly steps between deliveries. The
+  // loop reads the live rect each frame, idles itself out, and any scroll or
+  // touch re-arms it.
   let loopRAF = 0, stillFrames = 0, lastYSeen = -1
   let touchHeld = false
   function scrubFrame() {
     loopRAF = 0
     if (!runway || isDesktop()) return
+    const vh = window.innerHeight || 1
     const rect = runway.getBoundingClientRect()
     const consumed = -rect.top
+    // direction persists through stillness: at rest, equality must not read as
+    // "down" (it made post-release captures glide the wrong way)
+    if (consumed > lastConsumed + 0.5) dirDown = true
+    else if (consumed < lastConsumed - 0.5) dirDown = false
+    lastConsumed = consumed
     const p = Math.max(0, Math.min(1, consumed / RUNZOOM))
+    applyIntro(rect.top, vh)
     if (p !== lastP) {
       lastP = p
-      // Only the GRAPH zooms — the stage, sheet and up-zone stay full-size the
-      // whole time, so the section looks exactly like the classic preview and
-      // the canvas alone grows into the fit. Identity once engaged = crisp 1:1.
-      if (!reduced) canvas.style.transform = consumed >= RUNZOOM - ENG_EPS ? '' : `scale(${(SC0 + (1 - SC0) * p).toFixed(4)})`
+      if (!reduced && !cssScrub) canvas.style.transform = consumed >= RUNZOOM - ENG_EPS ? '' : `scale(${(SC0 + (1 - SC0) * p).toFixed(4)})`
     }
-    // engaged = fully zoomed AND still pinned (the dwell keeps this true for a
-    // stretch of scroll; past it the stage un-pins and slides away)
-    if (consumed >= RUNZOOM - ENG_EPS && consumed <= RUNZOOM + DWELL + 1) engage()
-    else disengage()
-    // Magnetic settle, from actual stillness (frame-counted, so sparse iOS
-    // scroll events can't fake "idle" mid-momentum): finish a half-scrubbed
-    // stop toward the nearer rest — engagement (landing inside the dwell) or
-    // back out to the runway start.
+    const RUN = RUNZOOM + DWELL
+    if (engaged) {
+      // the freeze: any residual drift (description overscroll chaining, quirky
+      // gestures the guard could not cancel) is clamped back to the anchor
+      if (Math.abs((window.scrollY || 0) - engagedY) > 1) {
+        try { window.scrollTo({ top: engagedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, engagedY) }
+      }
+    } else if (!touchHeld && glideTarget === null) {
+      // Arrival captures. Inside the engage window: lock immediately (this is
+      // how a fling "enters fullscreen when it gets there" instead of blowing
+      // through). Mid-band with the finger up: glide to the nearest rest,
+      // directionally — the browser's eased smooth scroll plays the zoom.
+      // glideTarget===null also keeps an EXIT glide from being re-captured as
+      // it passes back through the window.
+      if (consumed >= RUNZOOM - ENG_EPS && consumed <= RUN + 1) engage()
+      else if (p > 0.05 && p < 1) {
+        if (dirDown || p > 0.5) glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
+        else glideTo((window.scrollY || 0) - consumed - Math.round(vh * 0.12))
+      } else if (consumed > RUN + 1 && consumed < RUN + vh * 0.8) {
+        // the stage is part-way slid off below the engage window (scrolling up
+        // from the next section, or released mid-exit): resolve it — up = come
+        // back into the map, down = finish leaving
+        if (dirDown) glideTo((window.scrollY || 0) - consumed + RUN + vh)
+        else glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
+      }
+    }
+    if (glideTarget !== null && Math.abs((window.scrollY || 0) - glideTarget) < 3) glideTarget = null
     const y = window.scrollY || 0
     if (y === lastYSeen) stillFrames++
     else { stillFrames = 0; lastYSeen = y }
-    if (stillFrames === 14 && !touchHeld && !reduced && p > 0.04 && p < 0.96) {
-      const target = y - consumed + (p >= 0.45 ? RUNZOOM + Math.min(48, DWELL / 4) : 0)
-      try { window.scrollTo({ top: target, behavior: 'smooth' }) } catch { window.scrollTo(0, target) }
-    }
-    const vh = window.innerHeight || 1
     const near = rect.bottom > -vh && rect.top < vh * 2
-    if (near && stillFrames < 90) loopRAF = requestAnimationFrame(scrubFrame)
+    if (near && (engaged || glideTarget !== null || stillFrames < 90)) loopRAF = requestAnimationFrame(scrubFrame)
   }
   function kickScrub() { stillFrames = 0; if (!loopRAF) loopRAF = requestAnimationFrame(scrubFrame) }
   const onScroll = () => kickScrub()
-  const onDocTouchStart = () => { touchHeld = true; kickScrub() }
+  const onDocTouchStart = () => { touchHeld = true; glideTarget = null; kickScrub() }
   const onDocTouchEnd = (e: TouchEvent) => { touchHeld = e.touches.length > 0; kickScrub() }
   // Tap-to-enter: tapping any node (or the hub) before the map is engaged glides
-  // the page to the engage point — the scrub itself plays the zoom on the way,
-  // so the tap reads as "the graph zooms in", scroll-linked end to end.
+  // the page to the engage point — the scrub plays the zoom on the way in.
   function scrollIntoEngage() {
     if (!runway || isDesktop() || engaged) return
     const consumed = -runway.getBoundingClientRect().top
-    const target = (window.scrollY || 0) - consumed + RUNZOOM + Math.min(48, DWELL / 4)
-    try { window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' }) } catch { window.scrollTo(0, target) }
+    glideTo((window.scrollY || 0) - consumed + RUNZOOM + ENGOFF)
   }
-  // Tap-to-exit: the up-zone chevron glides the page back above the map; the
-  // scrub reverses on the way and the page is an ordinary page again.
-  upzone.addEventListener('click', (e) => {
-    e.stopPropagation()
-    if (!runway) return
-    const consumed = -runway.getBoundingClientRect().top
-    const target = (window.scrollY || 0) - consumed
-    try { window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' }) } catch { window.scrollTo(0, target) }
-  })
   window.addEventListener('scroll', onScroll, { passive: true })
   document.addEventListener('touchstart', onDocTouchStart, { passive: true })
   document.addEventListener('touchend', onDocTouchEnd, { passive: true })
@@ -1004,7 +1107,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // Crossing the phone/desktop breakpoint (rotation, tablet, resized window)
     // switches the fan, so the radial layout has to be rebuilt before refitting.
     if (laidOutDesktop !== isDesktop()) buildLayout(isDesktop())
-    if (isDesktop()) { disengage(); canvas.style.transform = ''; lastP = -1 }
+    if (isDesktop()) {
+      disengage()
+      canvas.style.transform = ''; lastP = -1
+      resetIntro()
+    }
     measureRunway()
     render()
     kickScrub() // re-derive p (and engagement) for the new geometry
@@ -1127,6 +1234,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   return () => {
     disposed = true
     disengage()
+    glideTarget = null
+    resetIntro()
+    document.documentElement.classList.remove('op-cssscrub', 'op-immersed')
     clearTimeout(settleTimer)
     if (loopRAF) { cancelAnimationFrame(loopRAF); loopRAF = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }

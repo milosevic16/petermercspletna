@@ -491,9 +491,55 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     50% { transform: translateY(-3px); opacity: 0.95; }
   }
   @media (prefers-reduced-motion: reduce) { .op-upzone-chev { animation: none; } }
+  /* the down-zone: mirror of the up-zone at the bottom edge — where the fixed
+     progress bar normally lives. While engaged the bar fades out (see
+     html.op-immersed below) and this glow + chevron take its place: swipe up
+     or tap to continue DOWN the site. */
+  .op-downzone {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: calc(46px + env(safe-area-inset-bottom));
+    margin: 0; padding: 0; border: 0;
+    z-index: 1; pointer-events: none; opacity: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.45s ease;
+    background: radial-gradient(120% 100% at 50% 100%, color-mix(in oklab, var(--accent) 26%, transparent) 0%, transparent 62%);
+  }
+  .op-map.op-eng .op-downzone { pointer-events: auto; opacity: 1; }
+  .op-downzone-chev {
+    position: absolute; bottom: calc(5px + env(safe-area-inset-bottom)); left: 50%; margin-left: -11px;
+    color: var(--ivory); opacity: 0.85;
+    animation: op-downzone-bob 2.2s ease-in-out infinite;
+  }
+  @keyframes op-downzone-bob {
+    0%, 100% { transform: translateY(0); opacity: 0.55; }
+    50% { transform: translateY(3px); opacity: 0.95; }
+  }
+  @media (prefers-reduced-motion: reduce) { .op-downzone-chev { animation: none; } }
+  /* engaged: the sheet lifts to sit above the down-zone strip */
+  .op-map.op-eng .op-dossier { bottom: calc(42px + env(safe-area-inset-bottom)); }
+  .op-dossier { transition: opacity 0.4s ease, transform 0.4s ease, bottom 0.35s ease; }
+  /* the fixed progress bar yields while the map is immersed */
+  div[data-if="barOn"] > div { transition: opacity 0.25s ease; }
+  html.op-immersed div[data-if="barOn"] > div { opacity: 0; pointer-events: none; }
+  /* ---- compositor-driven scrub (CSS scroll-driven animation) --------------
+     Where supported (Safari 26+/Chrome), the canvas scale is bound directly to
+     the runway's view-timeline: it runs OFF the main thread, in lockstep with
+     the scroll compositor — the JS rAF fallback can trail it by a frame, this
+     cannot. The scrub spans the first RUNZOOM of the runway's "contain" range:
+     0.6vh of (0.6+0.25)vh = 70.6%. JS skips its transform writes when the
+     html.op-cssscrub flag is set (feature-detected in opMap.ts). */
+  #record { timeline-scope: --oprun; }
+  #op-runway.op-runway-live { view-timeline: --oprun block; }
+  @keyframes op-scrub { from { transform: scale(0.9); } to { transform: scale(1); } }
+  html.op-cssscrub #op-canvas {
+    animation: op-scrub linear both;
+    animation-timeline: --oprun;
+    animation-range: contain 0% contain 70.6%;
+  }
 }
 @media (min-width: 741px) {
-  .op-upzone { display: none; } /* desktop keeps the classic inline map */
+  .op-upzone, .op-downzone { display: none; } /* desktop keeps the classic inline map */
 }
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
