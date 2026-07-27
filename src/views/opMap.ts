@@ -172,11 +172,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let seenAway = false
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
-  let sheetAnim: Animation | null = null
   // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
   // as the camera tween (see applyEnterFlip) so box and graph can never
   // desynchronize into a jump.
-  let enterFlip: { l: number; t: number; u: number; t0: number } | null = null
+  let enterFlip: { l: number; t: number; u: number; t0: number; sheetDy: number } | null = null
   // Scrim under the overlay: fades the page to the section's graphite while
   // the box expands, so the box's opaque edge never sweeps across
   // still-bright page text (which read as a glitchy hard cut).
@@ -450,12 +449,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (p >= 1) {
       enterFlip = null
       container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+      dossier.style.transform = ''; container.classList.remove('op-entering')
       fsLanded() // Close pill + coach hint appear only now
       return
     }
     const e = camEase(p)
     const s = enterFlip.u + (1 - enterFlip.u) * e
     container.style.transform = `translate(${(enterFlip.l * (1 - e)).toFixed(2)}px, ${(enterFlip.t * (1 - e)).toFixed(2)}px) scale(${s.toFixed(5)})`
+    // The sheet rides the same curve back to its own slot. Local (pre-scale)
+    // units: this transform is applied inside the container, so the browser
+    // scales it by s along with everything else in the box.
+    if (enterFlip.sheetDy) dossier.style.transform = `translateY(${(enterFlip.sheetDy * (1 - e)).toFixed(2)}px)`
   }
 
   // ---- drag-to-pan + momentum (mobile fullscreen only) ---------------------
@@ -1013,8 +1017,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function stopFsAnim() {
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
-    if (sheetAnim) { try { sheetAnim.cancel() } catch { /* noop */ } sheetAnim = null }
     if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
+    dossier.style.transform = ''; container.classList.remove('op-entering')
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
   }
   function enterFullscreen() {
@@ -1023,6 +1027,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // Capture the collapsed view's box and world->viewport mapping BEFORE
     // anything moves: the overlay's first frame must reproduce it exactly.
     const first = container.getBoundingClientRect()
+    const sheetFirst = dossier.getBoundingClientRect() // the preview sheet's slot, for the shared-element glide
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
@@ -1081,13 +1086,25 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       tx: ((oldW / 2 + oldCam.tx * oldU2p) / u - cssW / 2) / newU2p,
       ty: ((oldH / 2 + oldCam.ty * oldU2p) / u - cssH / 2) / newU2p,
     }
-    if (!reduced) enterFlip = { l: first.left, t: first.top, u, t0: 0 } // armed BEFORE render: its syncBack keeps the Close pill hidden until landing
+    if (!reduced) enterFlip = { l: first.left, t: first.top, u, t0: 0, sheetDy: 0 } // armed BEFORE render: its syncBack keeps the Close pill hidden until landing
     render(!reduced)
     if (enterFlip && camActive) {
       // arm the box zoom BEFORE this frame paints, at its exact t=0 pose
+      container.classList.add('op-entering') // suspends the sheet's own CSS transition while we drive it per frame
       container.style.transformOrigin = '0 0'
       container.style.willChange = 'transform'
       container.style.transform = `translate(${first.left.toFixed(2)}px, ${first.top.toFixed(2)}px) scale(${u.toFixed(5)})`
+      // The sheet is the one part that does NOT simply zoom: it is anchored to
+      // the bottom of a box that just became a whole viewport tall, so on the
+      // entry frame it sits far below where the preview's sheet was — mostly
+      // off-screen. That relocation is what used to be masked by cutting its
+      // opacity to 0 (the instant vanish). Instead, measure the gap now and
+      // hold it in the preview's slot, then glide it home on the box's clock:
+      // one continuous sheet, never hidden. Divided by u because the offset is
+      // written inside the container, which the browser then scales.
+      const sheetNow = dossier.getBoundingClientRect()
+      enterFlip.sheetDy = (sheetFirst.bottom - sheetNow.bottom) / (u || 1)
+      if (enterFlip.sheetDy) dossier.style.transform = `translateY(${enterFlip.sheetDy.toFixed(2)}px)`
     } else if (enterFlip) {
       enterFlip = null // camera had nothing to glide — no box zoom either; land now
       fsLanded()
@@ -1105,16 +1122,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       requestAnimationFrame(() => fsLanded())
       return
     }
-    // The sheet is where the two states genuinely differ (position, height,
-    // amount of text), so opacity bridges it: invisible while the box
-    // travels, fading in as it lands. The graph itself never blinks.
-    try {
-      sheetAnim = dossier.animate(
-        [{ opacity: 0 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }],
-        { duration: 1050, easing: 'ease' }
-      )
-      sheetAnim.onfinish = () => { sheetAnim = null }
-    } catch { /* noop */ }
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
