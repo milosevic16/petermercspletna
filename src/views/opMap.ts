@@ -914,6 +914,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (isDesktop() || fsState !== 'collapsed') return
     stopFsAnim()
     fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
+    wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
     hideCoach()
     placeholder = document.createElement('div')
@@ -960,6 +961,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     stopFsAnim()
     const finish = () => {
       stopFsAnim()
+      unwireTouch() // collapsed must carry no touch listeners (see wireTouch)
       container.classList.remove('op-fs')
       container.removeAttribute('role'); container.removeAttribute('aria-modal')
       if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
@@ -999,6 +1001,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function forceCollapse() {
     if (fsState === 'collapsed') return
     stopFsAnim()
+    unwireTouch()
     container.style.opacity = ''; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
     container.classList.remove('op-fs')
     container.removeAttribute('role'); container.removeAttribute('aria-modal')
@@ -1106,10 +1109,31 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     resetGesture()
   }
   const onClickCapture = (e: MouseEvent) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false } }
-  canvas.addEventListener('touchstart', onTouchStart, { passive: true })
-  canvas.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
-  canvas.addEventListener('touchend', onTouchEnd)
-  canvas.addEventListener('touchcancel', onTouchEnd)
+  // The pan listeners are wired ONLY while fullscreen. `passive: false` is a
+  // registration-time flag: merely attaching a non-passive touchmove marks the
+  // canvas's box as a non-fast-scrollable region, which pulls a swipe that starts
+  // there off the compositor scroll path — and iOS WebKit then does NOT hand the
+  // un-prevented gesture back to native scrolling, so the collapsed map swallowed
+  // page scroll on load (desktop Chrome does hand it back, which is why it only
+  // broke on iOS). Collapsed therefore carries zero touch listeners and the page
+  // scrolls over the map natively. Click stays wired: taps must still open the map.
+  let touchWired = false
+  function wireTouch() {
+    if (touchWired) return
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
+    canvas.addEventListener('touchend', onTouchEnd)
+    canvas.addEventListener('touchcancel', onTouchEnd)
+    touchWired = true
+  }
+  function unwireTouch() {
+    if (!touchWired) return
+    canvas.removeEventListener('touchstart', onTouchStart)
+    canvas.removeEventListener('touchmove', onTouchMove)
+    canvas.removeEventListener('touchend', onTouchEnd)
+    canvas.removeEventListener('touchcancel', onTouchEnd)
+    touchWired = false
+  }
   canvas.addEventListener('click', onClickCapture, true)
 
   render()
@@ -1145,6 +1169,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
     document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (unlockScroll already removes it)
+    unwireTouch()
     container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
