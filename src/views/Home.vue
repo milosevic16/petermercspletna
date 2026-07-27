@@ -557,6 +557,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-map.op-fs .op-d-desc { touch-action: pan-y; }
   /* the Close pill clears the notch/status bar while the overlay owns the screen */
   .op-map.op-fs .op-back { top: calc(0.55rem + env(safe-area-inset-top)); }
+  /* While the entry zoom runs, opMap.ts writes the sheet's offset every frame
+     (it glides from the preview's slot to its own) — its CSS transition would
+     lag and smear those writes, so it steps aside for the duration. */
+  .op-map.op-fs.op-entering .op-dossier { transition: none; }
 }
 @supports not (height: 100dvh) {
   @media (max-width: 740px) { .op-map.op-live.op-fs { height: 100vh; } }
