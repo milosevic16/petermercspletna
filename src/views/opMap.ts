@@ -163,7 +163,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
   // as the camera tween (see applyEnterFlip) so box and graph can never
   // desynchronize into a jump.
-  let enterFlip: { l: number; t: number; u: number } | null = null
+  let enterFlip: { l: number; t: number; u: number; t0: number } | null = null
   // Scrim under the overlay: fades the page to the section's graphite while
   // the box expands, so the box's opaque edge never sweeps across
   // still-bright page text (which read as a glitchy hard cut).
@@ -428,10 +428,19 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // together instead of letting one race ahead of the other.
   function applyEnterFlip(now: number) {
     if (!enterFlip) return
-    const p = camActive ? Math.min(1, (now - (camT0 || now)) / CAM_DUR) : 1
+    // Own clock, NOT the camera's: a node tap mid-entry re-aims the camera
+    // tween and resets camT0 — keyed off that, the box would snap back to
+    // the collapsed pose and replay.
+    if (!enterFlip.t0) enterFlip.t0 = now
+    const p = Math.min(1, (now - enterFlip.t0) / CAM_DUR)
     if (p >= 1) {
       enterFlip = null
       container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+      // Only now show the Close pill: mid-flight it hovered over a
+      // still-moving scene and read as out of place. syncBack un-hides it
+      // (its own CSS fade plays), and focus lands on it for the Tab-trap.
+      syncBack()
+      try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
       return
     }
     const e = camEase(p)
@@ -667,7 +676,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // controls at all — the preview is inert scenery the page scrolls past.
   function syncBack() {
     const open = fsState === 'fullscreen'
-    const show = open || (isDesktop() && focusId !== 'pm')
+    // While the entry zoom is still running (enterFlip) the pill stays
+    // hidden — it appears once the overlay has fully landed.
+    const show = (open && !enterFlip) || (isDesktop() && focusId !== 'pm')
     pmback.hidden = !show
     pmback.classList.toggle('op-exit', open)
     pmback.setAttribute('aria-label', open ? (content.exit || 'Close full screen map') : content.backLabel)
@@ -753,7 +764,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       return twActive(v.op, now) || twActive(v.r, now) || twActive(v.lblOp, now)
     }) || twActive(focusName.op, now)
     const ambient = !reduced && stageVisible && (pulse !== null || focusId === 'pm')
-    if (camActive || momActive || anims || ambient) requestDraw()
+    if (camActive || momActive || anims || ambient || enterFlip) requestDraw()
   }
 
   function draw(now: number) {
@@ -1040,13 +1051,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       tx: ((oldW / 2 + oldCam.tx * oldU2p) / u - cssW / 2) / newU2p,
       ty: ((oldH / 2 + oldCam.ty * oldU2p) / u - cssH / 2) / newU2p,
     }
+    if (!reduced) enterFlip = { l: first.left, t: first.top, u, t0: 0 } // armed BEFORE render: its syncBack keeps the Close pill hidden until landing
     render(!reduced)
-    if (!reduced && camActive) {
+    if (enterFlip && camActive) {
       // arm the box zoom BEFORE this frame paints, at its exact t=0 pose
-      enterFlip = { l: first.left, t: first.top, u }
       container.style.transformOrigin = '0 0'
       container.style.willChange = 'transform'
       container.style.transform = `translate(${first.left.toFixed(2)}px, ${first.top.toFixed(2)}px) scale(${u.toFixed(5)})`
+    } else if (enterFlip) {
+      enterFlip = null // camera had nothing to glide — no box zoom either; show the pill now
+      syncBack()
     }
     // Paint the matched frame NOW. An IntersectionObserver callback runs
     // after this frame's rAF but before paint, so the canvas resize above
@@ -1054,9 +1068,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // frame before the draw loop repaints — a visible blank flash.
     draw(performance.now())
     // preventScroll: plain focus() scroll-reveals the button in the (still
-    // programmatically scrollable) locked document — a hidden shift under the overlay.
-    requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
-    if (reduced) return
+    // programmatically scrollable) locked document — a hidden shift under the
+    // overlay. Animated entries focus the pill when it appears at landing
+    // (see applyEnterFlip); only the instant, reduced-motion path does it here.
+    if (reduced) {
+      requestAnimationFrame(() => { try { pmback.focus({ preventScroll: true }) } catch { /* noop */ } })
+      return
+    }
     // The sheet is where the two states genuinely differ (position, height,
     // amount of text), so opacity bridges it: invisible while the box
     // travels, fading in as it lands. The graph itself never blinks.
