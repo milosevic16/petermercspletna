@@ -515,28 +515,32 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 /* Give the map its height only once it's live, so the no-JS / pre-hydration
    state doesn't reserve a tall empty well above the SEO fallback list. */
 .op-map.op-live { height: clamp(430px, 72svh, 640px); }
-/* phones: near full-screen so the map reads as an immersive canvas, not a chip.
-   Node + label sizes are pinned in opMap.ts (counter-scaled per camera), so the
-   old scale-dependent SVG font-size overrides are gone — inline styles drive them. */
+/* phones: the collapsed preview is a moderate in-page section the page scrolls
+   straight past — completely inert to scroll; only a NODE tap (or the one-shot
+   auto-open on arrival) opens the fullscreen overlay below. Node + label sizes
+   are pinned in opMap.ts (counter-scaled per camera). */
 @media (max-width: 740px) {
-  /* Collapsed: a moderate in-page preview that the page scrolls smoothly past
-     (no pan). Tapping a node lifts it into the fullscreen takeover below. */
   .op-map { margin-top: 0.2rem; }
   .op-map.op-live { height: clamp(500px, 74svh, 660px); min-height: 500px; background: var(--graphite); }
-  .op-node.op-cat .op-lbl { letter-spacing: 0.05em; }
 }
 @supports not (height: 100svh) {
   @media (max-width: 740px) { .op-map.op-live { height: clamp(500px, 74vh, 660px); } }
 }
-/* ---- fullscreen takeover (mobile only) ---------------------------------- */
+/* ---- fullscreen takeover (mobile only) ----------------------------------
+   Two completely separate states, no scroll coupling. Entering portals .op-map
+   to <body> as a fixed overlay and a WAAPI FLIP zooms it out of the section's
+   box (see enterFullscreen in opMap.ts); .op-map-ph holds the section's
+   in-flow height meanwhile, so the page layout never shifts. */
 @media (max-width: 740px) {
   .op-map-ph { width: 100%; } /* reserves in-flow height while the map is lifted out */
   .op-map.op-live.op-fs {
-    position: fixed; top: 0; left: 0; /* NOT body-fixed-locked, so this stays viewport-fixed */
+    position: fixed; top: 0; left: 0;
     width: 100vw;
     height: 100vh;  /* fallback */
     height: 100dvh; /* dynamic vh: owns the whole visible area under the URL bar */
     min-height: 0; margin: 0;
+    /* above everything, including the fixed bottom progress bar (z-index 70) —
+       the bar stays untouched in the page and simply shows again on close */
     z-index: 9999;
     background: var(--graphite);
   }
@@ -551,6 +555,8 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-map.op-fs #op-canvas { touch-action: none; overscroll-behavior: none; }
   /* the description keeps its own native scroll (also exempted by the JS guard) */
   .op-map.op-fs .op-d-desc { touch-action: pan-y; }
+  /* the Close pill clears the notch/status bar while the overlay owns the screen */
+  .op-map.op-fs .op-back { top: calc(0.55rem + env(safe-area-inset-top)); }
 }
 @supports not (height: 100dvh) {
   @media (max-width: 740px) { .op-map.op-live.op-fs { height: 100vh; } }
@@ -559,6 +565,40 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 @media (min-width: 741px) {
   .op-map.op-fs { position: relative; top: auto; left: auto; height: clamp(430px, 72svh, 640px); }
 }
+/* Scrim under the fullscreen overlay (created in opMap.ts at entry): fades
+   the page to the section's graphite while the box expands, so the box's
+   opaque edge never sweeps across still-visible text. */
+.op-scrim { position: fixed; inset: 0; z-index: 9998; background: var(--graphite); pointer-events: none; }
+
+/* Coach hint — shown only once the fullscreen zoom has landed, for a few
+   seconds or until the map is touched (opMap.ts). Sits below the Close pill
+   so the two never collide. */
+.op-coach { display: none; }
+@media (max-width: 740px) {
+  .op-map.op-fs .op-coach {
+    display: block;
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 3.9rem);
+    left: 50%;
+    z-index: 3;
+    max-width: min(80%, 22rem);
+    box-sizing: border-box;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(20, 21, 23, 0.82);
+    backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+    border: 1px solid rgba(236, 231, 220, 0.14);
+    color: var(--ivory2);
+    font-family: 'Instrument Sans', Arial, sans-serif;
+    font-size: 0.63rem; font-weight: 600; letter-spacing: 0.11em; line-height: 1.4;
+    text-transform: uppercase; text-align: center; text-wrap: balance;
+    opacity: 0; pointer-events: none;
+    transform: translate(-50%, -6px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .op-map.op-fs .op-coach.show { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .op-coach { transition: none !important; } }
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
    whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).
@@ -566,13 +606,13 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    nothing to tile or lazily rasterize; node/label styling lives in draw(). */
 #op-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
 /* Mobile override AFTER the base rule so it wins at equal specificity.
-   Collapsed: the map is just a preview, so the page scrolls over it normally.
-   touch-action: pan-y reserves vertical drags for native page scroll (taps still
-   register, so tap-to-open-fullscreen keeps working); combined with attaching NO
-   non-passive touchmove listener while collapsed (see wireTouch in opMap.ts) it
-   lets iOS WebKit scroll the page over the map. Fullscreen sets touch-action:none
-   above and drives the pan via touch events. The rest suppresses long-press
-   callout / selection / tap highlight so a drag is clean. */
+   Collapsed: the map is just an inert preview, so the page scrolls over it
+   normally. touch-action: pan-y reserves vertical drags for native page scroll
+   (taps still register, so tap-a-node-to-open keeps working); combined with
+   attaching NO non-passive touchmove listener while collapsed (see wireTouch in
+   opMap.ts) it lets iOS WebKit scroll the page over the map. Fullscreen sets
+   touch-action:none above and drives the pan via touch events. The rest
+   suppresses long-press callout / selection / tap highlight so a drag is clean. */
 @media (max-width: 740px) {
   #op-canvas {
     touch-action: pan-y;
@@ -620,18 +660,35 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .pm-captcha-label { flex: 1 1 100%; }
 }
 
-.op-crumbs { position: absolute; top: 0.4rem; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.05rem; z-index: 2; }
-.op-crumb { background: none; border: 0; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; padding: 0.35rem 0.4rem; cursor: pointer; min-height: 34px; transition: color 0.18s; }
-.op-crumb:last-child { color: var(--ivory); }
-.op-crumb:not(:last-child):hover { color: var(--ivory); }
-.op-crumb-sep { color: rgba(236, 231, 220, 0.32); font-size: 0.66rem; }
-
 .op-back { position: absolute; top: 0.3rem; right: 0; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
 .op-back.show { opacity: 1; transform: none; }
 .op-back[hidden] { display: none; }
 .op-back-disc { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #F4F1EA; font-weight: 700; font-size: 0.72rem; font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-back-txt { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ivory2); font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-back:hover .op-back-txt { color: var(--ivory); }
+/* exit face: shown only while the map is immersed (.op-exit, set by syncBack) */
+.op-back-x, .op-back-exit-txt { display: none; }
+.op-back.op-exit .op-back-disc, .op-back.op-exit .op-back-txt { display: none; }
+.op-back.op-exit {
+  gap: 0.4rem;
+  background: rgba(236, 231, 220, 0.12);
+  border: 1px solid rgba(236, 231, 220, 0.3);
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem; min-height: 40px;
+  color: var(--ivory);
+  -webkit-tap-highlight-color: transparent;
+}
+.op-back.op-exit .op-back-x { display: inline-flex; flex: none; }
+.op-back.op-exit .op-back-exit-txt {
+  display: inline-flex;
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ivory);
+}
+.op-back.op-exit:hover, .op-back.op-exit:focus-visible {
+  background: rgba(236, 231, 220, 0.2); border-color: var(--ivory); outline: none;
+}
+@media (max-width: 740px) { .op-back { top: 0.55rem; right: 0.6rem; } }
 
 .op-dossier { position: absolute; z-index: 2; pointer-events: none; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; }
 .op-dossier.show { opacity: 1; pointer-events: auto; }
@@ -640,6 +697,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .op-d-desc { font-size: 0.9rem; line-height: 1.55; color: #CFC9BC; margin: 0; }
 .op-d-visit { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.7rem; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.05em; color: var(--ivory); text-decoration: none; border-bottom: 1px dashed rgba(236, 231, 220, 0.4); padding-bottom: 1px; font-family: 'Instrument Sans', Arial, sans-serif; }
 .op-d-visit:hover { border-bottom-color: var(--accent); }
+/* Drawn, not typed: the "↗" codepoint defaults to EMOJI presentation on iOS,
+   which put a colour emoji arrow in the middle of the link. This one inherits
+   the text colour and scales with the font. */
+.op-d-visit-arw { width: 0.72em; height: 0.72em; flex: none; display: block; }
 @media (min-width: 741px) { .op-dossier { left: 0; bottom: 0.4rem; max-width: 20rem; } }
 @media (max-width: 740px) {
   .op-dossier { left: 0; right: 0; bottom: 0; transform: translateY(8px); }
@@ -647,68 +708,14 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
   .op-dossier-in { border-radius: 12px 12px 0 0; border-left: 0; border-top: 2px solid var(--accent); padding: 0.8rem 1.05rem calc(0.9rem + env(safe-area-inset-bottom)); box-shadow: 0 -14px 34px rgba(15, 16, 18, 0.4); }
   .op-d-name { font-size: 1.12rem; }
   /* bound the sheet so the band the camera reserves for it stays small even for
-     the longest description; the camera measures whatever height it lands at. */
-  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+     the longest description; the camera measures whatever height it lands at.
+     `contain`: the page is locked while fullscreen — hitting the description's
+     scroll limit must not rubber-band the document behind the overlay. */
+  .op-d-desc { max-height: 5.4em; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; transition: max-height 0.4s ease; }
   /* Collapsed (preview): keep the panel compact so it doesn't crowd the graph —
      the camera reserves less, so the graph reads bigger. Full text in fullscreen. */
   .op-map.op-live:not(.op-fs) .op-d-desc { max-height: 2.9em; }
 }
-
-/* Fullscreen exit — lives inside the dossier so it never moves while the graph
-   pans. Hidden off-mobile and while collapsed; only .op-fs (mobile) reveals it. */
-.op-fs-exit { display: none; }
-.op-dossier-in { position: relative; }
-@media (max-width: 740px) {
-  /* In fullscreen the sheet becomes a column with the Close pill as its own
-     right-aligned row at the top — so it never sits on top of the title/text. */
-  .op-map.op-fs .op-dossier-in { display: flex; flex-direction: column; }
-  .op-map.op-fs .op-fs-exit {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    align-self: flex-end; margin: 0 0 0.55rem auto; order: -1;
-    background: rgba(236, 231, 220, 0.12);
-    border: 1px solid rgba(236, 231, 220, 0.3);
-    color: var(--ivory); border-radius: 999px;
-    padding: 0.42rem 0.9rem; min-height: 40px;
-    font-family: 'Instrument Sans', Arial, sans-serif;
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
-    text-transform: uppercase; cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: background 0.18s ease, border-color 0.18s ease;
-  }
-  .op-map.op-fs .op-fs-exit:hover,
-  .op-map.op-fs .op-fs-exit:focus-visible {
-    background: rgba(236, 231, 220, 0.2); border-color: var(--ivory); outline: none;
-  }
-  .op-fs-exit-x { flex: none; }
-}
-
-/* one-time coach hint on mobile: appears on scroll-in, fades after a few seconds.
-   A little more present than a plain caption — a live accent dot + soft lift —
-   but still a slim, elegant pill. */
-.op-coach {
-  position: absolute; top: 2.6rem; left: 50%;
-  z-index: 3; pointer-events: none;
-  display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
-  opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.96);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
-  background: rgba(20, 21, 23, 0.92); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
-  border: 1px solid rgba(236, 231, 220, 0.22); border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(15, 16, 18, 0.42);
-  padding: 0.5rem 1rem 0.5rem 0.8rem; color: var(--ivory);
-  font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em;
-}
-.op-coach::before {
-  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(210, 69, 62, 0.5); animation: op-coach-pulse 2s ease-out infinite;
-}
-.op-coach.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-@keyframes op-coach-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(210, 69, 62, 0.5); }
-  70% { box-shadow: 0 0 0 8px rgba(210, 69, 62, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(210, 69, 62, 0); }
-}
-@media (min-width: 741px) { .op-coach { display: none; } }
-@media (prefers-reduced-motion: reduce) { .op-coach::before { animation: none; } }
 
 /* server-rendered fallback list (SEO + no-JS); hidden once the map goes live */
 .op-fallback { list-style: none; margin: 0.4rem 0 0; padding: 0; font-family: 'Instrument Sans', Arial, sans-serif; }
