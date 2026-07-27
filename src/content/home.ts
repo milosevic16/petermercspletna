@@ -163,8 +163,8 @@ export interface HomeContent {
 // that section only, so the operating map keeps its own per-node hrefs. Both
 // locales name them identically, so one list serves both. An empty href means
 // the styling applies but the destination is not public yet.
-// Longest name first: the alternation below takes the first branch that matches
-// at a position, so a longer name must never sit behind one of its prefixes.
+// No name here may be a prefix of another: the alternation below takes the
+// first branch that matches at a position, so the shorter one would always win.
 const ORG_LINKS: ReadonlyArray<{ name: string; href: string }> = [
   { name: 'IBEX Equity Partners', href: '' },
   { name: 'JonatanMars Invest', href: 'https://jonatanmars.com/' },
@@ -194,7 +194,7 @@ function linkOrgNames(text: string): string {
     const href = ORG_LINKS.find((o) => o.name === name)?.href
     out += escapeHtml(text.slice(from, m.index))
     out += href
-      ? `<a href="${href}" target="_blank" rel="noopener" style="color:inherit; ${UNDERLINE}">${escapeHtml(name)}</a>`
+      ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="color:inherit; ${UNDERLINE}">${escapeHtml(name)}</a>`
       : `<span style="${UNDERLINE}">${escapeHtml(name)}</span>`
     from = m.index + name.length
   }
@@ -454,7 +454,7 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; the archive row points at lemur.legal/media — say the word if it should go to the blog instead.',
+      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; archive destination (lemur.legal/media vs the blog) still to confirm.',
       archive: {
         seg: 'Archive',
         title: 'Every interview, column and mention — collected on Lemur Legal',
@@ -797,7 +797,7 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; povezava do arhiva kaže na lemur.legal/media — sporočite, če naj vodi na blog.',
+      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; cilj arhiva (lemur.legal/media ali blog) še potrjujemo.',
       archive: {
         seg: 'Arhiv',
         title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',

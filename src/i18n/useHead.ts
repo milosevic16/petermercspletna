@@ -28,8 +28,8 @@ const ROLE: Record<Locale, string> = {
   sl: 'Pravnik za kripto in fintech · Vlagatelj tveganega kapitala',
 }
 const KNOWS_ABOUT: Record<Locale, string[]> = {
-  en: ['Crypto regulation', 'MiCA', 'Fintech law', 'Blockchain', 'Tokenization', 'Venture capital'],
-  sl: ['Kripto regulativa', 'MiCA', 'Fintech pravo', 'Blockchain', 'Tokenizacija', 'Tvegani kapital'],
+  en: ['Crypto regulation', 'MiCA', 'Fintech law', 'Blockchain', 'Tokenization', 'Venture capital', 'Blockchain forensics', 'Defence & dual-use technology'],
+  sl: ['Kripto regulativa', 'MiCA', 'Fintech pravo', 'Blockchain', 'Tokenizacija', 'Tvegani kapital', 'Forenzika blockchaina', 'Obrambne in dvonamenske tehnologije'],
 }
 
 // Drives the document head from a content module's `meta` field: title, meta

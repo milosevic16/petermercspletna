@@ -860,6 +860,9 @@ export function initEffects(copy: HomeContent): () => void {
           var ic = document.getElementById('ico-' + k);
           var is = open === k;
           pnl.style.gridTemplateRows = is ? '1fr' : '0fr';
+          // A collapsed panel is hidden by height only, so its links would keep
+          // their place in the tab order; inert takes the whole subtree out.
+          if (is) pnl.removeAttribute('inert'); else pnl.setAttribute('inert', '');
           if (b) b.setAttribute('aria-expanded', is ? 'true' : 'false');
           if (ic) {
             ic.style.transform = is ? 'rotate(45deg)' : 'none';
