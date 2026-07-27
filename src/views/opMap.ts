@@ -63,7 +63,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // width-bound), and stops short of the 72° between categories so neighbouring
   // branches still don't run into each other.
   function buildLayout(desktop: boolean) {
-    const FAN: Record<number, number> = desktop ? { 1: 26, 2: 14 } : { 1: 33, 2: 20 }
+    // 30 is the widest the phone fan can go: neighbouring categories sit 72
+    // apart, and at 33 the outer children of adjacent branches closed to 40
+    // units when their dots need 52 — five pairs visibly touched.
+    const FAN: Record<number, number> = desktop ? { 1: 26, 2: 14 } : { 1: 30, 2: 18 }
     const place = (node: OpMapNode, depth: number, angle: number, parent: string | null) => {
       const kids = node.children || []
       byId[node.key] = {
@@ -437,10 +440,31 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // Long uppercase category labels clip if placed to the side at the
     // horizontal extremes of a narrow phone, so centre those above/below the
     // node instead. Vertical-extreme categories keep side labels.
+    // A side-anchored title on an outer node adds its FULL width to the box the
+    // camera has to frame, and these phone branches are width-bound while
+    // vertical room goes spare — that is what kept the open section small.
+    // Centring the title over its node costs only half the width, so do it
+    // whenever the siblings are far enough apart for the centred boxes to clear
+    // each other. Thresholds are fixed distances, not derived from the font, so
+    // the choice can't oscillate while the camera fit iterates.
+    let centred = !desktop && isCat && Math.abs(node.x) > Math.abs(node.y)
+    if (!desktop && !isCat && sibs.length > 1) {
+      centred = sibs.every((sk) => {
+        if (sk === id) return true
+        const o = byId[sk]
+        // Vertical clearance has to grow with the TALLER of the two titles: a
+        // three-line name needs far more room below its node than a one-liner.
+        const tall = Math.max(lines.length, wrap(o.label, 20).length)
+        return Math.abs(node.x - o.x) > 160 || Math.abs(node.y - o.y) > 44 + tall * 26
+      })
+    }
     let align: CanvasTextAlign, x: number, y: number
-    if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
+    if (centred) {
+      // below when the node hangs below its parent, above when it sits above —
+      // i.e. always on the outward side of the branch. (For a category the
+      // parent is the hub at the origin, so this is the original `node.y >= 0`.)
       align = 'center'; x = node.x
-      y = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lines.length - 1) * fsU
+      y = dyp >= 0 ? node.y + gap + fsU : node.y - gap - (lines.length - 1) * fsU
     } else {
       align = Math.abs(dxp) < 18 ? 'center' : dxp > 0 ? 'left' : 'right'
       x = node.x + (align === 'center' ? 0 : dxp > 0 ? gap : -gap)
