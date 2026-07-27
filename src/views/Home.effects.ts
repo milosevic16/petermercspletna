@@ -961,7 +961,7 @@ export function initEffects(copy: HomeContent): () => void {
       _applyChips() {
         // The selected/hover styling is CSS-driven off aria-pressed (see .pm-chip),
         // so a selected chip keeps its accent even after the mouse leaves.
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < copy.contact.topics.length; i++) {
           var c = document.getElementById('chip-' + i);
           if (!c) continue;
           c.setAttribute('aria-pressed', (c.getAttribute('data-topic') || '') === this.state.topic ? 'true' : 'false');

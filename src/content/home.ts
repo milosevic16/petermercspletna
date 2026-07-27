@@ -108,7 +108,8 @@ export interface HomeContent {
     cards: MediaCard[]
     cta: string
     note: string
-    extras: Array<{ label: string; name: string; detail: string }>
+    /** Row under the cards — same shape as a `writing` segment — out to the archive. */
+    archive: { seg: string; title: string; linkLabel: string; href: string }
   }
   timeline: {
     eyebrow: string
@@ -158,6 +159,61 @@ export interface HomeContent {
   }
 }
 
+// Organisations that read as links wherever they are named in "What I do" —
+// that section only, so the operating map keeps its own per-node hrefs. Both
+// locales name them identically, so one list serves both. An empty href means
+// the styling applies but the destination is not public yet.
+// Longest name first: the alternation below takes the first branch that matches
+// at a position, so a longer name must never sit behind one of its prefixes.
+const ORG_LINKS: ReadonlyArray<{ name: string; href: string }> = [
+  { name: 'IBEX Equity Partners', href: '' },
+  { name: 'JonatanMars Invest', href: 'https://jonatanmars.com/' },
+  { name: 'Suricate Ventures', href: 'https://www.suricate.ventures/' },
+  { name: 'Horizon Europe', href: 'https://research-and-innovation.ec.europa.eu/funding/funding-opportunities/funding-programmes-and-open-calls/horizon-europe_en' },
+  { name: 'NATO DIANA', href: 'https://www.diana.nato.int/' },
+  { name: 'Lemur Legal', href: 'https://lemur.legal' },
+  { name: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+]
+
+const UNDERLINE = 'text-decoration:underline; text-underline-offset:2px;'
+const ORG_NAME_RE = new RegExp(
+  ORG_LINKS.map((o) => o.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'g',
+)
+
+const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => HTML_ESCAPES[c])
+
+function linkOrgNames(text: string): string {
+  let out = ''
+  let from = 0
+  ORG_NAME_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = ORG_NAME_RE.exec(text)) !== null) {
+    const name = m[0]
+    const href = ORG_LINKS.find((o) => o.name === name)?.href
+    out += escapeHtml(text.slice(from, m.index))
+    out += href
+      ? `<a href="${href}" target="_blank" rel="noopener" style="color:inherit; ${UNDERLINE}">${escapeHtml(name)}</a>`
+      : `<span style="${UNDERLINE}">${escapeHtml(name)}</span>`
+    from = m.index + name.length
+  }
+  return out + escapeHtml(text.slice(from))
+}
+
+/**
+ * Renders a "What I do" string as HTML with every organisation in ORG_LINKS
+ * linked. Tags already in the string pass through untouched and everything
+ * else is escaped, so this takes the plain fields (`credential`, a list item's
+ * `key`/`detail`) and the trusted `paragraphHtml` alike.
+ */
+export function withOrgLinks(copy: string): string {
+  return copy
+    .split(/(<[^>]*>)/)
+    .map((part) => (/^<[^>]*>$/.test(part) ? part : linkOrgNames(part)))
+    .join('')
+}
+
 const home: Localized<HomeContent> = {
   en: {
     meta: {
@@ -180,11 +236,11 @@ const home: Localized<HomeContent> = {
         'MiCA white papers & CASP licensing',
         'Token classification & listing opinions',
         'RWA tokenization',
-        'Crypto taxation',
-        'Fund formation & venture deals',
+        'Venture capital',
+        'Blockchain forensics',
         'Regulatory strategy for fintechs',
         'Panels, lectures & commentary',
-        'Board & policy work',
+        'Defence & dual-use',
       ],
     },
     facets: {
@@ -201,24 +257,24 @@ const home: Localized<HomeContent> = {
               subLabel: 'Counsel',
               credential: 'crypto, fintech & tech law — managing partner @ Lemur Legal, head of compliance @ GateHub',
               paragraphHtml:
-                'Technology rarely waits for regulation. I advise founders, financial institutions and technology companies where law, finance and emerging technology intersect — from MiCA, PSD2 and DORA to token launches, contracts and regulatory strategy. Move fast and break things, with me in the support role.',
+                'Technology rarely waits for regulation. With Lemur Legal I advise founders, financial institutions and technology companies where law, finance and emerging technology intersect — from MiCA, PSD2 and DORA to token launches, contracts and regulatory strategy. Move fast and break things, with me in the support role.',
               list: [
                 { key: 'Licensing', detail: 'PSD2 and MiCA (CASP authorisation), AML' },
                 { key: 'White papers', detail: 'MiCA-compliant drafting and notification' },
                 { key: 'Contracts', detail: 'Licensing agreements, IPR protection, EULA, SW development agreements' },
                 { key: 'Compliance', detail: 'Acting as an external regulatory compliance officer' },
-                { key: 'Intellectual property', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+                { key: 'Intellectual property', detail: 'Web portal for brands and design protection — mojaznamka.si' },
               ],
             },
             {
               subLabel: 'Supervisor',
               credential: 'financial supervision — supervisory board @ JonatanMars Invest',
               paragraphHtml:
-                'In regulated finance, growth must be matched by sound governance. As President of the Supervisory Board at JonatanMars Invest, a regulated asset management and brokerage company, I provide strategic oversight of management, governance, risk and regulatory compliance. I bring experience from banking, capital markets, fintech and corporate law to the boardroom, helping ensure that ambitious business decisions are supported by robust controls and long-term accountability.',
+                'In regulated finance, growth must be matched by sound governance. As President of the Supervisory Board at <strong style="font-weight:600;">JonatanMars Invest</strong>, a regulated asset management and brokerage company, I provide strategic oversight of management, governance, risk and regulatory compliance. I bring experience from banking, capital markets, fintech and corporate law to the boardroom, helping ensure that ambitious business decisions are supported by robust controls and long-term accountability.',
               list: [
                 { key: 'Board', detail: 'President of the Supervisory Board @ JonatanMars Invest' },
                 { key: 'Oversight', detail: 'Management, governance, risk and regulatory compliance' },
-                { key: 'Background', detail: 'Banking, capital markets, fintech and corporate law' },
+                { key: 'Background', detail: 'Banking, capital markets, fintech, corporate law and MiFID II' },
               ],
             },
           ],
@@ -237,6 +293,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Fund #1', detail: 'Suricate Ventures — early-stage, industry agnostic' },
                 { key: 'Fund #2', detail: 'IBEX Defence Fund — early-stage, defence-tech & dual-use' },
+                { key: 'Accelerator', detail: 'IBEX Defence Accelerator — accelerating defence and dual-use startups' },
                 { key: 'Angel', detail: 'Pre-seed and seed investments in tech startups' },
               ],
             },
@@ -321,7 +378,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'The operating map',
       chyron: 'Track record',
       aside: 'all verifiable',
-      pullQuote: 'Five practices, one desk — everything routes through Ljubljana',
+      pullQuote: 'Several hats, one desk — everything routes through Ljubljana',
       live: 'Live — tap a node to open its branch',
       networkAria: 'Peter Merc’s operating map — practices and organisations',
       visit: 'Visit',
@@ -331,7 +388,7 @@ const home: Localized<HomeContent> = {
       hub: {
         label: 'PM',
         name: 'Peter Merc',
-        desc: 'Counsel, capital, governance, teaching and evaluation — five practices run from one desk in Ljubljana. Open a branch to explore.',
+        desc: 'Counsel, capital, governance, teaching and evaluation — several practices run from one desk in Ljubljana. Open a branch to explore.',
         href: 'https://www.linkedin.com/in/petermerc/',
       },
       tree: [
@@ -397,16 +454,18 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; send more mentions from lemur.legal/media and they drop in.',
-      extras: [
-        { label: 'Stage', name: 'Money Motion', detail: '— fintech conference' },
-        { label: 'Mentor', name: 'startup.si', detail: '· Startup+ / SPS programs' },
-      ],
+      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; the archive row points at lemur.legal/media — say the word if it should go to the blog instead.',
+      archive: {
+        seg: 'Archive',
+        title: 'Every interview, column and mention — collected on Lemur Legal',
+        linkLabel: 'lemur.legal/media',
+        href: 'https://lemur.legal/media',
+      },
     },
     timeline: {
-      eyebrow: 'The record, in order',
-      chyron: 'The record, in order',
-      aside: 'seven moves, one direction',
+      eyebrow: 'Personal timeline',
+      chyron: 'Personal timeline',
+      aside: 'direction #tech',
       entries: [
         { year: '2008', title: 'Bank of Slovenia', caption: 'Legal counsel — banking supervision' },
         { year: '2013', title: 'Ph.D. in law', caption: 'Doctorate — financial law' },
@@ -438,24 +497,29 @@ const home: Localized<HomeContent> = {
       regarding: 'Regarding',
       topics: [
         {
-          key: 'MiCA & licensing',
-          label: 'MiCA & licensing',
+          key: 'Crypto regulation',
+          label: 'Crypto regulation',
           hint: 'Which market, which token, and when you need to be live.',
         },
         {
-          key: 'Listing opinion',
-          label: 'Listing opinion',
-          hint: 'Which asset, which venue, and the timeline you are working against.',
+          key: 'Fintech',
+          label: 'Fintech',
+          hint: 'The licence you are after, the regulator you are facing, and your timeline.',
         },
         {
-          key: 'Venture & funds',
-          label: 'Venture & funds',
+          key: 'Defence-tech',
+          label: 'Defence-tech',
+          hint: 'What you are building, and where it sits on the dual-use line.',
+        },
+        {
+          key: 'Venture capital',
+          label: 'Venture capital',
           hint: 'Stage, round, and what you are building.',
         },
         {
-          key: 'Speaking & media',
-          label: 'Speaking & media',
-          hint: 'Format, date, audience.',
+          key: 'Crypto scams',
+          label: 'Crypto scams',
+          hint: 'What you lost and when, plus any wallet addresses or exchanges involved.',
         },
         {
           key: 'Something else',
@@ -515,11 +579,11 @@ const home: Localized<HomeContent> = {
         'Beli papirji po MiCA in licenciranje CASP',
         'Klasifikacija žetonov in mnenja za uvrstitve',
         'Tokenizacija stvarnega premoženja (RWA)',
-        'Obdavčitev kriptovalut',
-        'Ustanavljanje skladov in naložbe tveganega kapitala',
+        'Tvegani kapital',
+        'Forenzika blockchaina',
         'Regulatorna strategija za finteche',
         'Paneli, predavanja in komentarji',
-        'Delo v odborih in oblikovanje politik',
+        'Obrambne in dvonamenske tehnologije',
       ],
     },
     facets: {
@@ -536,24 +600,24 @@ const home: Localized<HomeContent> = {
               subLabel: 'Svetovalec',
               credential: 'kripto, fintech in tehnološko pravo — vodilni partner @ Lemur Legal, vodja skladnosti @ GateHub',
               paragraphHtml:
-                'Tehnologija le redko počaka na regulativo. Svetujem ustanoviteljem, finančnim institucijam in tehnološkim podjetjem tam, kjer se prepletajo pravo, finance in nastajajoče tehnologije — od MiCA, PSD2 in DORA do izdaj žetonov, pogodb in regulativne strategije. »Move fast and break things«, z mano v podporni vlogi.',
+                'Tehnologija le redko počaka na regulativo. V pisarni Lemur Legal svetujem ustanoviteljem, finančnim institucijam in tehnološkim podjetjem tam, kjer se prepletajo pravo, finance in nastajajoče tehnologije — od MiCA, PSD2 in DORA do izdaj žetonov, pogodb in regulativne strategije. »Move fast and break things«, z mano v podporni vlogi.',
               list: [
                 { key: 'Licenciranje', detail: 'PSD2 in MiCA (dovoljenje CASP), AML' },
                 { key: 'Beli papirji', detail: 'Priprava in notifikacija skladno z MiCA' },
                 { key: 'Pogodbe', detail: 'Licenčne pogodbe, zaščita IP, EULA, pogodbe o razvoju programske opreme' },
                 { key: 'Skladnost', detail: 'Delovanje kot zunanji pooblaščenec za regulativno skladnost' },
-                { key: 'Intelektualna lastnina', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+                { key: 'Intelektualna lastnina', detail: 'Spletni portal za zaščito znamk in modelov — mojaznamka.si' },
               ],
             },
             {
               subLabel: 'Nadzornik',
               credential: 'finančni nadzor — nadzorni svet @ JonatanMars Invest',
               paragraphHtml:
-                'V regulirani finančni panogi mora rast spremljati zdravo upravljanje. Kot predsednik nadzornega sveta v družbi JonatanMars Invest, regulirani družbi za upravljanje premoženja in borzno posredovanje, zagotavljam strateški nadzor nad vodenjem, upravljanjem, tveganji in regulativno skladnostjo. V sejno sobo prinašam izkušnje iz bančništva, kapitalskih trgov, fintecha in gospodarskega prava ter pomagam zagotoviti, da ambiciozne poslovne odločitve podpirajo trdni kontrolni mehanizmi in dolgoročna odgovornost.',
+                'V regulirani finančni panogi mora rast spremljati zdravo upravljanje. Kot predsednik nadzornega sveta v družbi <strong style="font-weight:600;">JonatanMars Invest</strong>, regulirani družbi za upravljanje premoženja in borzno posredovanje, zagotavljam strateški nadzor nad vodenjem, upravljanjem, tveganji in regulativno skladnostjo. V sejno sobo prinašam izkušnje iz bančništva, kapitalskih trgov, fintecha in gospodarskega prava ter pomagam zagotoviti, da ambiciozne poslovne odločitve podpirajo trdni kontrolni mehanizmi in dolgoročna odgovornost.',
               list: [
                 { key: 'Nadzorni svet', detail: 'Predsednik nadzornega sveta @ JonatanMars Invest' },
                 { key: 'Nadzor', detail: 'Vodenje, upravljanje, tveganja in regulativna skladnost' },
-                { key: 'Ozadje', detail: 'Bančništvo, kapitalski trgi, fintech in gospodarsko pravo' },
+                { key: 'Ozadje', detail: 'Bančništvo, kapitalski trgi, fintech, gospodarsko pravo in MiFID II' },
               ],
             },
           ],
@@ -572,6 +636,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Sklad #1', detail: 'Suricate Ventures — zgodnje faze, panožno nevtralen' },
                 { key: 'Sklad #2', detail: 'IBEX Defence Fund — zgodnje faze, obrambne in dvonamenske tehnologije' },
+                { key: 'Pospeševalnik', detail: 'IBEX Defence Accelerator — za startupe na področju obrambnih in dvonamenskih tehnologij' },
                 { key: 'Angel', detail: 'Pred-semenske in semenske naložbe v tehnološke startupe' },
               ],
             },
@@ -656,7 +721,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Operativni zemljevid',
       chyron: 'Dosedanje delo',
       aside: 'vse preverljivo',
-      pullQuote: 'Pet področij, ena miza — vse poti vodijo skozi Ljubljano',
+      pullQuote: 'Več vlog, ena miza — vse poti vodijo skozi Ljubljano',
       live: 'V živo — tapnite vozlišče in odprite vejo',
       networkAria: 'Operativni zemljevid Petra Merca — področja in organizacije',
       visit: 'Obišči',
@@ -666,7 +731,7 @@ const home: Localized<HomeContent> = {
       hub: {
         label: 'PM',
         name: 'Peter Merc',
-        desc: 'Svetovanje, kapital, upravljanje, predavanja in ocenjevanje — pet področij, ki jih vodim z ene mize v Ljubljani. Odprite vejo za več.',
+        desc: 'Svetovanje, kapital, upravljanje, predavanja in ocenjevanje — več vlog, ki jih vodim z ene mize v Ljubljani. Odprite vejo za več.',
         href: 'https://www.linkedin.com/in/petermerc/',
       },
       tree: [
@@ -732,16 +797,18 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; pošljite več omemb z lemur.legal/media in jih dodamo.',
-      extras: [
-        { label: 'Oder', name: 'Money Motion', detail: '— fintech konferenca' },
-        { label: 'Mentor', name: 'startup.si', detail: '· programa Startup+ / SPS' },
-      ],
+      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; povezava do arhiva kaže na lemur.legal/media — sporočite, če naj vodi na blog.',
+      archive: {
+        seg: 'Arhiv',
+        title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',
+        linkLabel: 'lemur.legal/media',
+        href: 'https://lemur.legal/media',
+      },
     },
     timeline: {
-      eyebrow: 'Kronologija',
-      chyron: 'Kronologija',
-      aside: 'sedem potez, ena smer',
+      eyebrow: 'Osebna kronologija',
+      chyron: 'Osebna kronologija',
+      aside: 'smer #tech',
       entries: [
         { year: '2008', title: 'Banka Slovenije', caption: 'Pravni svetovalec — bančni nadzor' },
         { year: '2013', title: 'Doktorat iz prava', caption: 'Doktorat — finančno pravo' },
@@ -773,24 +840,29 @@ const home: Localized<HomeContent> = {
       regarding: 'Glede',
       topics: [
         {
-          key: 'MiCA & licensing',
-          label: 'MiCA in licenciranje',
+          key: 'Crypto regulation',
+          label: 'Regulacija kriptovalut',
           hint: 'Kateri trg, kateri žeton in do kdaj morate biti operativni.',
         },
         {
-          key: 'Listing opinion',
-          label: 'Mnenje za uvrstitev',
-          hint: 'Katero sredstvo, katera borza in kakšen je vaš časovni okvir.',
+          key: 'Fintech',
+          label: 'Fintech',
+          hint: 'Katero dovoljenje potrebujete, kateri regulator je pristojen in do kdaj.',
         },
         {
-          key: 'Venture & funds',
-          label: 'Naložbe in skladi',
+          key: 'Defence-tech',
+          label: 'Obrambne tehnologije',
+          hint: 'Kaj gradite in kje pri tem poteka meja med civilno in vojaško rabo.',
+        },
+        {
+          key: 'Venture capital',
+          label: 'Tvegani kapital',
           hint: 'Faza, krog in kaj gradite.',
         },
         {
-          key: 'Speaking & media',
-          label: 'Nastopi in mediji',
-          hint: 'Format, datum, občinstvo.',
+          key: 'Crypto scams',
+          label: 'Prevare s kriptovalutami',
+          hint: 'Kaj ste izgubili in kdaj ter kateri naslovi denarnic in kriptoborze so vpleteni.',
         },
         {
           key: 'Something else',

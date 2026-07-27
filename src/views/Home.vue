@@ -58,16 +58,16 @@
           :style="i === t.facets.entries.length - 1 ? 'margin:0; border-bottom:1px solid var(--line);' : 'margin:0;'">
           <button :id="'btn-' + entry.key" type="button" data-on-click="toggleEntry" :data-key="entry.key" aria-expanded="false" :aria-controls="'brief-' + entry.key" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
             <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ entry.label }}</strong>
-            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ entry.credential }}</em>
+            <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);" v-html="withOrgLinks(entry.credential)"></em>
             <span :id="'ico-' + entry.key" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
           </button>
           <div :id="'brief-' + entry.key" :data-brief="entry.key" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
             <div style="overflow:hidden; min-height:0;">
               <div style="padding:0.2rem 0.2rem 1.4rem; max-width:62ch;">
                 <div v-for="(sub, si) in entry.subsections" :key="si" :style="si > 0 ? 'margin-top:1.5rem; padding-top:1.2rem; border-top:1px solid var(--line);' : ''">
-                  <h3 v-if="entry.subsections.length > 1" style="margin:0 0 0.55rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.35rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ sub.subLabel }}<span style="font-family:'Spectral', Georgia, serif; text-transform:none; letter-spacing:0; font-style:italic; font-weight:400; font-size:0.92rem; color:var(--ink2);">{{ sub.credential }}</span></h3>
-                  <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="sub.paragraphHtml"></p>
-                  <div v-for="item in sub.list" :key="item.key" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ item.key }}</span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;"><a v-if="item.href" :href="item.href" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:2px;">{{ item.detail }}</a><template v-else>{{ item.detail }}</template></span></div>
+                  <h3 v-if="entry.subsections.length > 1" style="margin:0 0 0.55rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.35rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ sub.subLabel }}<span style="font-family:'Spectral', Georgia, serif; text-transform:none; letter-spacing:0; font-style:italic; font-weight:400; font-size:0.92rem; color:var(--ink2);" v-html="withOrgLinks(sub.credential)"></span></h3>
+                  <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="withOrgLinks(sub.paragraphHtml)"></p>
+                  <div v-for="item in sub.list" :key="item.key" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);" v-html="withOrgLinks(item.key)"></span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;"><a v-if="item.href" :href="item.href" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:2px;">{{ item.detail }}</a><span v-else v-html="withOrgLinks(item.detail)"></span></span></div>
                 </div>
               </div>
             </div>
@@ -132,11 +132,13 @@
           </a>
         </div>
         <p style="margin:1.2rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:#948E81;">{{ t.media.note }}</p>
-        <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); display:flex; flex-direction:column; gap:1.1rem;">
-          <div v-for="(x, xi) in t.media.extras" :key="x.label" :data-reveal="3 + xi" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 2rem;">
-            <span style="flex:0 0 6.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ x.label }}</span>
-            <span style="font-family:'Spectral', Georgia, serif; font-size:1.18rem; color:var(--ivory);">{{ x.name }} <em style="font-style:italic; font-weight:400; font-size:0.85em; color:var(--ivory2);">{{ x.detail }}</em></span>
-          </div>
+        <!-- Same row as a `writing` segment, in the dark section's palette. -->
+        <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); border-bottom:1px solid rgba(236,231,220,0.12);">
+          <a data-reveal="3" :href="t.media.archive.href" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid rgba(236,231,220,0.12); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
+            <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ t.media.archive.seg }}</span>
+            <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3; color:var(--ivory);">{{ t.media.archive.title }}</span>
+            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.archive.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+          </a>
         </div>
       </div>
     </section>
@@ -279,7 +281,7 @@ import { runLanguageRetype } from '@/composables/retype'
 import { usePageContent } from '@/i18n/useContent'
 import { useHead } from '@/i18n/useHead'
 import { consumeLangSwitch } from '@/i18n/locale'
-import home from '@/content/home'
+import home, { withOrgLinks } from '@/content/home'
 
 // All copy comes from the locale-keyed content module. The router remounts
 // this view on '/' ↔ '/sl' (router-view :key), so t.value is stable for the
