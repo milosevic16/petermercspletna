@@ -32,3 +32,21 @@
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-cache"
+# Header rules match the REQUEST path, not the file that ends up being served, so
+# the /index.html rule above never covers a visit to "/" (or "/sl", served by
+# sl.html). Without these, a browser can hold a stale HTML shell that keeps
+# pointing at long-gone fingerprinted bundles — the "one browser still shows the
+# old site while another is fine" symptom. Assets stay immutable; only the shells
+# must always be revalidated.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/sl"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/sl.html"
+  [headers.values]
+    Cache-Control = "no-cache"

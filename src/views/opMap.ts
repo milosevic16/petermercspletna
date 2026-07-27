@@ -49,24 +49,37 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   type N = { key: string; label: string; name: string; desc: string; href: string; depth: number; x: number; y: number; parent: string | null; kids: string[]; leaf: boolean }
   const byId: Record<string, N> = {}
   const R = [0, 200, 380, 520]
-  const FAN: Record<number, number> = { 1: 26, 2: 14 }
   const rd = (d: number) => ((d - 90) * Math.PI) / 180
-  function place(node: OpMapNode, depth: number, angle: number, parent: string | null) {
-    const kids = node.children || []
-    byId[node.key] = {
-      key: node.key, label: node.label, name: node.name || node.label, desc: node.desc, href: node.href || '',
-      depth, parent, kids: kids.map((k) => k.key), leaf: kids.length === 0,
-      x: depth === 0 ? 0 : R[depth] * Math.cos(rd(angle)), y: depth === 0 ? 0 : R[depth] * Math.sin(rd(angle)),
-    }
-    if (depth === 0) kids.forEach((k, i) => place(k, 1, -90 + i * (360 / kids.length), node.key))
-    else { const h = FAN[depth] || 12, n = kids.length; kids.forEach((k, i) => place(k, depth + 1, n === 1 ? angle : angle - h + (2 * h * i) / (n - 1), node.key)) }
-  }
   const hubNode: OpMapNode = { key: 'pm', label: content.hub.label, name: content.hub.name, desc: content.hub.desc, href: content.hub.href, children: content.tree }
-  place(hubNode, 0, 0, null)
-  const ORDER = Object.keys(byId) // stable draw / a11y order
   // Farthest node from centre (~R[3]=520) + margin; clamps mobile drag-pan so the
   // graph can be explored past the current fit but never dragged fully off-screen.
-  const GEXT = Math.max(0, ...Object.values(byId).map((n) => Math.max(Math.abs(n.x), Math.abs(n.y)))) + 60
+  let GEXT = 0
+  let laidOutDesktop: boolean | null = null
+  // The fan is WIDER on phones. Sibling titles there are pinned to a constant px
+  // size while the camera pulls back to fit them, so at the desktop fan (±26°)
+  // the longest names in a five-child branch overlapped — and the de-clutter pass
+  // can't rescue that, since it never hides an active title. Spreading the arc
+  // spends vertical room the phone fit has going spare (these branches are
+  // width-bound), and stops short of the 72° between categories so neighbouring
+  // branches still don't run into each other.
+  function buildLayout(desktop: boolean) {
+    const FAN: Record<number, number> = desktop ? { 1: 26, 2: 14 } : { 1: 33, 2: 20 }
+    const place = (node: OpMapNode, depth: number, angle: number, parent: string | null) => {
+      const kids = node.children || []
+      byId[node.key] = {
+        key: node.key, label: node.label, name: node.name || node.label, desc: node.desc, href: node.href || '',
+        depth, parent, kids: kids.map((k) => k.key), leaf: kids.length === 0,
+        x: depth === 0 ? 0 : R[depth] * Math.cos(rd(angle)), y: depth === 0 ? 0 : R[depth] * Math.sin(rd(angle)),
+      }
+      if (depth === 0) kids.forEach((k, i) => place(k, 1, -90 + i * (360 / kids.length), node.key))
+      else { const h = FAN[depth] || 12, n = kids.length; kids.forEach((k, i) => place(k, depth + 1, n === 1 ? angle : angle - h + (2 * h * i) / (n - 1), node.key)) }
+    }
+    place(hubNode, 0, 0, null)
+    GEXT = Math.max(0, ...Object.values(byId).map((n) => Math.max(Math.abs(n.x), Math.abs(n.y)))) + 60
+    laidOutDesktop = desktop
+  }
+  buildLayout(isDesktop())
+  const ORDER = Object.keys(byId) // stable draw / a11y order
 
   function ancestors(id: string) { const a: string[] = []; let c: string | null = id; while (c) { a.unshift(c); c = byId[c].parent } return a }
 
@@ -176,23 +189,77 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const sidePx = 26
     return { top: (topPx + 8) * px2u, bottom: (sheetH + 28) * px2u, left: sidePx * px2u, right: sidePx * px2u }
   }
-  function fit(id: string) {
+  // The camera must frame the TITLES, not just the dots. A fixed pad around node
+  // centres could not do that on a phone: mobile titles are pinned to a constant
+  // CSS px size, so their WORLD width grows as the camera zooms out, and long
+  // ones ran off the edge. So the box is the union of the legacy centre+pad box
+  // (which keeps desktop framing byte-identical, and can only ever make the box
+  // bigger) with the MEASURED label boxes. That is a fixed point — the box
+  // depends on the scale, the scale on the box — but a contracting one (ratio ≈
+  // labelWidth/availWidth ≈ 0.4), so a few passes settle it.
+  const LBL_MARGIN = 8 // world units of air around a measured title
+  function fitBox(id: string, k: number) {
+    const desktop = isDesktop()
     const path = ancestors(id), childIds = byId[id].kids
-    const ids: Record<string, 1> = {}; path.concat(childIds).concat(['pm']).forEach((k) => (ids[k] = 1))
-    const pts = Object.keys(ids).map((k) => [byId[k].x, byId[k].y])
-    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
-    const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys)
-    // Mobile has no inline descriptions, so vertical padding can be much tighter
-    // there; horizontal stays generous for the side labels.
-    const pad = isDesktop() ? 105 : 70
-    const bw = maxx - minx + pad * 2, bh = maxy - miny + pad * 2, cx = (minx + maxx) / 2, cy = (miny + maxy) / 2
+    const ids: Record<string, 1> = {}; path.concat(childIds).concat(['pm']).forEach((x) => (ids[x] = 1))
+    // Desktop keeps its historic 105-unit pad around node centres (its framing is
+    // unchanged). Mobile only needs enough to clear the dot itself (r ≤ 28) plus a
+    // little air, because the titles — the thing that used to overflow — are now
+    // measured into the box directly instead of being guessed at by padding.
+    const pad = desktop ? 105 : 34
+    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity
+    const grow = (x0: number, y0: number, x1: number, y1: number) => {
+      if (x0 < minx) minx = x0
+      if (y0 < miny) miny = y0
+      if (x1 > maxx) maxx = x1
+      if (y1 > maxy) maxy = y1
+    }
+    Object.keys(ids).forEach((nid) => {
+      const n = byId[nid]
+      grow(n.x - pad, n.y - pad, n.x + pad, n.y + pad)
+      if (k <= 0 || nid === 'pm' || nid === id) return // hub has no label; focus uses focusName below
+      // only titles this view actually paints: the focus's children everywhere,
+      // plus the discovered spine behind it on mobile
+      if (desktop && childIds.indexOf(nid) < 0) return
+      const b = measureLbl(labelGeom(nid, id, k, desktop))
+      grow(b.x - LBL_MARGIN, b.y - LBL_MARGIN, b.x + b.w + LBL_MARGIN, b.y + b.h + LBL_MARGIN)
+    })
+    if (k > 0 && id !== 'pm') { // the serif focus title under the focused node
+      const f = byId[id]
+      const fs = desktop ? 17 : 18 / k
+      const y = desktop ? f.y + 38 : f.y + 25 + fs * 0.92 + 5
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `600 ${fs.toFixed(2)}px ${SERIF}`
+      const w = ctx.measureText(f.label).width; ctx.restore()
+      grow(f.x - w / 2 - LBL_MARGIN, y - fs - LBL_MARGIN, f.x + w / 2 + LBL_MARGIN, y + fs * 0.3 + LBL_MARGIN)
+    }
+    return { minx, miny, maxx, maxy }
+  }
+  function fitAt(id: string, k: number) {
+    const b = fitBox(id, k)
+    const bw = b.maxx - b.minx, bh = b.maxy - b.miny // pad is already folded in
+    const cx = (b.minx + b.maxx) / 2, cy = (b.miny + b.maxy) / 2
     const ins = insets()
     const availH = Math.max(160, VBH - ins.top - ins.bottom)
     const availW = Math.max(160, VBW - ins.left - ins.right)
-    let s = Math.min(availW / bw, availH / bh); s = Math.max(0.6, Math.min(s, 2.6))
+    // The mobile floor has to sit below the desktop one: phone titles are pinned
+    // to a constant px size, so a wide branch can only be made to fit by pulling
+    // the camera back, and a 0.6 floor would clamp before the titles were inside
+    // (they got cropped at the edge instead).
+    let s = Math.min(availW / bw, availH / bh); s = Math.max(isDesktop() ? 0.6 : 0.38, Math.min(s, 2.6))
     const bandCx = -VBW / 2 + ins.left + availW / 2 // horizontal centre of the free band
     const bandCy = -VBH / 2 + ins.top + availH / 2 // vertical centre of the free band
     return { tx: bandCx - s * cx, ty: bandCy - s * cy, s }
+  }
+  function fit(id: string) {
+    const ppu = Math.min(cssW / VBW, cssH / VBH) || 1
+    let out = fitAt(id, 0) // seed with dots only — label world size needs a scale
+    for (let i = 0; i < 5; i++) {
+      const next = fitAt(id, Math.max(0.05, out.s * ppu))
+      const settled = Math.abs(next.s - out.s) < 0.004
+      out = next
+      if (settled) break
+    }
+    return out
   }
   function setDossier(id: string) {
     const n = byId[id]
@@ -331,6 +398,51 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
 
   function wrap(s: string, m: number) { const w = s.split(' '), o: string[] = []; let line = ''; for (const x of w) { if ((line + ' ' + x).trim().length > m && line) { o.push(line.trim()); line = x } else line = (line + ' ' + x).trim() } if (line) o.push(line); return o }
 
+  // Node radius and title geometry — shared by fit() (to frame titles) and
+  // render() (to paint them), so the camera can never disagree with what's drawn.
+  function dotR(id: string, focus: string, desktop: boolean) {
+    // bigger nodes + far bigger tap targets on touch
+    return id === focus ? (desktop ? 18 : 28) : byId[id].depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
+  }
+  function labelGeom(id: string, focus: string, k: number, desktop: boolean): Lbl {
+    const node = byId[id]
+    const isCat = node.depth === 1
+    // On mobile the font is pinned to a fixed CSS px size (counter-scaled against
+    // the camera) so it stays legible and never rescales as the camera zooms.
+    const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 12) / k
+    // Even at the wider phone fan, a branch of four or five long names can still
+    // graze: push every other sibling's title further out along its spoke so
+    // neighbours never sit at the same radius. fsU is counter-scaled on mobile,
+    // so this is a constant on-screen nudge at any zoom.
+    const sibs = node.parent ? byId[node.parent].kids : []
+    const si = sibs.indexOf(id)
+    const stagger = !desktop && sibs.length > 2 && si % 2 === 1 ? fsU * 2.1 : 0
+    const gap = dotR(id, focus, desktop) + 9 + stagger
+    const pn = byId[node.parent as string], dxp = node.x - pn.x, dyp = node.y - pn.y
+    // Sibling titles stack vertically along the arc, so LINE COUNT is what makes
+    // them collide — a 13-char wrap turned "Research and Innovation Foundation
+    // (Cyprus)" into a four-line block taller than the gap to its neighbour.
+    // Leaf titles therefore wrap wide (most become one line) and the phone fit
+    // absorbs the extra width, which it has to spare. Category titles keep the
+    // narrow wrap: they are uppercase and letter-spaced, so one line of those
+    // would run half the width of the screen.
+    const lines = wrap(node.label, desktop ? 20 : isCat ? 13 : 24)
+    // Long uppercase category labels clip if placed to the side at the
+    // horizontal extremes of a narrow phone, so centre those above/below the
+    // node instead. Vertical-extreme categories keep side labels.
+    let align: CanvasTextAlign, x: number, y: number
+    if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
+      align = 'center'; x = node.x
+      y = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lines.length - 1) * fsU
+    } else {
+      align = Math.abs(dxp) < 18 ? 'center' : dxp > 0 ? 'left' : 'right'
+      x = node.x + (align === 'center' ? 0 : dxp > 0 ? gap : -gap)
+      y = node.y + (align === 'center'
+        ? (dyp >= 0 ? gap + fsU : -gap - (lines.length - 1) * fsU)
+        : fsU * 0.34 - (lines.length - 1) * fsU * 0.5)
+    }
+    return { lines, fsU, x, y, align, cat: isCat }
+  }
   function labelFont(fsU: number) { return `600 ${fsU.toFixed(2)}px ${SANS}` }
   function measureLbl(l: Lbl): { x: number; y: number; w: number; h: number } {
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = labelFont(l.fsU)
@@ -364,40 +476,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     edgeW = 1.3 / camTgt.s
     ORDER.forEach((id) => {
       if (id === 'pm') return
-      const v = vis[id], node = byId[id], t = tier(id), active = t === 'active'
+      const v = vis[id], t = tier(id), active = t === 'active'
       const disc = !desktop && discovered.has(id) // discovered stays visible + tappable on mobile
       const opTgt = disc && OP[t] === 0 ? DISC_OP : OP[t]
       twTo(v.op, now, opTgt, animate ? 550 : 0, cssEase)
       v.clickable = active || disc
       a11yBtn[id].hidden = !v.clickable
-      // bigger nodes + far bigger tap targets on touch
-      const rDot = id === focusId ? (desktop ? 18 : 28) : node.depth === 1 ? (desktop ? 14 : 23) : (desktop ? 12 : 20)
-      twTo(v.r, now, rDot, animate ? 450 : 0, rEase)
-      // Label: geometry tracks the target radius; on mobile the font is pinned to
-      // a fixed CSS px size (counter-scaled against the camera) so it stays
-      // legible and never rescales as the camera zooms.
+      twTo(v.r, now, dotR(id, focusId, desktop), animate ? 450 : 0, rEase)
       const lblShow = (id !== focusId && (active || disc)) ? 1 : 0
       twTo(v.lblOp, now, lblShow, animate ? 500 : 0, cssEase)
-      const isCat = node.depth === 1
-      const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 13) / k
-      const pn = byId[node.parent as string], dxp = node.x - pn.x, dyp = node.y - pn.y
-      const gap = rDot + 9
-      const lns = wrap(node.label, desktop ? 20 : 13)
-      // Long uppercase category labels clip if placed to the side at the
-      // horizontal extremes of a narrow phone, so centre those above/below the
-      // node instead. Vertical-extreme categories keep side labels.
-      let align: CanvasTextAlign, tx: number, ty: number
-      if (!desktop && isCat && Math.abs(node.x) > Math.abs(node.y)) {
-        align = 'center'; tx = node.x
-        ty = node.y >= 0 ? node.y + gap + fsU : node.y - gap - (lns.length - 1) * fsU
-      } else {
-        align = Math.abs(dxp) < 18 ? 'center' : dxp > 0 ? 'left' : 'right'
-        tx = node.x + (align === 'center' ? 0 : dxp > 0 ? gap : -gap)
-        ty = node.y + (align === 'center'
-          ? (dyp >= 0 ? gap + fsU : -gap - (lns.length - 1) * fsU)
-          : fsU * 0.34 - (lns.length - 1) * fsU * 0.5)
-      }
-      v.lbl = { lines: lns, fsU, x: tx, y: ty, align, cat: isCat }
+      v.lbl = labelGeom(id, focusId, k, desktop)
       // edges
       if (t === 'active' || t === 'spine') { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = t === 'active' ? 0.5 : 0.4 }
       else if (!desktop && discovered.has(id)) { v.edge = { kind: 'flat', color: IVORY }; v.edgeFlatAlpha = 0.16 } // discovered edge stays drawn
@@ -456,7 +544,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (id === 'pm') { onHubActivate(); return }
     if (id === focusId) { goUp(); return }
     const n = byId[id]
-    if (n.kids.length) go(id); else { foldPan(); selId = id; render(true) }
+    if (n.kids.length) { go(id); return }
+    // A leaf: select it AND focus its section, so tapping a node that belongs to
+    // another branch flies the camera to that branch instead of only recolouring
+    // a dot the camera never travels to. When the leaf is already in view its
+    // parent IS the current focus, so this leaves the camera exactly where it is.
+    foldPan()
+    selId = id
+    focusId = n.parent || focusId
+    render(true)
   }
   function onHubActivate() { if (focusId !== 'pm') go('pm') }
   function goUp() { const p = byId[focusId].parent; if (p) go(p); else { foldPan(); selId = 'pm'; render(true) } }
@@ -841,7 +937,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       else if (!e.shiftKey && (a === last || !container.contains(a))) { e.preventDefault(); first.focus() }
     }
   }
-  const onResize = () => { if (fsState !== 'collapsed' && isDesktop()) forceCollapse(); render() }
+  const onResize = () => {
+    if (fsState !== 'collapsed' && isDesktop()) forceCollapse()
+    // Crossing the phone/desktop breakpoint (rotation, tablet, resized window)
+    // switches the fan, so the radial layout has to be rebuilt before refitting.
+    if (laidOutDesktop !== isDesktop()) buildLayout(isDesktop())
+    render()
+  }
   pmback.addEventListener('click', onBack)
   canvas.addEventListener('click', onCanvasClick)
   canvas.addEventListener('mousemove', onCanvasMove)
