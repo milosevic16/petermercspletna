@@ -467,6 +467,7 @@ const home: Localized<HomeContent> = {
           desc: 'Quoted as an expert on Binance’s EU licence, the MiCA regime, and what it means for users in practice.',
           href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
           external: true,
+          cta: 'Read more',
         },
         {
           kicker: 'Television — RTV SLO',
@@ -484,6 +485,7 @@ const home: Localized<HomeContent> = {
           desc: 'On digital sovereignty, control over data, technological infrastructure and business resilience.',
           href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
           external: true,
+          cta: 'Read more',
         },
         {
           kicker: 'Interview — AmCham Slovenija',
@@ -499,6 +501,7 @@ const home: Localized<HomeContent> = {
           desc: 'Why blockchain is more than Bitcoin — and what it changes first.',
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
+          cta: 'Read more',
         },
       ],
       cta: 'Open coverage',
@@ -849,6 +852,7 @@ const home: Localized<HomeContent> = {
           desc: 'Kot strokovnjak o licenci Binancea v EU, ureditvi MiCA in o tem, kaj to v praksi pomeni za uporabnike.',
           href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
           external: true,
+          cta: 'Preberi',
         },
         {
           kicker: 'Televizija — RTV SLO',
@@ -866,6 +870,7 @@ const home: Localized<HomeContent> = {
           desc: 'O digitalni suverenosti, nadzoru nad podatki, tehnološki infrastrukturi in odpornosti podjetij.',
           href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
           external: true,
+          cta: 'Preberi',
         },
         {
           kicker: 'Intervju — AmCham Slovenija',
@@ -881,6 +886,7 @@ const home: Localized<HomeContent> = {
           desc: 'Zakaj je blockchain več kot bitcoin — in kaj spremeni najprej.',
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
+          cta: 'Preberi',
         },
       ],
       cta: 'Odpri prispevek',
