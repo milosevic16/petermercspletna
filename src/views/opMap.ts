@@ -183,10 +183,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const topPx = Math.max(crumbH, pmback.hidden ? 0 : 40)
     const sheetH = dossier.offsetHeight || 170
     // +28 at the bottom so the lowest node's dot clears the sheet (the band
-    // centres node CENTRES; the dot extends below its centre). ~26px each side
-    // keeps the centred category labels on screen when the fit is width-bound on
-    // a narrow phone, without starving the scale on wider ones.
-    const sidePx = 26
+    // centres node CENTRES; the dot extends below its centre). The side margin
+    // is small now: these branches are width-bound, the titles themselves are
+    // measured into the camera box, and every reserved pixel here is one the
+    // graph has to give back in scale.
+    const sidePx = 14
     return { top: (topPx + 8) * px2u, bottom: (sheetH + 28) * px2u, left: sidePx * px2u, right: sidePx * px2u }
   }
   // The camera must frame the TITLES, not just the dots. A fixed pad around node
@@ -206,7 +207,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // unchanged). Mobile only needs enough to clear the dot itself (r ≤ 28) plus a
     // little air, because the titles — the thing that used to overflow — are now
     // measured into the box directly instead of being guessed at by padding.
-    const pad = desktop ? 105 : 34
+    const pad = desktop ? 105 : 28
     let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity
     const grow = (x0: number, y0: number, x1: number, y1: number) => {
       if (x0 < minx) minx = x0
@@ -219,7 +220,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       grow(n.x - pad, n.y - pad, n.x + pad, n.y + pad)
       if (k <= 0 || nid === 'pm' || nid === id) return // hub has no label; focus uses focusName below
       // only titles this view actually paints: the focus's children everywhere,
-      // plus the discovered spine behind it on mobile
+      // plus the spine behind it on mobile (see lblShow in render)
       if (desktop && childIds.indexOf(nid) < 0) return
       const b = measureLbl(labelGeom(nid, id, k, desktop))
       grow(b.x - LBL_MARGIN, b.y - LBL_MARGIN, b.x + b.w + LBL_MARGIN, b.y + b.h + LBL_MARGIN)
@@ -409,14 +410,20 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const isCat = node.depth === 1
     // On mobile the font is pinned to a fixed CSS px size (counter-scaled against
     // the camera) so it stays legible and never rescales as the camera zooms.
-    const fsU = desktop ? (isCat ? 13.5 : 14.5) : (isCat ? 12.5 : 12) / k
+    // Phone titles are counter-scaled to hold a constant on-screen size — but
+    // only down to a point. Past it that rule runs away: zooming out inflates a
+    // title's size in GRAPH units, which widens the box the camera has to frame,
+    // which zooms out further. A branch with one long name could drive the scale
+    // to its floor and still overflow. Capping the graph-unit size breaks the
+    // loop; beyond the cap titles simply shrink on screen like the rest of the map.
+    const fsU = desktop ? (isCat ? 13.5 : 14.5) : Math.min((isCat ? 12.5 : 12) / k, isCat ? 22 : 20)
     // Even at the wider phone fan, a branch of four or five long names can still
     // graze: push every other sibling's title further out along its spoke so
     // neighbours never sit at the same radius. fsU is counter-scaled on mobile,
     // so this is a constant on-screen nudge at any zoom.
     const sibs = node.parent ? byId[node.parent].kids : []
     const si = sibs.indexOf(id)
-    const stagger = !desktop && sibs.length > 2 && si % 2 === 1 ? fsU * 2.1 : 0
+    const stagger = !desktop && sibs.length > 2 && si % 2 === 1 ? fsU * 1.5 : 0
     const gap = dotR(id, focus, desktop) + 9 + stagger
     const pn = byId[node.parent as string], dxp = node.x - pn.x, dyp = node.y - pn.y
     // Sibling titles stack vertically along the arc, so LINE COUNT is what makes
@@ -426,7 +433,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // absorbs the extra width, which it has to spare. Category titles keep the
     // narrow wrap: they are uppercase and letter-spaced, so one line of those
     // would run half the width of the screen.
-    const lines = wrap(node.label, desktop ? 20 : isCat ? 13 : 24)
+    const lines = wrap(node.label, desktop ? 20 : isCat ? 13 : 20)
     // Long uppercase category labels clip if placed to the side at the
     // horizontal extremes of a narrow phone, so centre those above/below the
     // node instead. Vertical-extreme categories keep side labels.
@@ -483,7 +490,14 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       v.clickable = active || disc
       a11yBtn[id].hidden = !v.clickable
       twTo(v.r, now, dotR(id, focusId, desktop), animate ? 450 : 0, rEase)
-      const lblShow = (id !== focusId && (active || disc)) ? 1 : 0
+      // Titles belong to the branch you are LOOKING at: the focus's children plus
+      // the spine back to PM. A merely-discovered node keeps its dot (visible and
+      // tappable) but drops its title until you go there. Showing every
+      // discovered title meant ~19 of them at once, most hanging off the screen
+      // edge as clipped fragments, and it forced the camera to its zoom-out floor
+      // trying to frame them all — the branch you actually opened ended up tiny.
+      // (desktop keeps active-only, exactly as before — it never showed the spine)
+      const lblShow = (id !== focusId && (active || (!desktop && t === 'spine'))) ? 1 : 0
       twTo(v.lblOp, now, lblShow, animate ? 500 : 0, cssEase)
       v.lbl = labelGeom(id, focusId, k, desktop)
       // edges
