@@ -58,16 +58,21 @@
           :style="i === t.facets.entries.length - 1 ? 'margin:0; border-bottom:1px solid var(--line);' : 'margin:0;'">
           <button :id="'btn-' + entry.key" type="button" data-on-click="toggleEntry" :data-key="entry.key" aria-expanded="false" :aria-controls="'brief-' + entry.key" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.3rem 1.4rem; width:100%; box-sizing:border-box; text-align:left; background:transparent; border:0; border-top:1px solid var(--line); padding:1rem 0.2rem; min-height:44px; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:rgba(23,24,26,0.04);">
             <strong style="flex:0 0 10.5rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.3rem; color:var(--ink);">{{ entry.label }}</strong>
+            <!-- No org links here: this line sits inside the toggle button, and a
+                 nested <a> is invalid there and would fire two actions on one click. -->
             <em style="flex:1 1 16rem; font-family:'Spectral', Georgia, serif; font-style:italic; font-weight:400; font-size:0.97rem; color:var(--ink2);">{{ entry.credential }}</em>
             <span :id="'ico-' + entry.key" style="margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border:1px solid var(--ink2); color:var(--ink2); font-size:1.05rem; line-height:1; flex:none; transition:transform 0.35s cubic-bezier(0.2,0.7,0.2,1), color 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);">+</span>
           </button>
-          <div :id="'brief-' + entry.key" :data-brief="entry.key" style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
+          <!-- Starts collapsed, so it starts inert: the panel is hidden by height
+               alone, and its links stay in the tab order without this. _toggle owns
+               the attribute from the first click on. -->
+          <div :id="'brief-' + entry.key" :data-brief="entry.key" inert style="display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.5s cubic-bezier(0.2,0.7,0.2,1);">
             <div style="overflow:hidden; min-height:0;">
               <div style="padding:0.2rem 0.2rem 1.4rem; max-width:62ch;">
                 <div v-for="(sub, si) in entry.subsections" :key="si" :style="si > 0 ? 'margin-top:1.5rem; padding-top:1.2rem; border-top:1px solid var(--line);' : ''">
-                  <h3 v-if="entry.subsections.length > 1" style="margin:0 0 0.55rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.35rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ sub.subLabel }}<span style="font-family:'Spectral', Georgia, serif; text-transform:none; letter-spacing:0; font-style:italic; font-weight:400; font-size:0.92rem; color:var(--ink2);">{{ sub.credential }}</span></h3>
-                  <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="sub.paragraphHtml"></p>
-                  <div v-for="item in sub.list" :key="item.key" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ item.key }}</span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;"><a v-if="item.href" :href="item.href" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:2px;">{{ item.detail }}</a><template v-else>{{ item.detail }}</template></span></div>
+                  <h3 v-if="entry.subsections.length > 1" style="margin:0 0 0.55rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.35rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ sub.subLabel }}<span style="font-family:'Spectral', Georgia, serif; text-transform:none; letter-spacing:0; font-style:italic; font-weight:400; font-size:0.92rem; color:var(--ink2);" v-html="withOrgLinks(sub.credential)"></span></h3>
+                  <p style="margin:0 0 0.7rem; font-size:1.03rem; line-height:1.64; color:#34332E;" v-html="withOrgLinks(sub.paragraphHtml)"></p>
+                  <div v-for="item in sub.list" :key="item.key" style="display:flex; flex-wrap:wrap; gap:0.2rem 1.5rem; padding:0.55rem 0; border-top:1px solid var(--line);"><span style="flex:0 0 8.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.66rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);" v-html="withOrgLinks(item.key)"></span><span style="flex:1 1 14rem; font-size:0.98rem; color:#34332E;"><a v-if="item.href" :href="item.href" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:2px;">{{ item.detail }}</a><span v-else v-html="withOrgLinks(item.detail)"></span></span></div>
                 </div>
               </div>
             </div>
@@ -108,6 +113,22 @@
       </div>
     </section>
 
+    <!-- Photo bridge: a full-bleed portrait band easing the operating map into
+         Media. Both neighbours are graphite, so the overlay dissolves each edge
+         into them and the photo reads as surfacing out of one section and
+         sinking into the next. Decor, not a section: no data-screen-label or
+         data-chyron, and it stays out of the progress bar's id list. The img
+         carries 14% vertical headroom (inset -7%) so the scroll parallax in
+         Home.effects.ts (±6%) never exposes an edge; data-reveal fades the band
+         in on first approach via the shared reveal observer. -->
+    <div id="bridge" data-reveal="0" style="position:relative; height:clamp(300px, 52vh, 620px); overflow:hidden; background:var(--graphite);">
+      <img id="bridge-img" src="/assets/99cac89a.jpg" :alt="t.media.bridgeAlt" loading="lazy" decoding="async" style="position:absolute; inset:-7% 0; width:100%; height:114%; object-fit:cover; object-position:30% 24%; filter:grayscale(1) contrast(1.02); will-change:transform;">
+      <!-- Two layers: the edge fades into the neighbours' graphite, plus a flat
+           scrim that pulls the photo's bright projection screen down into the
+           section's moody register instead of glaring against it. -->
+      <div aria-hidden="true" style="position:absolute; inset:0; background:linear-gradient(to bottom, var(--graphite) 0%, rgba(38,40,44,0) 32%, rgba(38,40,44,0) 62%, var(--graphite) 100%), linear-gradient(rgba(38,40,44,0.26), rgba(38,40,44,0.26)); pointer-events:none;"></div>
+    </div>
+
     <section id="media" data-screen-label="Media &amp; press" :data-chyron="t.media.chyron" style="background:var(--graphite); color:var(--ivory); padding:clamp(2.2rem, 5vw, 3.2rem) 0 clamp(4.5rem, 10vw, 7rem);">
       <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
         <h2 style="margin:0 0 clamp(1.6rem, 3.5vw, 2.4rem); display:flex; align-items:center; gap:1.1rem;">
@@ -124,24 +145,30 @@
               <div :id="'media-slot-' + (ci + 1)" style="width:100%; height:100%; display:block;"></div>
             </div>
             <div style="padding:1.1rem 1.2rem 1.25rem; display:flex; flex-direction:column; gap:0.55rem; flex:1;">
-              <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ card.kicker }}</span>
+              <span style="display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:0.3rem 0.8rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;"><span>{{ card.kicker }}</span><span v-if="card.date" style="flex:none; letter-spacing:0.1em; font-variant-numeric:tabular-nums;">{{ card.date }}</span></span>
               <span style="font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.22rem; line-height:1.3; color:var(--ivory);">{{ card.title }}</span>
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.88rem; line-height:1.5; color:var(--ivory2);">{{ card.desc }}</span>
-              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+              <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ card.cta || t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
             </div>
           </a>
         </div>
         <p style="margin:1.2rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:#948E81;">{{ t.media.note }}</p>
-        <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); display:flex; flex-direction:column; gap:1.1rem;">
-          <div v-for="(x, xi) in t.media.extras" :key="x.label" :data-reveal="3 + xi" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 2rem;">
-            <span style="flex:0 0 6.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:#948E81;">{{ x.label }}</span>
-            <span style="font-family:'Spectral', Georgia, serif; font-size:1.18rem; color:var(--ivory);">{{ x.name }} <em style="font-style:italic; font-weight:400; font-size:0.85em; color:var(--ivory2);">{{ x.detail }}</em></span>
-          </div>
+        <!-- Row-style link out to the full archive, in the dark section's palette. -->
+        <div style="margin-top:clamp(2.2rem, 5vw, 3.2rem); border-bottom:1px solid rgba(236,231,220,0.12);">
+          <!-- reveal 0: the row sits below the note in its own band and crosses the
+               threshold alone, so it should not wait out the card strip's stagger. -->
+          <a data-reveal="0" :href="t.media.archive.href" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid rgba(236,231,220,0.12); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
+            <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent);">{{ t.media.archive.seg }}</span>
+            <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3; color:var(--ivory);">{{ t.media.archive.title }}</span>
+            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ t.media.archive.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+          </a>
         </div>
       </div>
     </section>
 
-    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 0;">
+    <!-- Bottom padding is the section's own: the two-track timeline ends in the
+         lower track's text, where a trailing note used to provide the gap. -->
+    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 clamp(3rem, 6vw, 4.5rem);">
       <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
         <h2 style="margin:0 0 clamp(2.2rem, 5vw, 3.4rem); display:flex; align-items:center; gap:1.1rem;">
           <span style="display:inline-flex; align-items:center; background:var(--graphite); border-left:3px solid var(--accent); color:#D6D1C5; padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.timeline.eyebrow }}</span>
@@ -149,51 +176,45 @@
           <em style="font-family:'Spectral', Georgia, serif; font-weight:400; font-style:italic; font-size:0.9rem; color:var(--ink2);">{{ t.timeline.aside }}</em>
         </h2>
         <div class="pm-desktop-only">
-          <div id="tl-h" style="position:relative;">
-            <span aria-hidden="true" style="position:absolute; top:6px; left:0; right:0; height:2px; background:var(--line);"></span>
-            <span data-tl-line="" aria-hidden="true" style="position:absolute; top:6px; left:0; right:0; height:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
-            <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:1.2rem;">
-              <div v-for="(e, ei) in t.timeline.entries" :key="e.year" :id="'tl-' + ei" data-tl-item="" style="position:relative; padding-top:2.1rem;">
-                <span data-tl-dot="" aria-hidden="true" style="position:absolute; top:0; left:0; width:14px; height:14px; box-sizing:border-box; border-radius:50%; border:3px solid var(--accent); background:var(--paper);"></span>
-                <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.72rem; font-weight:600; letter-spacing:0.14em; color:var(--accent); font-variant-numeric:tabular-nums;">{{ e.year }}</span>
-                <strong style="display:block; margin-top:0.35rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.02rem; line-height:1.3; color:var(--ink);">{{ e.title }}</strong>
-                <span style="display:block; margin-top:0.3rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; line-height:1.5; color:var(--ink2);">{{ e.caption }}</span>
+          <!-- One shared axis: every entry takes its own column in chronological
+               order and renders above or below the rail according to its track.
+               16 columns will not fit the text column at a readable width, so
+               the rail scrolls rather than compressing. -->
+          <div id="tl-h" class="tl-h" tabindex="0" role="group" :aria-label="t.timeline.eyebrow">
+            <div class="tl-grid" :style="{ gridTemplateColumns: `repeat(${timelineMerged.length}, var(--tl-slot))` }">
+              <div
+                v-for="(e, i) in timelineMerged"
+                :key="e.side + e.year + e.title"
+                data-tl-item=""
+                class="tl-cell"
+                :class="['tl-cell-' + e.side, { 'tl-step': e.step }]"
+                :style="{ gridColumn: i + 1, gridRow: e.side === 'above' ? 1 : 3 }">
+                <span class="tl-txt">
+                  <span class="tl-year">{{ e.year }}</span>
+                  <strong class="tl-title">{{ e.title }}</strong>
+                  <span class="tl-cap">{{ e.caption }}</span>
+                </span>
+                <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
               </div>
+              <span aria-hidden="true" class="tl-rail"></span>
+              <span data-tl-line="" aria-hidden="true" class="tl-fill"></span>
             </div>
           </div>
         </div>
         <div class="pm-mobile-only">
-          <div id="tl-v" style="position:relative; padding-left:2.1rem;">
-            <span aria-hidden="true" style="position:absolute; top:4px; bottom:4px; left:6px; width:2px; background:var(--line);"></span>
-            <span data-tl-line="" aria-hidden="true" style="position:absolute; top:4px; bottom:4px; left:6px; width:2px; background:var(--accent); transform:scaleY(0); transform-origin:top;"></span>
-            <div style="display:flex; flex-direction:column; gap:1.5rem;">
-              <div v-for="e in t.timeline.entries" :key="e.year" data-tl-item="" style="position:relative;">
-                <span data-tl-dot="" aria-hidden="true" style="position:absolute; top:0.1rem; left:-2.1rem; width:14px; height:14px; box-sizing:border-box; border-radius:50%; border:3px solid var(--accent); background:var(--paper);"></span>
-                <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.72rem; font-weight:600; letter-spacing:0.14em; color:var(--accent); font-variant-numeric:tabular-nums;">{{ e.year }}</span>
-                <strong style="display:block; margin-top:0.25rem; font-family:'Spectral', Georgia, serif; font-weight:600; font-size:1.05rem; line-height:1.3; color:var(--ink);">{{ e.title }}</strong>
-                <span style="display:block; margin-top:0.2rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.82rem; line-height:1.5; color:var(--ink2);">{{ e.caption }}</span>
-              </div>
+          <div id="tl-v" class="tl-v">
+            <span aria-hidden="true" class="tl-v-base"></span>
+            <span data-tl-line="" aria-hidden="true" class="tl-v-fill"></span>
+            <div v-for="e in timelineMerged" :key="e.side + e.year + e.title" data-tl-item="" class="tl-v-row" :class="'tl-v-' + e.side">
+              <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
+              <span class="tl-txt">
+                <span class="tl-year">{{ e.year }}</span>
+                <strong class="tl-title">{{ e.title }}</strong>
+                <span class="tl-cap">{{ e.caption }}</span>
+              </span>
             </div>
           </div>
         </div>
-        <p style="margin:1.4rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.timeline.note }}</p>
-      </div>
-    </section>
-
-    <section id="writing" data-screen-label="Writing" :data-chyron="t.writing.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0;">
-      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
-        <h2 style="margin:0 0 clamp(1.8rem, 4vw, 2.8rem); display:flex; align-items:center; gap:1.1rem;">
-          <span style="display:inline-flex; align-items:center; background:var(--graphite); border-left:3px solid var(--accent); color:#D6D1C5; padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.writing.eyebrow }}</span>
-          <span aria-hidden="true" data-rule="" style="flex:1; border-top:1px solid var(--line);"></span>
-        </h2>
-        <div style="border-bottom:1px solid var(--line);">
-          <a v-for="(s, si) in t.writing.segments" :key="s.seg" :data-reveal="si" href="https://lemur.legal/blog" target="_blank" rel="noopener" style="display:flex; flex-wrap:wrap; align-items:baseline; gap:0.4rem 1.5rem; padding:1.35rem 0; border-top:1px solid var(--line); text-decoration:none; color:inherit; transition:transform 0.18s cubic-bezier(0.2,0.7,0.2,1), border-top-color 0.18s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateX(6px); border-top-color:var(--accent);">
-            <span style="flex:0 0 4.5rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--accent); font-variant-numeric:tabular-nums;">{{ s.seg }}</span>
-            <span style="flex:1 1 20rem; font-family:'Spectral', Georgia, serif; font-weight:500; font-size:clamp(1.25rem, 2.2vw, 1.6rem); line-height:1.3;">{{ s.title }}</span>
-            <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink2);">{{ t.writing.linkLabel }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="display:inline-block; vertical-align:-0.08em; margin-left:0.3em;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-          </a>
-        </div>
-        <p style="margin:1.1rem 0 0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.writing.note }}</p>
       </div>
     </section>
 
@@ -213,7 +234,8 @@
           <!-- The selected Regarding choice (stable English key) is mirrored here
                by pickTopic, so it submits to Web3Forms as the `topic` field. -->
           <input id="cf-topic" type="hidden" name="topic" value="">
-          <div style="background:color-mix(in oklab, var(--graphite) 91%, #FFFFFF); border:1px solid rgba(236,231,220,0.14); border-top:3px solid var(--accent); box-shadow:0 16px 40px rgba(15,16,18,0.25);">
+          <!-- id is the anchor web3forms.ts appends the hCaptcha row to. -->
+          <div id="cf-card" style="background:color-mix(in oklab, var(--graphite) 91%, #FFFFFF); border:1px solid rgba(236,231,220,0.14); border-top:3px solid var(--accent); box-shadow:0 16px 40px rgba(15,16,18,0.25);">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:0.85rem 1.25rem; border-bottom:1px solid rgba(236,231,220,0.12);">
               <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.64rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#D6D1C5;">{{ t.contact.newMessage }}</span>
               <span style="display:inline-flex; align-items:center; gap:0.5rem;">
@@ -260,7 +282,7 @@
         <span aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:rgba(236,231,220,0.14);"></span>
         <span id="bar-fill" aria-hidden="true" style="position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; background:var(--accent); transform:scaleX(0); transform-origin:left;"></span>
         <span id="bar-knob" aria-hidden="true" style="position:absolute; top:50%; left:0; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 28%, transparent), 0 0 9px 1px color-mix(in oklab, var(--accent) 55%, transparent);"></span>
-        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" class="pm-bar-jump" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + ji * 20 + '%; width:20%; box-sizing:border-box; background:transparent; border:0; padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
+        <button v-for="(j, ji) in t.bar.jumps" :key="j.target" type="button" class="pm-bar-jump" :data-target="j.target" data-on-click="jump" :title="j.title" :aria-label="j.aria" :style="'position:absolute; top:0; bottom:0; left:' + (ji * 100) / t.bar.jumps.length + '%; width:' + 100 / t.bar.jumps.length + '%; box-sizing:border-box; background:transparent; border:0; padding:0; cursor:pointer; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);'" data-hover="background:rgba(236,231,220,0.07);"></button>
       </div>
       <div style="flex:0 0 6.6rem; box-sizing:border-box; display:flex; align-items:center; justify-content:flex-end; gap:0.45rem; padding:0 1rem; border-left:1px solid rgba(236,231,220,0.12);">
         <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.6rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#948E81;">{{ t.bar.partLabel }}</span>
@@ -271,7 +293,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { initEffects } from './Home.effects'
 import { initOpMap } from './opMap'
 import { useRootVars } from '@/composables/useTheme'
@@ -279,13 +301,28 @@ import { runLanguageRetype } from '@/composables/retype'
 import { usePageContent } from '@/i18n/useContent'
 import { useHead } from '@/i18n/useHead'
 import { consumeLangSwitch } from '@/i18n/locale'
-import home from '@/content/home'
+import home, { withOrgLinks } from '@/content/home'
 
 // All copy comes from the locale-keyed content module. The router remounts
 // this view on '/' ↔ '/sl' (router-view :key), so t.value is stable for the
 // lifetime of a mount and initEffects re-runs with the new language's copy.
 const t = usePageContent(home)
 useHead(home)
+
+// Both layouts run off one chronological sequence, so reading along the rail the
+// years only ever increase. `side` picks which side of the rail an entry sits on
+// and its dot colour; `step` drops every second entry on a side a notch further
+// out, so a run of neighbours on one side does not read as a single block.
+// Sort is stable, so an `above` entry leads a `below` one from the same year.
+const timelineMerged = computed(() => {
+  const merged = [
+    ...t.value.timeline.above.map((e) => ({ ...e, side: 'above' })),
+    ...t.value.timeline.below.map((e) => ({ ...e, side: 'below' })),
+  ].sort((a, b) => Number(a.year) - Number(b.year))
+  let up = 0
+  let down = 0
+  return merged.map((e) => ({ ...e, step: (e.side === 'above' ? up++ : down++) % 2 === 1 }))
+})
 
 // This page's design tokens (baked from the original #pm-root inline vars).
 // Applied at runtime so pages with different palettes never clobber each other.
@@ -380,6 +417,66 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
+
+/* ---- Timeline: two tracks on one rail -----------------------------------
+   Desktop: `above` sits over the line on accent dots, `below` under it on ink
+   dots. The rail is the upper track's bottom border, so a dot pinned to the
+   bottom of an upper cell and one pinned to the top of a lower cell land on
+   the same centre line without either track measuring the other.
+   Mobile: the rail runs down the middle, `above` to its left and `below` to
+   its right, with the two tracks merged into one chronology (timelineMerged).
+   Each track spreads across the full width rather than sharing a year axis —
+   six entries and ten cannot share x-positions and stay readable. */
+.tl-txt { display: flex; flex-direction: column; gap: 0.28rem; min-width: 0; }
+.tl-year { font-family: 'Instrument Sans', Arial, sans-serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
+.tl-title { font-family: 'Spectral', Georgia, serif; font-weight: 600; line-height: 1.28; color: var(--ink); }
+.tl-cap { font-family: 'Instrument Sans', Arial, sans-serif; line-height: 1.45; color: var(--ink2); }
+.tl-dot { width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 3px solid; background: var(--paper); }
+
+/* One rail, one chronological axis: each entry owns a column and its track picks
+   the row above or below the rail. Because the two tracks now share the axis, no
+   two dots can land in the same column, so the dots sit centred on the rail.
+   16 columns will not fit at a readable width, so the rail scrolls. */
+.tl-h { overflow-x: auto; overflow-y: hidden; padding-bottom: 0.7rem; scrollbar-width: thin; scrollbar-color: rgba(92,89,79,0.4) transparent; }
+.tl-h:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.tl-grid { --tl-slot: 9.4rem; display: grid; grid-template-rows: auto 2px auto; width: max-content; }
+.tl-rail, .tl-fill { grid-column: 1 / -1; grid-row: 2; }
+.tl-rail { background: var(--line); }
+.tl-fill { background: var(--accent); transform: scaleX(0); transform-origin: left; }
+.tl-cell { position: relative; display: flex; flex-direction: column; min-width: 0; padding-right: 1rem; }
+.tl-cell-above { justify-content: flex-end; padding-bottom: 1.35rem; }
+.tl-cell-below { padding-top: 1.35rem; }
+/* A run of neighbours on one side would read as a single block, so every second
+   one drops a step with a hairline back to its dot. Padding, not margin: the dot
+   is pinned to the cell edge that sits on the rail. */
+.tl-cell-above.tl-step { padding-bottom: 4.6rem; }
+.tl-cell-below.tl-step { padding-top: 4.6rem; }
+.tl-step::before { content: ''; position: absolute; left: 6px; width: 2px; height: 2.7rem; background: var(--line); }
+.tl-cell-above.tl-step::before { bottom: 1.1rem; }
+.tl-cell-below.tl-step::before { top: 1.1rem; }
+.tl-h .tl-title { font-size: 0.95rem; }
+.tl-h .tl-cap { font-size: 0.75rem; }
+/* -8px centres a 14px dot on the 2px rail from either row. */
+.tl-h .tl-dot { position: absolute; left: 0; }
+.tl-cell-above .tl-dot { bottom: -8px; border-color: var(--accent); }
+.tl-cell-below .tl-dot { top: -8px; border-color: var(--ink); }
+.tl-cell-above .tl-year, .tl-cell-above .tl-title { color: var(--accent); }
+.tl-cell-below .tl-year { color: var(--ink); }
+
+.tl-v { position: relative; display: flex; flex-direction: column; gap: 1.6rem; }
+.tl-v-base, .tl-v-fill { position: absolute; top: 0.4rem; bottom: 0.4rem; left: 50%; width: 2px; margin-left: -1px; }
+.tl-v-base { background: var(--line); }
+.tl-v-fill { background: var(--accent); transform: scaleY(0); transform-origin: top; }
+.tl-v-row { position: relative; display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.7rem; }
+.tl-v .tl-title { font-size: 1.02rem; }
+.tl-v .tl-cap { font-size: 0.8rem; }
+.tl-v .tl-dot { position: absolute; left: 50%; margin-left: -7px; top: 0.12rem; }
+.tl-v-above .tl-txt { grid-column: 1; text-align: right; }
+.tl-v-above .tl-dot { border-color: var(--accent); }
+.tl-v-above .tl-year, .tl-v-above .tl-title { color: var(--accent); }
+.tl-v-below .tl-txt { grid-column: 2; text-align: left; }
+.tl-v-below .tl-dot { border-color: var(--ink); }
+.tl-v-below .tl-year { color: var(--ink); }
 
 /* Operating-map node labels. font-size is in SVG user units, so it scales down
    with the whole svg; on mobile (narrow column) that got too small, so bump it
@@ -528,7 +625,42 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    (canvas pixels carry no semantics). Focus draws the ring on the canvas. */
 .op-a11y { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.op-back { position: absolute; top: 0.3rem; right: 0; z-index: 3; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
+/* hCaptcha row — built by web3forms.ts at runtime, so it carries no scope
+   attribute and is styled here rather than in the scoped block. It is the form
+   card's last row and matches the Name/Email rows: same padding, same divider,
+   same micro-label column. The widget itself is a fixed-size cross-origin
+   iframe, so only its surroundings can be styled — dark theme is set at render
+   so it sits on the panel rather than punching a white hole in it. */
+.pm-captcha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1.2rem;
+  padding: 0.85rem 1.25rem 1rem;
+  border-top: 1px solid rgba(236, 231, 220, 0.12);
+  /* fades in with the widget so the row never flashes empty while it loads */
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pm-captcha.is-live { opacity: 1; }
+.pm-captcha-label {
+  flex: 0 0 5rem;
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #948e81;
+}
+.pm-captcha-box { flex: 1 1 auto; min-width: 0; line-height: 0; }
+.pm-captcha-box iframe { max-width: 100%; }
+/* The widget is ~303px wide and will not shrink; below this the label takes its
+   own line so the full card width is left for it. */
+@media (max-width: 540px) {
+  .pm-captcha-label { flex: 1 1 100%; }
+}
+
+.op-back { position: absolute; top: 0.3rem; right: 0; display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: 0; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity 0.4s ease, transform 0.4s ease; padding: 0.3rem; z-index: 2; }
 .op-back.show { opacity: 1; transform: none; }
 .op-back[hidden] { display: none; }
 .op-back-disc { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #F4F1EA; font-weight: 700; font-size: 0.72rem; font-family: 'Instrument Sans', Arial, sans-serif; }

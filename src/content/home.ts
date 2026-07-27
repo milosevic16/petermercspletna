@@ -53,12 +53,23 @@ interface FacetEntry {
   subsections: FacetSubsection[]
 }
 
+/** One dot on the timeline. */
+interface TimelineEntry {
+  year: string
+  title: string
+  caption: string
+}
+
 interface MediaCard {
   kicker: string
+  /** publication date, shown opposite the kicker; omitted when unknown. */
+  date?: string
   title: string
   desc: string
   href: string
   external: boolean
+  /** per-card call to action (Listen / Watch); falls back to `media.cta`. */
+  cta?: string
   titleAttr?: string
 }
 
@@ -103,26 +114,30 @@ export interface HomeContent {
   media: {
     eyebrow: string
     chyron: string
+    /** Alt for the full-bleed portrait band that eases the map into this section. */
+    bridgeAlt: string
     prevAria: string
     nextAria: string
     cards: MediaCard[]
     cta: string
     note: string
-    extras: Array<{ label: string; name: string; detail: string }>
+    /** Row-style link under the cards, out to the full archive. */
+    archive: { seg: string; title: string; linkLabel: string; href: string }
   }
   timeline: {
     eyebrow: string
     chyron: string
     aside: string
-    entries: Array<{ year: string; title: string; caption: string }>
-    note: string
-  }
-  writing: {
-    eyebrow: string
-    chyron: string
-    segments: Array<{ seg: string; title: string }>
-    linkLabel: string
-    note: string
+    /**
+     * Two tracks on one line. Desktop: `above` sits over the line on accent
+     * dots, `below` under it on ink dots. Mobile: the line runs down the middle
+     * with `above` to its left and `below` to its right, same dot colours.
+     * Each track is chronological on its own; the two are not aligned to a
+     * shared year axis — ten entries and six cannot share x-positions and stay
+     * readable, so each track spreads across the full width.
+     */
+    above: TimelineEntry[]
+    below: TimelineEntry[]
   }
   contact: {
     eyebrow: string
@@ -149,6 +164,8 @@ export interface HomeContent {
     messageLabel: string
     send: string
     formStates: { sending: string; success: string; error: string; invalid: string }
+    /** Copy for the hCaptcha row web3forms.ts injects into the form card. */
+    captcha: { label: string; required: string }
   }
   bar: {
     aria: string
@@ -156,6 +173,61 @@ export interface HomeContent {
     partLabel: string
     jumps: Array<{ target: string; title: string; aria: string }>
   }
+}
+
+// Organisations that read as links wherever they are named in "What I do" —
+// that section only, so the operating map keeps its own per-node hrefs. Both
+// locales name them identically, so one list serves both. An empty href means
+// the styling applies but the destination is not public yet.
+// No name here may be a prefix of another: the alternation below takes the
+// first branch that matches at a position, so the shorter one would always win.
+const ORG_LINKS: ReadonlyArray<{ name: string; href: string }> = [
+  { name: 'IBEX Equity Partners', href: '' },
+  { name: 'JonatanMars Invest', href: 'https://jonatanmars.com/' },
+  { name: 'Suricate Ventures', href: 'https://www.suricate.ventures/' },
+  { name: 'Horizon Europe', href: 'https://research-and-innovation.ec.europa.eu/funding/funding-opportunities/funding-programmes-and-open-calls/horizon-europe_en' },
+  { name: 'NATO DIANA', href: 'https://www.diana.nato.int/' },
+  { name: 'Lemur Legal', href: 'https://lemur.legal' },
+  { name: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+]
+
+const UNDERLINE = 'text-decoration:underline; text-underline-offset:2px;'
+const ORG_NAME_RE = new RegExp(
+  ORG_LINKS.map((o) => o.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'g',
+)
+
+const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => HTML_ESCAPES[c])
+
+function linkOrgNames(text: string): string {
+  let out = ''
+  let from = 0
+  ORG_NAME_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = ORG_NAME_RE.exec(text)) !== null) {
+    const name = m[0]
+    const href = ORG_LINKS.find((o) => o.name === name)?.href
+    out += escapeHtml(text.slice(from, m.index))
+    out += href
+      ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="color:inherit; ${UNDERLINE}">${escapeHtml(name)}</a>`
+      : `<span style="${UNDERLINE}">${escapeHtml(name)}</span>`
+    from = m.index + name.length
+  }
+  return out + escapeHtml(text.slice(from))
+}
+
+/**
+ * Renders a "What I do" string as HTML with every organisation in ORG_LINKS
+ * linked. Tags already in the string pass through untouched and everything
+ * else is escaped, so this takes the plain fields (`credential`, a list item's
+ * `key`/`detail`) and the trusted `paragraphHtml` alike.
+ */
+export function withOrgLinks(copy: string): string {
+  return copy
+    .split(/(<[^>]*>)/)
+    .map((part) => (/^<[^>]*>$/.test(part) ? part : linkOrgNames(part)))
+    .join('')
 }
 
 const home: Localized<HomeContent> = {
@@ -180,11 +252,11 @@ const home: Localized<HomeContent> = {
         'MiCA white papers & CASP licensing',
         'Token classification & listing opinions',
         'RWA tokenization',
-        'Crypto taxation',
-        'Fund formation & venture deals',
+        'Venture capital',
+        'Blockchain forensics',
         'Regulatory strategy for fintechs',
         'Panels, lectures & commentary',
-        'Board & policy work',
+        'Defence & dual-use',
       ],
     },
     facets: {
@@ -201,13 +273,13 @@ const home: Localized<HomeContent> = {
               subLabel: 'Counsel',
               credential: 'crypto, fintech & tech law — managing partner @ Lemur Legal, head of compliance @ GateHub',
               paragraphHtml:
-                'Technology rarely waits for regulation. I advise founders, financial institutions and technology companies where law, finance and emerging technology intersect — from MiCA, PSD2 and DORA to token launches, contracts and regulatory strategy. Move fast and break things, with me in the support role.',
+                'Technology rarely waits for regulation. With Lemur Legal I advise founders, financial institutions and technology companies where law, finance and emerging technology intersect — from MiCA, PSD2 and DORA to token launches, contracts and regulatory strategy. Move fast and break things, with me in the support role.',
               list: [
                 { key: 'Licensing', detail: 'PSD2 and MiCA (CASP authorisation), AML' },
                 { key: 'White papers', detail: 'MiCA-compliant drafting and notification' },
                 { key: 'Contracts', detail: 'Licensing agreements, IPR protection, EULA, SW development agreements' },
                 { key: 'Compliance', detail: 'Acting as an external regulatory compliance officer' },
-                { key: 'Intellectual property', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+                { key: 'Intellectual property', detail: 'Web portal for brands and design protection — mojaznamka.si' },
               ],
             },
             {
@@ -218,7 +290,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Board', detail: 'President of the Supervisory Board @ JonatanMars Invest' },
                 { key: 'Oversight', detail: 'Management, governance, risk and regulatory compliance' },
-                { key: 'Background', detail: 'Banking, capital markets, fintech and corporate law' },
+                { key: 'Background', detail: 'Banking, capital markets, fintech, corporate law and MiFID II' },
               ],
             },
           ],
@@ -237,6 +309,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Fund #1', detail: 'Suricate Ventures — early-stage, industry agnostic' },
                 { key: 'Fund #2', detail: 'IBEX Defence Fund — early-stage, defence-tech & dual-use' },
+                { key: 'Accelerator', detail: 'IBEX Defence Accelerator — accelerating defence and dual-use startups' },
                 { key: 'Angel', detail: 'Pre-seed and seed investments in tech startups' },
               ],
             },
@@ -252,7 +325,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Founder',
               credential: 'co-founder @ Blocksquare & Bloctopus Intelligence',
               paragraphHtml:
-                'I have co-founded two deep-tech ventures. <strong style="font-weight:600;">Blocksquare</strong> provides a turn-key, regulatory-compliant solution for real-estate tokenization. <strong style="font-weight:600;">Bloctopus Intelligence</strong> is the crypto forensics and crypto recovery business.',
+                'I have co-founded two deep-tech ventures. Blocksquare provides a turn-key, regulatory-compliant solution for real-estate tokenization. Bloctopus Intelligence is the crypto forensics and crypto recovery business.',
               list: [
                 { key: 'Blocksquare', detail: 'Real-world-asset (real estate) tokenization infrastructure, DLT' },
                 { key: 'Bloctopus', detail: 'Blockchain intelligence and crypto recovery, forensics services' },
@@ -311,7 +384,9 @@ const home: Localized<HomeContent> = {
               credential: 'media & stages',
               paragraphHtml:
                 'Through media appearances, conference stages, panels and podcasts, I explain developments in technology, finance, regulation and venture capital in a clear and practical way. I contribute as a speaker, commentator and moderator, connecting technical detail with the broader business and societal context.',
-              list: [],
+              list: [
+                { key: 'Appearances', detail: 'Every public appearance — TV shows, podcasts and articles', href: 'https://lemur.legal/media' },
+              ],
             },
           ],
         },
@@ -321,7 +396,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'The operating map',
       chyron: 'Track record',
       aside: 'all verifiable',
-      pullQuote: 'Five practices, one desk — everything routes through Ljubljana',
+      pullQuote: 'Several hats, one desk — everything routes through Ljubljana',
       live: 'Live — tap a node to open its branch',
       networkAria: 'Peter Merc’s operating map — practices and organisations',
       visit: 'Visit',
@@ -331,7 +406,7 @@ const home: Localized<HomeContent> = {
       hub: {
         label: 'PM',
         name: 'Peter Merc',
-        desc: 'Counsel, capital, governance, teaching and evaluation — five practices run from one desk in Ljubljana. Open a branch to explore.',
+        desc: 'Counsel, capital, governance, teaching and evaluation — several practices run from one desk in Ljubljana. Open a branch to explore.',
         href: 'https://www.linkedin.com/in/petermerc/',
       },
       tree: [
@@ -370,15 +445,53 @@ const home: Localized<HomeContent> = {
     media: {
       eyebrow: 'On record — media',
       chyron: 'Media & press',
+      bridgeAlt: 'Peter Merc speaking on stage, microphone in hand',
       prevAria: 'Scroll coverage back',
       nextAria: 'Scroll coverage forward',
       cards: [
+        {
+          kicker: 'Podcast — Money-How',
+          date: '2 Jul 2026',
+          title: 'MiCA is here: are crypto investors truly better protected now?',
+          desc: 'On the impact of MiCA on the European crypto market, Binance’s position in the EU, and what the new regime changes for crypto service providers and investors.',
+          href: 'https://money-how.si/podcast/mica-je-tu-so-kriptovlagatelji-zdaj-res-bolj-varni/',
+          external: true,
+          cta: 'Listen',
+        },
+        {
+          kicker: 'Article — Bloomberg Adria',
+          date: '30 Jun 2026',
+          title: 'Confirmed: Binance did not obtain a licence and is shutting down services in the EU. What should users do?',
+          desc: 'Quoted as an expert on Binance’s EU licence, the MiCA regime, and what it means for users in practice.',
+          href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
+          external: true,
+          cta: 'Read more',
+        },
+        {
+          kicker: 'Television — RTV SLO',
+          date: '9 Jun 2026',
+          title: 'Flip the Coin: the instalment society — why seemingly affordable purchases cost us dearly',
+          desc: 'The programme on why instalment payments are less harmless than they appear, and how small monthly commitments become an expensive financial trap.',
+          href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
+          external: true,
+          cta: 'Watch',
+        },
+        {
+          kicker: 'Interview — Delo',
+          date: '8 May 2026',
+          title: 'You would not be far off in saying that Europe could be heading back to the Middle Ages',
+          desc: 'On digital sovereignty, control over data, technological infrastructure and business resilience.',
+          href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
+          external: true,
+          cta: 'Read more',
+        },
         {
           kicker: 'Interview — AmCham Slovenija',
           title: 'Think Forward — the interview',
           desc: 'On camera for AmCham’s Think Forward series — tech law and building Lemur Legal.',
           href: 'https://www.youtube.com/watch?v=ci0cpjHI-F8',
           external: true,
+          cta: 'Watch',
         },
         {
           kicker: 'Column — Podjetnik.si',
@@ -386,48 +499,42 @@ const home: Localized<HomeContent> = {
           desc: 'Why blockchain is more than Bitcoin — and what it changes first.',
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
-        },
-        {
-          kicker: 'Series — Bloomberg Adria · link ⚠',
-          title: 'Kriptovalute: praktični koraki za upravljanje',
-          desc: 'Bloomberg Adria’s crypto-education series, made with industry experts — Peter among them.',
-          href: '#media',
-          external: false,
-          titleAttr: 'Bloomberg Adria link to confirm ⚠',
+          cta: 'Read more',
         },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ Bloomberg Adria link still to confirm; send more mentions from lemur.legal/media and they drop in.',
-      extras: [
-        { label: 'Stage', name: 'Money Motion', detail: '— fintech conference' },
-        { label: 'Mentor', name: 'startup.si', detail: '· Startup+ / SPS programs' },
-      ],
+      note: 'Drop a photo straight onto each card — it sticks. ⚠ Every card is still waiting on its image.',
+      archive: {
+        seg: 'Archive',
+        title: 'Every interview, column and mention — collected on Lemur Legal',
+        linkLabel: 'lemur.legal/media',
+        href: 'https://lemur.legal/media',
+      },
     },
     timeline: {
-      eyebrow: 'The record, in order',
-      chyron: 'The record, in order',
-      aside: 'seven moves, one direction',
-      entries: [
-        { year: '2008', title: 'Bank of Slovenia', caption: 'Legal counsel — banking supervision' },
-        { year: '2013', title: 'Ph.D. in law', caption: 'Doctorate — financial law' },
-        { year: '2016', title: 'Fintech Factory', caption: 'Consultancy founded' },
-        { year: '2017', title: 'Lemur Legal', caption: 'Tech-law office opens, Ljubljana' },
+      eyebrow: 'Personal timeline',
+      chyron: 'Personal timeline',
+      aside: 'direction #tech',
+      above: [
+        { year: '2015', title: 'Ph.D. in banking law', caption: 'Faculty of Law, University of Ljubljana' },
+        { year: '2017', title: 'Blockchain Think Tank Slovenia', caption: 'Co-founder' },
+        { year: '2019', title: 'Alma Mater Europaea', caption: 'Academic career begins' },
+        { year: '2020', title: 'Horizon 2020', caption: 'External expert' },
+        { year: '2021', title: 'Slovenian Council for Digitalisation', caption: 'Member' },
+        { year: '2026', title: 'NATO DIANA', caption: 'External evaluator' },
+      ],
+      below: [
+        { year: '2008', title: 'NLB d.d.', caption: 'Legal counsel — capital markets & regulatory compliance' },
+        { year: '2009', title: 'Municipality of Ljubljana', caption: 'Finance Committee, member' },
+        { year: '2014', title: 'Hypo Alpe-Adria-Bank d.d.', caption: 'Legal counsel — regulatory compliance' },
+        { year: '2016', title: 'Abanka d.d.', caption: 'Member of the supervisory board' },
+        { year: '2016', title: 'Lemur Legal', caption: 'Tech-law office opens' },
         { year: '2018', title: 'Blocksquare', caption: 'RWA tokenization, co-founded' },
-        { year: '2021', title: 'Suricate Ventures', caption: 'Early-stage fund, co-founded' },
-        { year: '2024', title: 'The MiCA era', caption: 'Licensing practice & Bloctopus Intelligence' },
+        { year: '2021', title: 'Suricate Ventures', caption: 'Early-stage VC fund, co-founded' },
+        { year: '2025', title: 'IBEX Equity Partners', caption: 'Early-stage defence-tech VC fund, co-founded' },
+        { year: '2026', title: 'Bloctopus Intelligence', caption: 'Blockchain forensics, co-founded' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Brokerage company, president of the supervisory board' },
       ],
-      note: '⚠ Years indicative — send corrections and they drop straight in.',
-    },
-    writing: {
-      eyebrow: 'Writing',
-      chyron: 'Writing',
-      segments: [
-        { seg: 'Seg 01', title: 'MiCA compliance, in practice' },
-        { seg: 'Seg 02', title: 'Token classification, and the opinions that get assets listed' },
-        { seg: 'Seg 03', title: 'Crypto taxation in Slovenia' },
-      ],
-      linkLabel: 'lemur.legal/blog',
-      note: '⚠ Topic lines shown — swap in final article titles, links and the LinkedIn destination before publishing.',
     },
     contact: {
       eyebrow: 'Contact',
@@ -438,24 +545,29 @@ const home: Localized<HomeContent> = {
       regarding: 'Regarding',
       topics: [
         {
-          key: 'MiCA & licensing',
-          label: 'MiCA & licensing',
+          key: 'Crypto regulation',
+          label: 'Crypto regulation',
           hint: 'Which market, which token, and when you need to be live.',
         },
         {
-          key: 'Listing opinion',
-          label: 'Listing opinion',
-          hint: 'Which asset, which venue, and the timeline you are working against.',
+          key: 'Fintech',
+          label: 'Fintech',
+          hint: 'The licence you are after, the regulator you are facing, and your timeline.',
         },
         {
-          key: 'Venture & funds',
-          label: 'Venture & funds',
+          key: 'Defence-tech',
+          label: 'Defence-tech',
+          hint: 'What you are building, and where it sits on the dual-use line.',
+        },
+        {
+          key: 'Venture capital',
+          label: 'Venture capital',
           hint: 'Stage, round, and what you are building.',
         },
         {
-          key: 'Speaking & media',
-          label: 'Speaking & media',
-          hint: 'Format, date, audience.',
+          key: 'Crypto scams',
+          label: 'Crypto scams',
+          hint: 'What you lost and when, plus any wallet addresses or exchanges involved.',
         },
         {
           key: 'Something else',
@@ -479,6 +591,7 @@ const home: Localized<HomeContent> = {
         error: 'Something went wrong — please try again, or email me directly.',
         invalid: 'Please add your name, a valid email and a message.',
       },
+      captcha: { label: 'Verify', required: 'Please confirm you are not a robot.' },
     },
     bar: {
       aria: 'Page progress',
@@ -488,8 +601,7 @@ const home: Localized<HomeContent> = {
         { target: 'facets', title: 'Part 1 — What I do', aria: 'Jump to What I do' },
         { target: 'record', title: 'Part 2 — Track record', aria: 'Jump to Track record' },
         { target: 'media', title: 'Part 3 — Media & press', aria: 'Jump to Media and press' },
-        { target: 'writing', title: 'Part 4 — Writing', aria: 'Jump to Writing' },
-        { target: 'contact', title: 'Part 5 — Contact', aria: 'Jump to Contact' },
+        { target: 'contact', title: 'Part 4 — Contact', aria: 'Jump to Contact' },
       ],
     },
   },
@@ -515,11 +627,11 @@ const home: Localized<HomeContent> = {
         'Beli papirji po MiCA in licenciranje CASP',
         'Klasifikacija žetonov in mnenja za uvrstitve',
         'Tokenizacija stvarnega premoženja (RWA)',
-        'Obdavčitev kriptovalut',
-        'Ustanavljanje skladov in naložbe tveganega kapitala',
+        'Tvegani kapital',
+        'Forenzika blockchaina',
         'Regulatorna strategija za finteche',
         'Paneli, predavanja in komentarji',
-        'Delo v odborih in oblikovanje politik',
+        'Obrambne in dvonamenske tehnologije',
       ],
     },
     facets: {
@@ -536,13 +648,13 @@ const home: Localized<HomeContent> = {
               subLabel: 'Svetovalec',
               credential: 'kripto, fintech in tehnološko pravo — vodilni partner @ Lemur Legal, vodja skladnosti @ GateHub',
               paragraphHtml:
-                'Tehnologija le redko počaka na regulativo. Svetujem ustanoviteljem, finančnim institucijam in tehnološkim podjetjem tam, kjer se prepletajo pravo, finance in nastajajoče tehnologije — od MiCA, PSD2 in DORA do izdaj žetonov, pogodb in regulativne strategije. »Move fast and break things«, z mano v podporni vlogi.',
+                'Tehnologija le redko počaka na regulativo. V pisarni Lemur Legal svetujem ustanoviteljem, finančnim institucijam in tehnološkim podjetjem tam, kjer se prepletajo pravo, finance in nastajajoče tehnologije — od MiCA, PSD2 in DORA do izdaj žetonov, pogodb in regulativne strategije. »Move fast and break things«, z mano v podporni vlogi.',
               list: [
                 { key: 'Licenciranje', detail: 'PSD2 in MiCA (dovoljenje CASP), AML' },
                 { key: 'Beli papirji', detail: 'Priprava in notifikacija skladno z MiCA' },
                 { key: 'Pogodbe', detail: 'Licenčne pogodbe, zaščita IP, EULA, pogodbe o razvoju programske opreme' },
                 { key: 'Skladnost', detail: 'Delovanje kot zunanji pooblaščenec za regulativno skladnost' },
-                { key: 'Intelektualna lastnina', detail: 'mojaznamka.si', href: 'https://mojaznamka.si' },
+                { key: 'Intelektualna lastnina', detail: 'Spletni portal za zaščito znamk in modelov — mojaznamka.si' },
               ],
             },
             {
@@ -553,7 +665,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Nadzorni svet', detail: 'Predsednik nadzornega sveta @ JonatanMars Invest' },
                 { key: 'Nadzor', detail: 'Vodenje, upravljanje, tveganja in regulativna skladnost' },
-                { key: 'Ozadje', detail: 'Bančništvo, kapitalski trgi, fintech in gospodarsko pravo' },
+                { key: 'Ozadje', detail: 'Bančništvo, kapitalski trgi, fintech, gospodarsko pravo in MiFID II' },
               ],
             },
           ],
@@ -572,6 +684,7 @@ const home: Localized<HomeContent> = {
               list: [
                 { key: 'Sklad #1', detail: 'Suricate Ventures — zgodnje faze, panožno nevtralen' },
                 { key: 'Sklad #2', detail: 'IBEX Defence Fund — zgodnje faze, obrambne in dvonamenske tehnologije' },
+                { key: 'Pospeševalnik', detail: 'IBEX Defence Accelerator — za startupe na področju obrambnih in dvonamenskih tehnologij' },
                 { key: 'Angel', detail: 'Pred-semenske in semenske naložbe v tehnološke startupe' },
               ],
             },
@@ -587,7 +700,7 @@ const home: Localized<HomeContent> = {
               subLabel: 'Ustanovitelj',
               credential: 'soustanovitelj @ Blocksquare in Bloctopus Intelligence',
               paragraphHtml:
-                'Soustanovil sem dve globokotehnološki (deep-tech) podjetji. <strong style="font-weight:600;">Blocksquare</strong> ponuja celovito, regulativno skladno rešitev za tokenizacijo nepremičnin. <strong style="font-weight:600;">Bloctopus Intelligence</strong> je podjetje za kripto forenziko in povrnitev kripto sredstev.',
+                'Soustanovil sem dve globokotehnološki (deep-tech) podjetji. Blocksquare ponuja celovito, regulativno skladno rešitev za tokenizacijo nepremičnin. Bloctopus Intelligence je podjetje za kripto forenziko in povrnitev kripto sredstev.',
               list: [
                 { key: 'Blocksquare', detail: 'Infrastruktura za tokenizacijo stvarnega premoženja (nepremičnin), DLT' },
                 { key: 'Bloctopus', detail: 'Blockchain obveščanje in povrnitev kripto sredstev, forenzične storitve' },
@@ -646,7 +759,9 @@ const home: Localized<HomeContent> = {
               credential: 'mediji in odri',
               paragraphHtml:
                 'Prek medijskih nastopov, konferenčnih odrov, panelov in podkastov razumljivo in praktično pojasnjujem dogajanje v tehnologiji, financah, regulativi in tveganem kapitalu. Sodelujem kot govorec, komentator in moderator ter povezujem tehnične podrobnosti s širšim poslovnim in družbenim kontekstom.',
-              list: [],
+              list: [
+                { key: 'Nastopi', detail: 'Vsi javni nastopi — TV-oddaje, podkasti in članki', href: 'https://lemur.legal/media' },
+              ],
             },
           ],
         },
@@ -656,7 +771,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Operativni zemljevid',
       chyron: 'Dosedanje delo',
       aside: 'vse preverljivo',
-      pullQuote: 'Pet področij, ena miza — vse poti vodijo skozi Ljubljano',
+      pullQuote: 'Več vlog, ena miza — vse poti vodijo skozi Ljubljano',
       live: 'V živo — tapnite vozlišče in odprite vejo',
       networkAria: 'Operativni zemljevid Petra Merca — področja in organizacije',
       visit: 'Obišči',
@@ -666,7 +781,7 @@ const home: Localized<HomeContent> = {
       hub: {
         label: 'PM',
         name: 'Peter Merc',
-        desc: 'Svetovanje, kapital, upravljanje, predavanja in ocenjevanje — pet področij, ki jih vodim z ene mize v Ljubljani. Odprite vejo za več.',
+        desc: 'Svetovanje, kapital, upravljanje, predavanja in ocenjevanje — več vlog, ki jih vodim z ene mize v Ljubljani. Odprite vejo za več.',
         href: 'https://www.linkedin.com/in/petermerc/',
       },
       tree: [
@@ -705,15 +820,53 @@ const home: Localized<HomeContent> = {
     media: {
       eyebrow: 'Za zapisnik — mediji',
       chyron: 'Mediji in tisk',
+      bridgeAlt: 'Peter Merc med nastopom na odru, z mikrofonom v roki',
       prevAria: 'Pomakni prispevke nazaj',
       nextAria: 'Pomakni prispevke naprej',
       cards: [
+        {
+          kicker: 'Podkast — Money-How',
+          date: '2. jul. 2026',
+          title: 'MiCA je tu: so kriptovlagatelji zdaj res bolj varni?',
+          desc: 'O vplivu uredbe MiCA na evropski kripto trg, o položaju borze Binance v EU in o tem, kaj nova ureditev spreminja za ponudnike kripto storitev in vlagatelje.',
+          href: 'https://money-how.si/podcast/mica-je-tu-so-kriptovlagatelji-zdaj-res-bolj-varni/',
+          external: true,
+          cta: 'Poslušaj',
+        },
+        {
+          kicker: 'Članek — Bloomberg Adria',
+          date: '30. jun. 2026',
+          title: 'Binance brez licence v EU: kaj naj storijo uporabniki?',
+          desc: 'Strokovni komentar o licenci borze Binance v EU, o ureditvi MiCA in o tem, kaj to v praksi pomeni za uporabnike.',
+          href: 'https://si.bloombergadria.com/financni-trgi/kripto-trg/107641/binance-brez-licence-v-eu-kaj-naj-storijo-uporabniki/news',
+          external: true,
+          cta: 'Preberi',
+        },
+        {
+          kicker: 'Televizija — RTV SLO',
+          date: '9. jun. 2026',
+          title: 'Družba obrokov: zakaj nas navidezno ugodni nakupi drago stanejo',
+          desc: 'Zakaj navidezno ugodni obroki le redko ostanejo tako neškodljivi, kot se zdijo, in kako se majhne mesečne obveznosti spremenijo v drago finančno past.',
+          href: 'https://www.rtvslo.si/rtv-vsebine/druzba-obrokov-zakaj-nas-navidezno-ugodni-nakupi-drago-stanejo/784730',
+          external: true,
+          cta: 'Oglej si',
+        },
+        {
+          kicker: 'Intervju — Delo',
+          date: '8. maj 2026',
+          title: '»Ne bi zelo zgrešili, če bi rekli, da gre Evropa lahko nazaj v srednji vek«',
+          desc: 'O digitalni suverenosti, nadzoru nad podatki, tehnološki infrastrukturi in odpornosti podjetij.',
+          href: 'https://www.delo.si/delov-poslovni-center/mobilnost/ne-bi-zelo-zgresili-ce-bi-rekli-da-gre-evropa-lahko-nazaj-v-srednji-vek-video',
+          external: true,
+          cta: 'Preberi',
+        },
         {
           kicker: 'Intervju — AmCham Slovenija',
           title: 'Think Forward — intervju',
           desc: 'Pred kamero v AmChamovi seriji Think Forward — tehnološko pravo in gradnja Lemur Legal.',
           href: 'https://www.youtube.com/watch?v=ci0cpjHI-F8',
           external: true,
+          cta: 'Oglej si',
         },
         {
           kicker: 'Kolumna — Podjetnik.si',
@@ -721,48 +874,42 @@ const home: Localized<HomeContent> = {
           desc: 'Zakaj je blockchain več kot bitcoin — in kaj spremeni najprej.',
           href: 'https://podjetnik.media.si/blockchain-bitcoin-revolucija-kaj-je/',
           external: true,
-        },
-        {
-          kicker: 'Serija — Bloomberg Adria · povezava ⚠',
-          title: 'Kriptovalute: praktični koraki za upravljanje',
-          desc: 'Izobraževalna kripto serija Bloomberg Adria, posneta z industrijskimi strokovnjaki — med njimi Peter.',
-          href: '#media',
-          external: false,
-          titleAttr: 'Povezava Bloomberg Adria za potrditev ⚠',
+          cta: 'Preberi',
         },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Povezavo Bloomberg Adria še potrjujemo; pošljite več omemb z lemur.legal/media in jih dodamo.',
-      extras: [
-        { label: 'Oder', name: 'Money Motion', detail: '— fintech konferenca' },
-        { label: 'Mentor', name: 'startup.si', detail: '· programa Startup+ / SPS' },
-      ],
+      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Vse kartice še čakajo na slike.',
+      archive: {
+        seg: 'Arhiv',
+        title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',
+        linkLabel: 'lemur.legal/media',
+        href: 'https://lemur.legal/media',
+      },
     },
     timeline: {
-      eyebrow: 'Kronologija',
-      chyron: 'Kronologija',
-      aside: 'sedem potez, ena smer',
-      entries: [
-        { year: '2008', title: 'Banka Slovenije', caption: 'Pravni svetovalec — bančni nadzor' },
-        { year: '2013', title: 'Doktorat iz prava', caption: 'Doktorat — finančno pravo' },
-        { year: '2016', title: 'Fintech Factory', caption: 'Ustanovljeno svetovalno podjetje' },
-        { year: '2017', title: 'Lemur Legal', caption: 'Odprtje pisarne za tehnološko pravo, Ljubljana' },
+      eyebrow: 'Osebna kronologija',
+      chyron: 'Osebna kronologija',
+      aside: 'smer #tech',
+      above: [
+        { year: '2015', title: 'Doktorat iz bančnega prava', caption: 'Pravna fakulteta Univerze v Ljubljani' },
+        { year: '2017', title: 'Blockchain Think Tank Slovenija', caption: 'Soustanovitelj' },
+        { year: '2019', title: 'Alma Mater Europaea', caption: 'Začetek akademske poti' },
+        { year: '2020', title: 'Horizon 2020', caption: 'Zunanji strokovnjak' },
+        { year: '2021', title: 'Strateški svet za digitalizacijo', caption: 'Član' },
+        { year: '2026', title: 'NATO DIANA', caption: 'Zunanji ocenjevalec' },
+      ],
+      below: [
+        { year: '2008', title: 'NLB d.d.', caption: 'Pravni svetovalec — kapitalski trgi in regulativna skladnost' },
+        { year: '2009', title: 'Mestna občina Ljubljana', caption: 'Član odbora za finance' },
+        { year: '2014', title: 'Hypo Alpe-Adria-Bank d.d.', caption: 'Pravni svetovalec — regulativna skladnost' },
+        { year: '2016', title: 'Abanka d.d.', caption: 'Član nadzornega sveta' },
+        { year: '2016', title: 'Lemur Legal', caption: 'Odprtje pisarne za tehnološko pravo' },
         { year: '2018', title: 'Blocksquare', caption: 'Tokenizacija stvarnega premoženja, soustanovitelj' },
-        { year: '2021', title: 'Suricate Ventures', caption: 'Sklad za zgodnje faze, soustanovitelj' },
-        { year: '2024', title: 'Doba MiCA', caption: 'Praksa licenciranja in Bloctopus Intelligence' },
+        { year: '2021', title: 'Suricate Ventures', caption: 'Sklad tveganega kapitala za zgodnje faze, soustanovitelj' },
+        { year: '2025', title: 'IBEX Equity Partners', caption: 'Sklad tveganega kapitala za zgodnje faze na področju obrambnih tehnologij, soustanovitelj' },
+        { year: '2026', title: 'Bloctopus Intelligence', caption: 'Forenzika blockchaina, soustanovitelj' },
+        { year: '2026', title: 'JonatanMars Invest', caption: 'Borznoposredniška družba, predsednik nadzornega sveta' },
       ],
-      note: '⚠ Letnice so okvirne — pošljite popravke in takoj jih vnesemo.',
-    },
-    writing: {
-      eyebrow: 'Objave',
-      chyron: 'Objave',
-      segments: [
-        { seg: 'Seg 01', title: 'Skladnost z MiCA v praksi' },
-        { seg: 'Seg 02', title: 'Klasifikacija žetonov in mnenja, s katerimi se sredstva uvrstijo' },
-        { seg: 'Seg 03', title: 'Obdavčitev kriptovalut v Sloveniji' },
-      ],
-      linkLabel: 'lemur.legal/blog',
-      note: '⚠ Prikazane so tematske vrstice — pred objavo zamenjajte s končnimi naslovi člankov, povezavami in LinkedIn destinacijo.',
     },
     contact: {
       eyebrow: 'Kontakt',
@@ -773,24 +920,29 @@ const home: Localized<HomeContent> = {
       regarding: 'Glede',
       topics: [
         {
-          key: 'MiCA & licensing',
-          label: 'MiCA in licenciranje',
+          key: 'Crypto regulation',
+          label: 'Regulacija kriptovalut',
           hint: 'Kateri trg, kateri žeton in do kdaj morate biti operativni.',
         },
         {
-          key: 'Listing opinion',
-          label: 'Mnenje za uvrstitev',
-          hint: 'Katero sredstvo, katera borza in kakšen je vaš časovni okvir.',
+          key: 'Fintech',
+          label: 'Fintech',
+          hint: 'Katero dovoljenje potrebujete, kateri regulator je pristojen in do kdaj.',
         },
         {
-          key: 'Venture & funds',
-          label: 'Naložbe in skladi',
+          key: 'Defence-tech',
+          label: 'Obrambne tehnologije',
+          hint: 'Kaj gradite in kje pri tem poteka meja med civilno in vojaško rabo.',
+        },
+        {
+          key: 'Venture capital',
+          label: 'Tvegani kapital',
           hint: 'Faza, krog in kaj gradite.',
         },
         {
-          key: 'Speaking & media',
-          label: 'Nastopi in mediji',
-          hint: 'Format, datum, občinstvo.',
+          key: 'Crypto scams',
+          label: 'Prevare s kriptovalutami',
+          hint: 'Kaj ste izgubili in kdaj ter kateri naslovi denarnic in kriptoborze so vpleteni.',
         },
         {
           key: 'Something else',
@@ -814,6 +966,7 @@ const home: Localized<HomeContent> = {
         error: 'Nekaj je šlo narobe — poskusite znova ali mi pišite neposredno.',
         invalid: 'Prosimo, dodajte ime, veljaven e-naslov in sporočilo.',
       },
+      captcha: { label: 'Preverba', required: 'Prosimo, potrdite, da niste robot.' },
     },
     bar: {
       aria: 'Napredek strani',
@@ -823,8 +976,7 @@ const home: Localized<HomeContent> = {
         { target: 'facets', title: '1. del — Kaj počnem', aria: 'Skoči na Kaj počnem' },
         { target: 'record', title: '2. del — Dosedanje delo', aria: 'Skoči na Dosedanje delo' },
         { target: 'media', title: '3. del — Mediji in tisk', aria: 'Skoči na Mediji in tisk' },
-        { target: 'writing', title: '4. del — Objave', aria: 'Skoči na Objave' },
-        { target: 'contact', title: '5. del — Kontakt', aria: 'Skoči na Kontakt' },
+        { target: 'contact', title: '4. del — Kontakt', aria: 'Skoči na Kontakt' },
       ],
     },
   },

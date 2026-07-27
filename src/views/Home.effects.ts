@@ -117,7 +117,8 @@ export function initEffects(copy: HomeContent): () => void {
         // section offsets cache for the segmented progress bar
         this._refreshOffs = () => {
           var h = window.innerHeight || 800;
-          var ids = ['facets', 'record', 'media', 'writing', 'contact'];
+          // Must stay in step with copy.bar.jumps — one bar segment per section.
+          var ids = ['facets', 'record', 'media', 'contact'];
           var tops = [];
           for (var i = 0; i < ids.length; i++) {
             var el = document.getElementById(ids[i]);
@@ -145,15 +146,16 @@ export function initEffects(copy: HomeContent): () => void {
             }
             if (p > 0.8 && !this._locked && l3) this._lock(l3);
             var o = this._off;
-            if (o && o.tops.length === 5) {
+            if (o && o.tops.length) {
+              var nSeg = o.tops.length;
               var seg = -1;
-              for (var i = 0; i < 5; i++) { if (sy >= o.tops[i] - h * 0.35) seg = i; }
+              for (var i = 0; i < nSeg; i++) { if (sy >= o.tops[i] - h * 0.35) seg = i; }
               var f = 0;
               if (seg >= 0) {
                 var a = o.tops[seg] - h * 0.35;
-                var b = seg < 4 ? o.tops[seg + 1] - h * 0.35 : o.max;
+                var b = seg < nSeg - 1 ? o.tops[seg + 1] - h * 0.35 : o.max;
                 var fr = b > a ? Math.min(1, Math.max(0, (sy - a) / (b - a))) : 1;
-                f = (seg + fr) / 5;
+                f = (seg + fr) / nSeg;
               }
               var fill = document.getElementById('bar-fill');
               if (fill) fill.style.transform = 'scaleX(' + f.toFixed(4) + ')';
@@ -295,6 +297,34 @@ export function initEffects(copy: HomeContent): () => void {
               tio.observe(tlWrap);
               this._c.push(() => tio.disconnect());
             }, 60);
+
+            // photo bridge: let the portrait lag the scroll (parallax) while on
+            // screen. The img carries 14% headroom, so ±6% never shows an edge.
+            // Reduced motion keeps the band a still photo with its edge fades.
+            var bridge = document.getElementById('bridge');
+            var bridgeImg = document.getElementById('bridge-img');
+            if (bridge && bridgeImg && !reduced) {
+              var brOn = false;
+              var brBusy = false;
+              var brDraw = () => {
+                var r = bridge.getBoundingClientRect();
+                var bvh = window.innerHeight || 800;
+                // +1 band fully below the viewport's centre-line, -1 fully above
+                var p = ((r.top + r.height / 2) - bvh / 2) / ((bvh + r.height) / 2);
+                p = Math.max(-1, Math.min(1, p));
+                bridgeImg.style.transform = 'translate3d(0,' + (p * 6).toFixed(2) + '%,0)';
+              };
+              var brio = new IntersectionObserver((ens) => {
+                ens.forEach((en) => { brOn = en.isIntersecting; if (brOn) brDraw(); });
+              }, { rootMargin: '10% 0px' });
+              brio.observe(bridge);
+              this._c.push(() => brio.disconnect());
+              __fx.on(window, 'scroll', () => {
+                if (!brOn || brBusy) return;
+                brBusy = true;
+                requestAnimationFrame(() => { brBusy = false; if (brOn) brDraw(); });
+              }, { passive: true });
+            }
 
             // network draw-in
             var svg = document.querySelector('#network svg');
@@ -860,6 +890,9 @@ export function initEffects(copy: HomeContent): () => void {
           var ic = document.getElementById('ico-' + k);
           var is = open === k;
           pnl.style.gridTemplateRows = is ? '1fr' : '0fr';
+          // A collapsed panel is hidden by height only, so its links would keep
+          // their place in the tab order; inert takes the whole subtree out.
+          if (is) pnl.removeAttribute('inert'); else pnl.setAttribute('inert', '');
           if (b) b.setAttribute('aria-expanded', is ? 'true' : 'false');
           if (ic) {
             ic.style.transform = is ? 'rotate(45deg)' : 'none';
@@ -961,7 +994,7 @@ export function initEffects(copy: HomeContent): () => void {
       _applyChips() {
         // The selected/hover styling is CSS-driven off aria-pressed (see .pm-chip),
         // so a selected chip keeps its accent even after the mouse leaves.
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < copy.contact.topics.length; i++) {
           var c = document.getElementById('chip-' + i);
           if (!c) continue;
           c.setAttribute('aria-pressed', (c.getAttribute('data-topic') || '') === this.state.topic ? 'true' : 'false');
@@ -1002,7 +1035,7 @@ export function initEffects(copy: HomeContent): () => void {
           showNav: !this.state.mobile,
           barOn: on && this.state.bar,
           barLabel: this.state.label || copy.bar.fallbackLabel,
-          barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / 05',
+          barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / ' + this._pad(copy.bar.jumps.length),
           docketText: docket[this.state.docket] || copy.docket.items[0],
           docketIdx: this._pad(this.state.docket + 1) + ' / 08',
           dsRing: (this.props.docketStyle || 'ring') === 'ring',
@@ -1106,6 +1139,7 @@ export function initEffects(copy: HomeContent): () => void {
       subject: function (f) { return 'Peter Merc website — ' + (f.topic || 'General'); },
       page: 'Peter Merc — website contact',
       strings: copy.contact.formStates,
+      captcha: copy.contact.captcha,
     })
   } catch (e) { console.error("[effects] init failed", e) }
   return __fx.dispose
