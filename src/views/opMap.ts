@@ -170,13 +170,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // section scrolls past like any other and only a node tap re-opens it.
   let armed = true
   let seenAway = false
+  let entering = false // frozen, or mid-zoom: the overlay has not landed yet
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
-  let sheetAnim: Animation | null = null
   // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
   // as the camera tween (see applyEnterFlip) so box and graph can never
   // desynchronize into a jump.
-  let enterFlip: { l: number; t: number; u: number; t0: number } | null = null
+  let enterFlip: { l: number; t: number; u: number; t0: number; sheetDy: number } | null = null
   // Scrim under the overlay: fades the page to the section's graphite while
   // the box expands, so the box's opaque edge never sweeps across
   // still-bright page text (which read as a glitchy hard cut).
@@ -185,6 +185,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let fsSafety = 0
   let lastFocused: HTMLElement | null = null
   let lockedY = 0 // scroll offset pinned at lock time, restored at unlock
+  let overflowLocked = false
   const rootPrev = { htmlOverflow: '', bodyOverflow: '', htmlOB: '' }
   // World units mirror the old SVG viewBox: height fixed at 760 units, width
   // follows the container aspect so the map FILLS it (a fixed wide box got
@@ -450,12 +451,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (p >= 1) {
       enterFlip = null
       container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
+      dossier.style.transform = ''; container.classList.remove('op-entering')
       fsLanded() // Close pill + coach hint appear only now
       return
     }
     const e = camEase(p)
     const s = enterFlip.u + (1 - enterFlip.u) * e
     container.style.transform = `translate(${(enterFlip.l * (1 - e)).toFixed(2)}px, ${(enterFlip.t * (1 - e)).toFixed(2)}px) scale(${s.toFixed(5)})`
+    // The sheet rides the same curve back to its own slot. Local (pre-scale)
+    // units: this transform is applied inside the container, so the browser
+    // scales it by s along with everything else in the box.
+    if (enterFlip.sheetDy) dossier.style.transform = `translateY(${(enterFlip.sheetDy * (1 - e)).toFixed(2)}px)`
   }
 
   // ---- drag-to-pan + momentum (mobile fullscreen only) ---------------------
@@ -688,7 +694,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const open = fsState === 'fullscreen'
     // While the entry zoom is still running (enterFlip) the pill stays
     // hidden — it appears once the overlay has fully landed.
-    const show = (open && !enterFlip) || (isDesktop() && focusId !== 'pm')
+    const show = (open && !enterFlip && !entering) || (isDesktop() && focusId !== 'pm')
     pmback.hidden = !show
     pmback.classList.toggle('op-exit', open)
     pmback.setAttribute('aria-label', open ? (content.exit || 'Close full screen map') : content.backLabel)
@@ -962,17 +968,34 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // page provably never moves while the map is fullscreen.
   const snapLockedY = () => { try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) } }
   const onLockedScroll = () => { if (fsState === 'fullscreen' && Math.abs((window.scrollY || 0) - lockedY) > 1) snapLockedY() }
+  // The lock has two halves, and keeping them apart is what makes the handoff
+  // clean. The touchmove guard is the half that actually stops iOS scrolling,
+  // and it changes no styles, so it goes on at once. overflow:hidden is only
+  // the belt to that guard's braces — but it is also the one part that reflows
+  // the document, and on iOS it can take the scroll offset with it. Applied in
+  // the handoff frame, that landed right where the eye was: the page behind
+  // stepped while the overlay held still. It now waits for the zoom to land,
+  // by which point the overlay covers everything it could disturb.
   function lockScroll() {
-    const d = document.documentElement, b = document.body
     lockedY = window.scrollY || 0
-    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
-    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     window.addEventListener('scroll', onLockedScroll, { passive: true })
   }
-  function unlockScroll() {
+  function lockOverflow() {
+    if (overflowLocked) return
+    const d = document.documentElement, b = document.body
+    rootPrev.htmlOverflow = d.style.overflow; rootPrev.bodyOverflow = b.style.overflow; rootPrev.htmlOB = d.style.overscrollBehavior
+    d.style.overflow = 'hidden'; b.style.overflow = 'hidden'; d.style.overscrollBehavior = 'none'
+    overflowLocked = true
+  }
+  function unlockOverflow() {
+    if (!overflowLocked) return
     const d = document.documentElement, b = document.body
     d.style.overflow = rootPrev.htmlOverflow; b.style.overflow = rootPrev.bodyOverflow; d.style.overscrollBehavior = rootPrev.htmlOB
+    overflowLocked = false
+  }
+  function unlockScroll() {
+    unlockOverflow()
     document.removeEventListener('touchmove', onDocTouchMove)
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
@@ -992,6 +1015,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // done at entry time: mid-zoom the Close pill hovered over a still-moving
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
+    entering = false
+    lockOverflow() // deferred to here on purpose (see lockScroll)
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
@@ -1013,22 +1038,47 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function stopFsAnim() {
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
-    if (sheetAnim) { try { sheetAnim.cancel() } catch { /* noop */ } sheetAnim = null }
     if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
+    entering = false
+    dossier.style.transform = ''; container.classList.remove('op-entering')
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
   }
+  // Entry is two steps, and the gap between them is the whole point.
+  //
+  // Step one is a HARD STOP. A fling is often still running when the section
+  // arrives — waiting for it to end is no good, because frequently it doesn't
+  // (you flick, it coasts, you flick again). So the scroll is killed on the
+  // spot: the touch guard goes on, and a programmatic scroll to the position
+  // the page is already at cancels iOS momentum without moving anything.
+  //
+  // Step two runs on the next frame. That one frame is what buys correctness:
+  // the overlay is placed from rects measured on the main thread, and during a
+  // fling those rects trail the compositor's real scroll position, so an
+  // overlay placed mid-fling lands offset from the picture on screen — the
+  // step that read as the layout resetting. Measured a frame after the stop,
+  // with the page provably still, they agree.
   function enterFullscreen() {
-    if (isDesktop() || fsState !== 'collapsed') return
-    stopFsAnim()
+    if (isDesktop() || fsState !== 'collapsed' || entering) return
+    stopFsAnim() // BEFORE the flags: it clears `entering` (it is teardown for aborted entries)
+    entering = true
+    fsState = 'fullscreen' // the touchmove guard keys off this — set it before the guard can be needed
+    armed = false          // the once-per-load auto-open is spent on ANY entry
+    if (io) { io.disconnect(); io = null } // its one job is done
+    document.addEventListener('touchmove', onDocTouchMove, { passive: false })
+    try { window.scrollTo({ top: window.scrollY || 0, behavior: 'instant' as ScrollBehavior }) } catch { /* noop */ }
+    requestAnimationFrame(() => {
+      if (!entering || disposed || fsState !== 'fullscreen' || placeholder) return
+      placeFullscreen()
+    })
+  }
+  function placeFullscreen() {
     // Capture the collapsed view's box and world->viewport mapping BEFORE
     // anything moves: the overlay's first frame must reproduce it exactly.
     const first = container.getBoundingClientRect()
+    const sheetFirst = dossier.getBoundingClientRect() // the preview sheet's slot, for the shared-element glide
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
-    fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
-    armed = false          // the once-per-load auto-open is spent on ANY entry
-    if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
     placeholder = document.createElement('div')
@@ -1045,7 +1095,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       scrim.className = 'op-scrim'
       document.body.appendChild(scrim)
       try {
-        scrimAnim = scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease' })
+        scrimAnim = scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' })
         scrimAnim.onfinish = () => { scrimAnim = null }
       } catch { /* noop */ }
     }
@@ -1081,13 +1131,25 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       tx: ((oldW / 2 + oldCam.tx * oldU2p) / u - cssW / 2) / newU2p,
       ty: ((oldH / 2 + oldCam.ty * oldU2p) / u - cssH / 2) / newU2p,
     }
-    if (!reduced) enterFlip = { l: first.left, t: first.top, u, t0: 0 } // armed BEFORE render: its syncBack keeps the Close pill hidden until landing
+    if (!reduced) enterFlip = { l: first.left, t: first.top, u, t0: 0, sheetDy: 0 } // armed BEFORE render: its syncBack keeps the Close pill hidden until landing
     render(!reduced)
     if (enterFlip && camActive) {
       // arm the box zoom BEFORE this frame paints, at its exact t=0 pose
+      container.classList.add('op-entering') // suspends the sheet's own CSS transition while we drive it per frame
       container.style.transformOrigin = '0 0'
       container.style.willChange = 'transform'
       container.style.transform = `translate(${first.left.toFixed(2)}px, ${first.top.toFixed(2)}px) scale(${u.toFixed(5)})`
+      // The sheet is the one part that does NOT simply zoom: it is anchored to
+      // the bottom of a box that just became a whole viewport tall, so on the
+      // entry frame it sits far below where the preview's sheet was — mostly
+      // off-screen. That relocation is what used to be masked by cutting its
+      // opacity to 0 (the instant vanish). Instead, measure the gap now and
+      // hold it in the preview's slot, then glide it home on the box's clock:
+      // one continuous sheet, never hidden. Divided by u because the offset is
+      // written inside the container, which the browser then scales.
+      const sheetNow = dossier.getBoundingClientRect()
+      enterFlip.sheetDy = (sheetFirst.bottom - sheetNow.bottom) / (u || 1)
+      if (enterFlip.sheetDy) dossier.style.transform = `translateY(${enterFlip.sheetDy.toFixed(2)}px)`
     } else if (enterFlip) {
       enterFlip = null // camera had nothing to glide — no box zoom either; land now
       fsLanded()
@@ -1105,16 +1167,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       requestAnimationFrame(() => fsLanded())
       return
     }
-    // The sheet is where the two states genuinely differ (position, height,
-    // amount of text), so opacity bridges it: invisible while the box
-    // travels, fading in as it lands. The graph itself never blinks.
-    try {
-      sheetAnim = dossier.animate(
-        [{ opacity: 0 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }],
-        { duration: 1050, easing: 'ease' }
-      )
-      sheetAnim.onfinish = () => { sheetAnim = null }
-    } catch { /* noop */ }
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
@@ -1135,6 +1187,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       lastFocused = null
     }
     resetGesture(); suppressClick = false; stopMomentum(); hideCoach()
+    unlockOverflow() // released while the overlay still hides the reflow
     // Recentre as it closes: the collapsed preview is always the whole graph
     // around the hub, never the branch that happened to be open. The glide is
     // cut to the exit's own length so the recentre and the shrink land
