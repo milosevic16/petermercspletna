@@ -186,8 +186,17 @@
 
     <!-- Bottom padding is the section's own: the two-track timeline ends in the
          lower track's text, where a trailing note used to provide the gap. -->
-    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 clamp(3rem, 6vw, 4.5rem);">
-      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
+    <section id="timeline" data-screen-label="Timeline" :data-chyron="t.timeline.chyron" style="position:relative; overflow:hidden; background:var(--paper); padding:clamp(4.5rem, 10vw, 7.5rem) 0 clamp(3rem, 6vw, 4.5rem);">
+      <!-- Barely-there portrait wash: the seated photo, grayscaled to a single
+           paper tone and taken down to a whisper, so the section reads as
+           texture rather than a picture. Decorative (empty alt, aria-hidden);
+           the edge fade keeps both section boundaries clean paper, so the
+           neighbouring graphite bands still meet a crisp light edge. -->
+      <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none;">
+        <img src="/assets/5c6921c9.jpg" alt="" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:cover; object-position:50% 26%; filter:grayscale(1) contrast(1.05); opacity:0.08;">
+        <div style="position:absolute; inset:0; background:linear-gradient(to bottom, var(--paper) 0%, rgba(236,233,226,0) 20%, rgba(236,233,226,0) 80%, var(--paper) 100%);"></div>
+      </div>
+      <div style="position:relative; max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
         <h2 style="margin:0 0 clamp(2.2rem, 5vw, 3.4rem); display:flex; align-items:center; gap:1.1rem;">
           <span style="display:inline-flex; align-items:center; background:var(--graphite); border-left:3px solid var(--accent); color:#D6D1C5; padding:0.5rem 0.85rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.timeline.eyebrow }}</span>
           <span aria-hidden="true" data-rule="" style="flex:1; border-top:1px solid var(--line);"></span>
