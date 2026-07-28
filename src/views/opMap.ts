@@ -480,6 +480,52 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // from exactly where the eye is (no snap-back of the pan on nav).
   function foldPan() { stopMomentum(); if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } }
 
+  // ---- ?paninfo forensics HUD (temporary diagnostic) -----------------------
+  // iPhone-Safari dead-pan hunt: no iOS Web Inspector exists on Windows, so
+  // the phone itself must show what the document receives. When the URL
+  // carries "paninfo" (query or hash), a fixed monospace panel paints live
+  // state + counters: capture-phase touch/pointer tallies (what Safari
+  // DELIVERS, before any bubble handler can interfere) next to the pan
+  // handlers' own entry/bail counters (WHY a delivered event didn't pan).
+  // pointer-events:none, so the panel can never eat the gestures it counts.
+  // Without the flag dbg is null and every instrumentation site is a
+  // short-circuited null check — zero behavior change in normal use.
+  const dbg = (() => {
+    try { if (!/paninfo/.test(location.search + location.hash)) return null } catch { return null }
+    const el = document.createElement('pre')
+    el.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;margin:0;padding:6px 8px;font:10px/1.5 monospace;color:#7CFC9A;background:rgba(0,0,0,0.78);pointer-events:none;white-space:pre-wrap;max-width:100vw;max-height:55vh;overflow:hidden'
+    document.body.appendChild(el)
+    const c: Record<string, number> = {}
+    let raf = 0
+    const paint = () => {
+      raf = 0
+      const vv = window.visualViewport
+      el.textContent =
+        'paninfo ' + ((navigator.userAgent.match(/OS \d+_\d+(_\d+)?/) || ['os?'])[0]) + '\n'
+        + 'fs=' + fsState + ' wired=' + touchWired + ' entering=' + entering + ' desktop=' + isDesktop() + ' reduced=' + reduced + '\n'
+        + 'vv.scale=' + (vv ? vv.scale.toFixed(3) : '?') + ' tId=' + tId + ' moved=' + tMoved + ' pan=' + panX.toFixed(0) + ',' + panY.toFixed(0) + '\n'
+        + Object.keys(c).sort().map((k) => k + '=' + c[k]).join('  ')
+    }
+    const note = (k: string) => { c[k] = (c[k] || 0) + 1; if (!raf) raf = requestAnimationFrame(paint) }
+    // Delivery tallies at CAPTURE phase: "TMcap counting but tm:* frozen"
+    // means Safari delivers fine and the app bailed; "TMcap absent" means
+    // Safari never dispatched touchmove to the document at all. The "!"
+    // variant marks non-cancelable touchmoves — a gesture already claimed
+    // natively. The pointer stream (PD/PM/PU/PC) is tallied alongside to see
+    // whether it stays alive when the touch stream dies.
+    const mk = (t: string) => (e: Event) => { if (fsState !== 'fullscreen') return; note(t + ((t === 'TMcap' && !(e as TouchEvent).cancelable) ? '!' : '')) }
+    const caps: Array<[string, (e: Event) => void]> = [
+      ['touchstart', mk('TScap')], ['touchmove', mk('TMcap')], ['touchend', mk('TEcap')], ['touchcancel', mk('TCcap')],
+      ['pointerdown', mk('PD')], ['pointermove', mk('PM')], ['pointerup', mk('PU')], ['pointercancel', mk('PC')],
+    ]
+    caps.forEach(([t, f]) => document.addEventListener(t, f, { capture: true, passive: true }))
+    const iv = window.setInterval(paint, 700) // state line stays fresh while idle
+    return {
+      note,
+      dispose() { caps.forEach(([t, f]) => document.removeEventListener(t, f, true)); clearInterval(iv); if (raf) cancelAnimationFrame(raf); el.remove() },
+    }
+  })()
+
   let io: IntersectionObserver | null = null
   let visIO: IntersectionObserver | null = null
   let stageVisible = true // ambient animations (radar ping, pulse) pause off-screen
@@ -973,11 +1019,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // there means one handler both holds the lock and moves the graph — they can
   // no longer disagree about who owns the gesture.
   const onDocTouchStart = (e: TouchEvent) => {
-    if (fsState !== 'fullscreen') return
-    if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
+    if (fsState !== 'fullscreen') { dbg && dbg.note('ts:not-fs'); return }
+    if (e.touches.length !== 1) { resetGesture(); dbg && dbg.note('ts:multi'); return } // let pinch/multitouch be
     const t = e.touches[0]
-    if (t.clientX < 24) { resetGesture(); return }         // dodge iOS edge back-swipe
-    if (inDesc(e.target)) { resetGesture(); return }       // the description keeps its own scroll
+    if (t.clientX < 24) { resetGesture(); dbg && dbg.note('ts:edge'); return }         // dodge iOS edge back-swipe
+    if (inDesc(e.target)) { resetGesture(); dbg && dbg.note('ts:desc'); return }       // the description keeps its own scroll
+    dbg && dbg.note('ts:ok')
     stopMomentum(); hideCoach()
     suppressClick = false // a fresh gesture: never swallow this one's tap
     tId = t.identifier
@@ -987,18 +1034,20 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
   }
   const onDocTouchMove = (e: TouchEvent) => {
-    if (fsState !== 'fullscreen') return
-    if (inDesc(e.target)) return // reading the description, not moving the map
-    if (e.cancelable) e.preventDefault() // the lock, and what keeps the gesture ours
-    if (tId < 0) return
+    if (fsState !== 'fullscreen') { dbg && dbg.note('tm:not-fs'); return }
+    if (inDesc(e.target)) { dbg && dbg.note('tm:desc'); return } // reading the description, not moving the map
+    if (e.cancelable) { e.preventDefault(); dbg && dbg.note('tm:prevented') } // the lock, and what keeps the gesture ours
+    else dbg && dbg.note('tm:cancelable-false')
+    if (tId < 0) { dbg && dbg.note('tm:no-tid'); return }
     let t: Touch | null = null
     for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
-    if (!t) return
+    if (!t) { dbg && dbg.note('tm:no-match'); return }
     const dx = t.clientX - tSX, dy = t.clientY - tSY
     if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true }
     const m = panMax()
     panX = clampTo(tPX0 + dx * tUPP, m.x)
     panY = clampTo(tPY0 + dy * tUPP, m.y)
+    dbg && dbg.note('tm:pan')
     const now = e.timeStamp, dt = now - tLT
     if (dt > 0) { tVX = ((t.clientX - tLX) * tUPP / dt) * 16; tVY = ((t.clientY - tLY) * tUPP / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
     requestDraw() // one synchronous canvas paint per frame — nothing to tile or defer
@@ -1103,6 +1152,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // with the page provably still, they agree.
   function enterFullscreen() {
     if (isDesktop() || fsState !== 'collapsed' || entering) return
+    dbg && dbg.note('enterFS')
     stopFsAnim() // BEFORE the flags: it clears `entering` (it is teardown for aborted entries)
     entering = true
     fsState = 'fullscreen' // the touchmove guard keys off this — set it before the guard can be needed
@@ -1241,6 +1291,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function exitFullscreen() {
     if (fsState !== 'fullscreen') return
+    dbg && dbg.note('exitFS')
     stopFsAnim()
     const finish = () => {
       stopFsAnim()
@@ -1375,6 +1426,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const DECIDE = 6
   function resetGesture() { tId = -1; tMoved = false }
   const onTouchEnd = () => {
+    dbg && dbg.note('te-or-tc')
     if (tId < 0) return
     if (tMoved) {
       suppressClick = true // swallow the click iOS synthesizes after a drag
@@ -1399,6 +1451,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     document.addEventListener('touchend', onTouchEnd)
     document.addEventListener('touchcancel', onTouchEnd)
     touchWired = true
+    dbg && dbg.note('wire')
   }
   function unwireTouch() {
     if (!touchWired) return
@@ -1407,6 +1460,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     document.removeEventListener('touchend', onTouchEnd)
     document.removeEventListener('touchcancel', onTouchEnd)
     touchWired = false
+    dbg && dbg.note('unwire')
   }
   canvas.addEventListener('click', onClickCapture, true)
 
@@ -1481,6 +1535,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     window.removeEventListener('resize', onResize)
     window.removeEventListener('scroll', onLockedScroll)
     unwireTouch() // owns the document touch set: guard + pan
+    dbg && dbg.dispose() // HUD + its capture-phase counters go with the map
     container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
