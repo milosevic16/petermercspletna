@@ -613,16 +613,14 @@ export function initEffects(copy: HomeContent): () => void {
       //
       // And the run is timed, not per-frame: a fixed number of characters per
       // frame means a dropped frame is a dropped character, so the same panel
-      // takes different times on different devices. Every panel now sweeps in
-      // about the same beat regardless of its length or the frame rate.
+      // takes different times on different devices.
       _twStart(root) {
         this._twStop();
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
         var nodes = [];
         var tn;
-        var total = 0;
         while ((tn = walker.nextNode())) {
-          if (tn.nodeValue && tn.nodeValue.trim()) { nodes.push({ node: tn, full: tn.nodeValue }); total += tn.nodeValue.length; }
+          if (tn.nodeValue && tn.nodeValue.trim()) nodes.push({ node: tn, full: tn.nodeValue });
         }
         if (!nodes.length) return;
         // Fixed height, not a minimum: the caret is a real glyph, so on a line
@@ -636,9 +634,14 @@ export function initEffects(copy: HomeContent): () => void {
         if (h > 0) { root.style.boxSizing = 'border-box'; root.style.height = h + 'px'; root.style.overflow = 'hidden'; this._twPad = root; }
         this._twNodes = nodes;
         nodes.forEach((n) => { n.node.nodeValue = ''; });
-        // ~730ms end to end, clamped so a one-line panel is not instant and a
-        // very long one does not drag; the panel's own 0.5s open runs under it.
-        var speed = Math.max(0.38, Math.min(2.6, total / 730));
+        // One RATE for every panel, not one duration. Normalising the duration
+        // made each panel finish in the same beat, which meant the longest
+        // (1,468 characters) had to type four times faster than the shortest
+        // (357) to get there — the first entry visibly raced the rest. At a
+        // fixed rate they all read the same and length decides the length:
+        // ~1.1s for the longest, ~260ms for the shortest, and the average panel
+        // still lands on the ~730ms this was tuned to.
+        var speed = 1.35; // characters per millisecond
         var t0 = performance.now();
         var step = () => {
           var budget = Math.floor((performance.now() - t0) * speed);
