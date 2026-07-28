@@ -956,10 +956,52 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // overflow scroll keeps working. Registered only while fullscreen so normal
   // page scrolling never pays the synchronous-dispatch cost.
   const descEl = dossier.querySelector('.op-d-desc') as HTMLElement
+  const inDesc = (t: EventTarget | null) => !!descEl && t instanceof Node && descEl.contains(t)
+  // Pan is driven from DOCUMENT level, not from listeners on the canvas.
+  //
+  // Scoping it to the canvas assumed the canvas keeps receiving the gesture,
+  // and on iOS that is exactly what fails: the moment WebKit decides a touch is
+  // a scroll it stops delivering moves to the element and fires touchcancel
+  // instead, so the canvas handler goes deaf mid-drag and the graph freezes
+  // while taps (which need no moves) carry on working. Nothing about
+  // touch-action can rescue a handler the events no longer reach.
+  //
+  // The document listener is the one that cannot be bypassed: it is registered
+  // non-passive for the scroll lock anyway, it sees every move in the overlay
+  // whatever the target is, and its preventDefault on the FIRST move is what
+  // stops WebKit claiming the gesture in the first place. Driving the pan from
+  // there means one handler both holds the lock and moves the graph — they can
+  // no longer disagree about who owns the gesture.
+  const onDocTouchStart = (e: TouchEvent) => {
+    if (fsState !== 'fullscreen') return
+    if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
+    const t = e.touches[0]
+    if (t.clientX < 24) { resetGesture(); return }         // dodge iOS edge back-swipe
+    if (inDesc(e.target)) { resetGesture(); return }       // the description keeps its own scroll
+    stopMomentum(); hideCoach()
+    suppressClick = false // a fresh gesture: never swallow this one's tap
+    tId = t.identifier
+    tUPP = VBW / (cssW || 1)
+    tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
+    tMoved = false
+    tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
+  }
   const onDocTouchMove = (e: TouchEvent) => {
     if (fsState !== 'fullscreen') return
-    if (descEl && e.target instanceof Node && descEl.contains(e.target)) return
-    if (e.cancelable) e.preventDefault()
+    if (inDesc(e.target)) return // reading the description, not moving the map
+    if (e.cancelable) e.preventDefault() // the lock, and what keeps the gesture ours
+    if (tId < 0) return
+    let t: Touch | null = null
+    for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
+    if (!t) return
+    const dx = t.clientX - tSX, dy = t.clientY - tSY
+    if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true }
+    const m = panMax()
+    panX = clampTo(tPX0 + dx * tUPP, m.x)
+    panY = clampTo(tPY0 + dy * tUPP, m.y)
+    const now = e.timeStamp, dt = now - tLT
+    if (dt > 0) { tVX = ((t.clientX - tLX) * tUPP / dt) * 16; tVY = ((t.clientY - tLY) * tUPP / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
+    requestDraw() // one synchronous canvas paint per frame — nothing to tile or defer
   }
   // The lock is self-healing: a gesture's fling tail can leak a few px of
   // root scroll past overflow:hidden + the touchmove guard (the browser
@@ -974,7 +1016,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // settled before anything is placed from it.
   function lockScroll() {
     lockedY = window.scrollY || 0
-    document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     window.addEventListener('scroll', onLockedScroll, { passive: true })
   }
   function lockOverflow() {
@@ -992,7 +1033,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   }
   function unlockScroll() {
     unlockOverflow()
-    document.removeEventListener('touchmove', onDocTouchMove)
     window.removeEventListener('scroll', onLockedScroll)
     snapLockedY() // Close lands exactly where the page was when the map opened
   }
@@ -1066,7 +1106,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // inline style survives any build transform.
     container.style.touchAction = 'none'
     canvas.style.touchAction = 'none'
-    document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     // The stop itself, in iOS order of reliability: overflow:hidden kills a
     // momentum fling DEAD (a programmatic scrollTo does not — WebKit keeps
     // coasting right over it, and a page still coasting when the next touch
@@ -1304,44 +1343,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // Driven by TOUCH events with preventDefault. iOS Safari does not reliably
   // honor touch-action on SVG content and would axis-lock, rubber-band, or
   // cancel a pointer-event drag mid-gesture. Defense in depth on WebKit:
-  // touch-action:none sits on the canvas (an HTML box, where it IS honored) and
-  // onDocTouchMove preventDefaults canvas-started moves at the document level so
-  // the browser can never claim the drag for a native page pan — the failure
-  // mode that turns every later touchmove cancelable:false and deadens the
-  // handler. Collapsed / desktop: handlers are not even registered.
+  // touch-action:none sits on the container and the canvas (HTML boxes, where it
+  // IS honored) and the document-level handler preventDefaults every move in the
+  // overlay, so the browser can never claim the drag for a native page pan — the
+  // failure mode that turns later touchmoves cancelable:false, and then stops
+  // delivering them to the element altogether. Collapsed / desktop: not
+  // registered at all.
   let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
   let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
   let tUPP = 1 // world units per CSS px, cached per gesture (no per-move layout reads)
   const DECIDE = 6
   function resetGesture() { tId = -1; tMoved = false }
-  const onTouchStart = (e: TouchEvent) => {
-    if (fsState !== 'fullscreen') return
-    if (e.touches.length !== 1) { resetGesture(); return } // let pinch/multitouch be
-    const t = e.touches[0]
-    if (t.clientX < 24) { resetGesture(); return } // dodge iOS edge back-swipe
-    stopMomentum(); hideCoach()
-    suppressClick = false // a fresh gesture: never swallow this one's tap
-    tId = t.identifier
-    tUPP = VBW / (cssW || 1)
-    tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
-    tMoved = false
-    tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
-  }
-  const onTouchMove = (e: TouchEvent) => {
-    if (fsState !== 'fullscreen' || tId < 0) return
-    let t: Touch | null = null
-    for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
-    if (!t) return
-    if (e.cancelable) e.preventDefault() // KEY: take the gesture from iOS entirely
-    const dx = t.clientX - tSX, dy = t.clientY - tSY
-    if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true }
-    const m = panMax()
-    panX = clampTo(tPX0 + dx * tUPP, m.x)
-    panY = clampTo(tPY0 + dy * tUPP, m.y)
-    const now = e.timeStamp, dt = now - tLT
-    if (dt > 0) { tVX = ((t.clientX - tLX) * tUPP / dt) * 16; tVY = ((t.clientY - tLY) * tUPP / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
-    requestDraw() // one synchronous canvas paint per frame — nothing to tile or defer
-  }
   const onTouchEnd = () => {
     if (tId < 0) return
     if (tMoved) {
@@ -1362,18 +1374,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let touchWired = false
   function wireTouch() {
     if (touchWired) return
-    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
-    canvas.addEventListener('touchmove', onTouchMove, { passive: false }) // non-passive: preventDefault is honored
-    canvas.addEventListener('touchend', onTouchEnd)
-    canvas.addEventListener('touchcancel', onTouchEnd)
+    document.addEventListener('touchstart', onDocTouchStart, { passive: true })
+    document.addEventListener('touchmove', onDocTouchMove, { passive: false }) // non-passive: preventDefault is honored
+    document.addEventListener('touchend', onTouchEnd)
+    document.addEventListener('touchcancel', onTouchEnd)
     touchWired = true
   }
   function unwireTouch() {
     if (!touchWired) return
-    canvas.removeEventListener('touchstart', onTouchStart)
-    canvas.removeEventListener('touchmove', onTouchMove)
-    canvas.removeEventListener('touchend', onTouchEnd)
-    canvas.removeEventListener('touchcancel', onTouchEnd)
+    document.removeEventListener('touchstart', onDocTouchStart)
+    document.removeEventListener('touchmove', onDocTouchMove)
+    document.removeEventListener('touchend', onTouchEnd)
+    document.removeEventListener('touchcancel', onTouchEnd)
     touchWired = false
   }
   canvas.addEventListener('click', onClickCapture, true)
@@ -1447,9 +1459,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     pulse = null
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('resize', onResize)
-    document.removeEventListener('touchmove', onDocTouchMove) // idempotent belt (unlockScroll already removes it)
     window.removeEventListener('scroll', onLockedScroll)
-    unwireTouch()
+    unwireTouch() // owns the document touch set: guard + pan
     container.innerHTML = '' // discards canvas + all its listeners
     container.classList.remove('op-live', 'op-at-top', 'op-fs')
   }
