@@ -503,7 +503,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
       el.textContent =
         'paninfo ' + ((navigator.userAgent.match(/OS \d+_\d+(_\d+)?/) || ['os?'])[0]) + '\n'
         + 'fs=' + fsState + ' wired=' + touchWired + ' entering=' + entering + ' desktop=' + isDesktop() + ' reduced=' + reduced + '\n'
-        + 'vv.scale=' + (vv ? vv.scale.toFixed(3) : '?') + ' tId=' + tId + ' moved=' + tMoved + ' pan=' + panX.toFixed(0) + ',' + panY.toFixed(0) + '\n'
+        + 'vv.scale=' + (vv ? vv.scale.toFixed(3) : '?') + ' act=' + tActive + ' tId=' + tId + ' moved=' + tMoved + ' pan=' + panX.toFixed(0) + ',' + panY.toFixed(0) + '\n'
         + Object.keys(c).sort().map((k) => k + '=' + c[k]).join('  ')
     }
     const note = (k: string) => { c[k] = (c[k] || 0) + 1; if (!raf) raf = requestAnimationFrame(paint) }
@@ -1027,7 +1027,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     dbg && dbg.note('ts:ok')
     stopMomentum(); hideCoach()
     suppressClick = false // a fresh gesture: never swallow this one's tap
-    tId = t.identifier
+    tActive = true; tId = t.identifier
     tUPP = VBW / (cssW || 1)
     tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
     tMoved = false
@@ -1038,7 +1038,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (inDesc(e.target)) { dbg && dbg.note('tm:desc'); return } // reading the description, not moving the map
     if (e.cancelable) { e.preventDefault(); dbg && dbg.note('tm:prevented') } // the lock, and what keeps the gesture ours
     else dbg && dbg.note('tm:cancelable-false')
-    if (tId < 0) { dbg && dbg.note('tm:no-tid'); return }
+    if (!tActive) { dbg && dbg.note('tm:no-tid'); return }
     let t: Touch | null = null
     for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
     if (!t) { dbg && dbg.note('tm:no-match'); return }
@@ -1420,14 +1420,27 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // failure mode that turns later touchmoves cancelable:false, and then stops
   // delivering them to the element altogether. Collapsed / desktop: not
   // registered at all.
-  let tId = -1, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
+  // tActive, not a sentinel value of tId: Touch.identifier is a `long` and the
+  // spec never promises it is non-negative. Blink counts up from 0, so `tId < 0`
+  // read as "no gesture" on Chrome and Android forever — but WebKit derives the
+  // identifier from the platform touch and hands out large values of EITHER
+  // sign (measured on iOS Safari: -1458752544). A negative one made every
+  // touchmove bail on that guard: the gesture started, the moves arrived and
+  // were preventDefault'd, and the pan never ran — dead drags, working taps, no
+  // native scroll artifact. It also explains the years of "fixed itself / broke
+  // itself with no code change": the value depends on the web process, so a
+  // reload could land on either sign and hold it for days. Whether a gesture is
+  // live is now tracked separately, and tId is only ever compared for EQUALITY
+  // against the touch list — never ordered against zero.
+  let tActive = false
+  let tId = 0, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
   let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
   let tUPP = 1 // world units per CSS px, cached per gesture (no per-move layout reads)
   const DECIDE = 6
-  function resetGesture() { tId = -1; tMoved = false }
+  function resetGesture() { tActive = false; tMoved = false }
   const onTouchEnd = () => {
     dbg && dbg.note('te-or-tc')
-    if (tId < 0) return
+    if (!tActive) return
     if (tMoved) {
       suppressClick = true // swallow the click iOS synthesizes after a drag
       if (!reduced && Math.hypot(tVX, tVY) > 0.4) { momVX = tVX; momVY = tVY; momActive = true; requestDraw() }
