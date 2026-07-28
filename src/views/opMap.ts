@@ -170,7 +170,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // section scrolls past like any other and only a node tap re-opens it.
   let armed = true
   let seenAway = false
-  let openPending = 0
+  let entering = false // frozen, or mid-zoom: the overlay has not landed yet
   let placeholder: HTMLDivElement | null = null
   let fsAnim: Animation | null = null
   // The entry box-zoom, driven frame-by-frame from the SAME clock and curve
@@ -694,7 +694,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const open = fsState === 'fullscreen'
     // While the entry zoom is still running (enterFlip) the pill stays
     // hidden — it appears once the overlay has fully landed.
-    const show = (open && !enterFlip) || (isDesktop() && focusId !== 'pm')
+    const show = (open && !enterFlip && !entering) || (isDesktop() && focusId !== 'pm')
     pmback.hidden = !show
     pmback.classList.toggle('op-exit', open)
     pmback.setAttribute('aria-label', open ? (content.exit || 'Close full screen map') : content.backLabel)
@@ -1015,6 +1015,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // done at entry time: mid-zoom the Close pill hovered over a still-moving
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
+    entering = false
     lockOverflow() // deferred to here on purpose (see lockScroll)
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
@@ -1038,12 +1039,39 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function stopFsAnim() {
     if (fsAnim) { try { fsAnim.cancel() } catch { /* noop */ } fsAnim = null }
     if (enterFlip) { enterFlip = null; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = '' }
+    entering = false
     dossier.style.transform = ''; container.classList.remove('op-entering')
     if (fsSafety) { clearTimeout(fsSafety); fsSafety = 0 }
   }
+  // Entry is two steps, and the gap between them is the whole point.
+  //
+  // Step one is a HARD STOP. A fling is often still running when the section
+  // arrives — waiting for it to end is no good, because frequently it doesn't
+  // (you flick, it coasts, you flick again). So the scroll is killed on the
+  // spot: the touch guard goes on, and a programmatic scroll to the position
+  // the page is already at cancels iOS momentum without moving anything.
+  //
+  // Step two runs on the next frame. That one frame is what buys correctness:
+  // the overlay is placed from rects measured on the main thread, and during a
+  // fling those rects trail the compositor's real scroll position, so an
+  // overlay placed mid-fling lands offset from the picture on screen — the
+  // step that read as the layout resetting. Measured a frame after the stop,
+  // with the page provably still, they agree.
   function enterFullscreen() {
-    if (isDesktop() || fsState !== 'collapsed') return
-    stopFsAnim()
+    if (isDesktop() || fsState !== 'collapsed' || entering) return
+    stopFsAnim() // BEFORE the flags: it clears `entering` (it is teardown for aborted entries)
+    entering = true
+    fsState = 'fullscreen' // the touchmove guard keys off this — set it before the guard can be needed
+    armed = false          // the once-per-load auto-open is spent on ANY entry
+    if (io) { io.disconnect(); io = null } // its one job is done
+    document.addEventListener('touchmove', onDocTouchMove, { passive: false })
+    try { window.scrollTo({ top: window.scrollY || 0, behavior: 'instant' as ScrollBehavior }) } catch { /* noop */ }
+    requestAnimationFrame(() => {
+      if (!entering || disposed || fsState !== 'fullscreen' || placeholder) return
+      placeFullscreen()
+    })
+  }
+  function placeFullscreen() {
     // Capture the collapsed view's box and world->viewport mapping BEFORE
     // anything moves: the overlay's first frame must reproduce it exactly.
     const first = container.getBoundingClientRect()
@@ -1051,10 +1079,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
-    fsState = 'fullscreen' // pan works immediately; the animation is cosmetic
-    armed = false          // the once-per-load auto-open is spent on ANY entry
-    cancelAutoOpen()
-    if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
     placeholder = document.createElement('div')
@@ -1368,33 +1392,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // also disconnects this observer). Skipped under reduced motion: grabbing
   // the viewport on scroll is exactly the surprise that preference asks to
   // avoid — a node tap still opens the overlay.
-  // ...and only once the scroll has actually STOPPED. Opening mid-fling is
-  // where the handoff frame goes wrong: the overlay is placed from rects read
-  // on the main thread while iOS is still scrolling on the compositor, so the
-  // two disagree by however far the fling has travelled since — which is
-  // exactly the step that reads as the layout resetting. Waiting for quiet
-  // costs a beat and makes the geometry exact. It also reads better: the map
-  // opens because you settled on it, not because you swept past it.
-  function armAutoOpen() {
-    if (openPending) { clearTimeout(openPending); openPending = 0 }
-    else window.addEventListener('scroll', onPendingScroll, { passive: true })
-    openPending = window.setTimeout(tryAutoOpen, 150)
-  }
-  function cancelAutoOpen() {
-    if (openPending) { clearTimeout(openPending); openPending = 0 }
-    window.removeEventListener('scroll', onPendingScroll)
-  }
-  const onPendingScroll = () => { if (openPending) { clearTimeout(openPending); openPending = window.setTimeout(tryAutoOpen, 150) } }
-  function tryAutoOpen() {
-    cancelAutoOpen()
-    if (!armed || reduced || isDesktop() || fsState !== 'collapsed' || !seenAway) return
-    // Re-check against live geometry: the section may have scrolled back out
-    // while we waited, and the observer's numbers are from before the wait.
-    const r = container.getBoundingClientRect()
-    const vh = window.innerHeight || 0
-    const shown = Math.min(r.bottom, vh) - Math.max(r.top, 0)
-    if (shown >= Math.min(r.height, vh) - Math.max(12, r.height * 0.03)) enterFullscreen()
-  }
   if (typeof IntersectionObserver !== 'undefined' && !reduced) {
     io = new IntersectionObserver((ents) => {
       for (const en of ents) {
@@ -1409,7 +1406,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
         const bh = en.boundingClientRect.height
         const rb = en.rootBounds
         const needed = (rb ? Math.min(bh, rb.height) : bh) - Math.max(12, bh * 0.03)
-        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') armAutoOpen()
+        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
       }
     }, { threshold: Array.from({ length: 51 }, (_, i) => i / 50) })
     io.observe(container)
@@ -1426,7 +1423,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     disposed = true
     forceCollapse() // never leave <body> locked / the overlay open if unmounted mid-fullscreen
     clearTimeout(settleTimer)
-    cancelAutoOpen()
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = 0 }
     stopMomentum()
