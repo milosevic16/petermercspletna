@@ -735,6 +735,16 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
    in-flow height meanwhile, so the page layout never shifts. */
 @media (max-width: 740px) {
   .op-map-ph { width: 100%; } /* reserves in-flow height while the map is lifted out */
+  /* touch-action:none lives IN this block, not in a second same-selector rule:
+     the production CSS minifier merges duplicate selectors and DROPPED the
+     second rule's declarations — the built site shipped a container without
+     touch-action, which on iOS lets a drag be claimed for a native page pan at
+     gesture start (every touchmove then arrives cancelable:false and JS
+     preventDefault can't take it back — the "pan never follows the finger"
+     iPhone bug; dev, which serves unminified CSS, never showed it). It must
+     sit on the CONTAINER: iOS applies it unreliably on embedded content.
+     opMap.ts additionally sets it INLINE while fullscreen, immune to any CSS
+     transform, and the document-level touchmove guard backstops both. */
   .op-map.op-live.op-fs {
     position: fixed; top: 0; left: 0;
     width: 100vw;
@@ -745,15 +755,9 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
        the bar stays untouched in the page and simply shows again on close */
     z-index: 9999;
     background: var(--graphite);
+    touch-action: none;
+    overscroll-behavior: none;
   }
-  /* collapsed: page scrolls over the map. fullscreen: free 2D pan + the overlay
-     intercepts every touch so the page can't scroll. touch-action:none must sit
-     on the CONTAINER: iOS WebKit applies it unreliably on embedded content,
-     letting a drag be claimed for a native page pan — after which every touchmove
-     arrives cancelable:false and JS preventDefault can't take the gesture back
-     (the "pan never follows the finger" iPhone bug). A document-level touchmove
-     guard in opMap.ts (lockScroll) backstops even that. */
-  .op-map.op-live.op-fs { touch-action: none; overscroll-behavior: none; }
   .op-map.op-fs #op-canvas { touch-action: none; overscroll-behavior: none; }
   /* the description keeps its own native scroll (also exempted by the JS guard) */
   .op-map.op-fs .op-d-desc { touch-action: pan-y; }
