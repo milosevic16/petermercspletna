@@ -1060,6 +1060,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     armed = false          // the once-per-load auto-open is spent on ANY entry
     if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch() // pan must be live from the first fullscreen frame
+    // Inline, not only CSS: the production minifier once merged the overlay's
+    // duplicate-selector rules and dropped touch-action from the container —
+    // shipping the exact iOS claimed-gesture bug this exists to prevent. An
+    // inline style survives any build transform.
+    container.style.touchAction = 'none'
+    canvas.style.touchAction = 'none'
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     // The stop itself, in iOS order of reliability: overflow:hidden kills a
     // momentum fling DEAD (a programmatic scrollTo does not — WebKit keeps
@@ -1180,6 +1186,8 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const finish = () => {
       stopFsAnim()
       unwireTouch() // collapsed must carry no touch listeners (see wireTouch)
+      container.style.touchAction = ''
+      canvas.style.touchAction = '' // back to the collapsed pan-y from CSS
       container.classList.remove('op-fs')
       container.removeAttribute('role'); container.removeAttribute('aria-modal')
       if (placeholder && placeholder.parentNode) placeholder.parentNode.insertBefore(container, placeholder) // portal back into the page
@@ -1228,6 +1236,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     if (fsState === 'collapsed') return
     stopFsAnim()
     unwireTouch()
+    container.style.touchAction = ''; canvas.style.touchAction = ''
     container.style.opacity = ''; container.style.transform = ''; container.style.transformOrigin = ''; container.style.willChange = ''
     container.classList.remove('op-fs')
     container.removeAttribute('role'); container.removeAttribute('aria-modal')
