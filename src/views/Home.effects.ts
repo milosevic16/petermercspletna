@@ -15,6 +15,7 @@
 // deliberately stay ENGLISH (owner receives English data for both languages).
 import { createTracker } from '@/composables/tracker'
 import { wireWeb3Form } from '@/composables/web3forms'
+import { docketOrder } from '@/content/home'
 import type { HomeContent } from '@/content/home'
 
 export function initEffects(copy: HomeContent): () => void {
@@ -62,7 +63,7 @@ export function initEffects(copy: HomeContent): () => void {
         // Kept defensively so the legacy net-panel helpers (now dead, their DOM
         // removed) no-op instead of throwing.
         this._ents = copy.record.ents || {};
-        this._docket = copy.docket.items;
+        this._docket = docketOrder(copy.docket.items);
         // The operating map is a 3-tier tree: pm → 4 categories → 7 leaves.
         // _order is the cycle/browse order (depth-first); _paths maps each
         // selectable node to the edge ids lighting its route back to the hub
@@ -597,38 +598,70 @@ export function initEffects(copy: HomeContent): () => void {
           this._twNodes.forEach((n) => { n.node.nodeValue = n.full; });
           this._twNodes = null;
         }
+        // Release the height the panel was held open at (see _twStart).
+        if (this._twPad) { this._twPad.style.height = ''; this._twPad.style.overflow = ''; this._twPad.style.boxSizing = ''; this._twPad = null; }
       }
 
+      // Types a panel's text in. Two things matter beyond the effect itself:
+      //
+      // The panel opens to its FULL height immediately, in one movement. Its
+      // row is sized `1fr` off the content, and emptying the text to type it
+      // back in leaves almost no content — so the panel used to unfold in step
+      // with the typing, growing line by line. Measuring first and pinning that
+      // height for the duration decouples the two: the box opens once, smoothly,
+      // while the text arrives inside it.
+      //
+      // And the run is timed, not per-frame: a fixed number of characters per
+      // frame means a dropped frame is a dropped character, so the same panel
+      // takes different times on different devices. Every panel now sweeps in
+      // about the same beat regardless of its length or the frame rate.
       _twStart(root) {
         this._twStop();
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
         var nodes = [];
         var tn;
+        var total = 0;
         while ((tn = walker.nextNode())) {
-          if (tn.nodeValue && tn.nodeValue.trim()) nodes.push({ node: tn, full: tn.nodeValue });
+          if (tn.nodeValue && tn.nodeValue.trim()) { nodes.push({ node: tn, full: tn.nodeValue }); total += tn.nodeValue.length; }
         }
         if (!nodes.length) return;
+        // Fixed height, not a minimum: the caret is a real glyph, so on a line
+        // that is nearly full it can push the last word over and add a line —
+        // the panel would jump a line taller and back as the sweep passed. The
+        // box is the measured final height throughout, and clips the overflow.
+        // border-box, because the measurement is a border-box height and the pad
+        // carries padding: under the default content-box the panel would sit a
+        // padding's worth too tall for the sweep, then settle at the end.
+        var h = root.getBoundingClientRect().height;
+        if (h > 0) { root.style.boxSizing = 'border-box'; root.style.height = h + 'px'; root.style.overflow = 'hidden'; this._twPad = root; }
         this._twNodes = nodes;
         nodes.forEach((n) => { n.node.nodeValue = ''; });
-        var ni = 0, ci = 0;
+        // ~560ms end to end, clamped so a one-line panel is not instant and a
+        // very long one does not drag; the panel's own 0.5s open runs under it.
+        var speed = Math.max(0.5, Math.min(3.4, total / 560));
+        var t0 = performance.now();
         var step = () => {
-          var chunk = 3 + Math.floor(Math.random() * 3);
-          while (chunk-- > 0 && ni < nodes.length) {
-            ci += 1;
-            var cur = nodes[ni];
-            if (ci >= cur.full.length) {
-              cur.node.nodeValue = cur.full;
-              ni += 1;
-              ci = 0;
+          var budget = Math.floor((performance.now() - t0) * speed);
+          var ni = 0;
+          var done = true;
+          for (var i = 0; i < nodes.length; i++) {
+            var cur = nodes[i];
+            if (budget >= cur.full.length) {
+              if (cur.node.nodeValue !== cur.full) cur.node.nodeValue = cur.full;
+              budget -= cur.full.length;
             } else {
-              cur.node.nodeValue = cur.full.slice(0, ci) + '▌';
+              done = false;
+              cur.node.nodeValue = budget > 0 ? cur.full.slice(0, budget) + '▌' : '';
+              break;
             }
+            ni = i;
           }
-          if (ni < nodes.length) {
+          if (!done) {
             this._twRaf = requestAnimationFrame(step);
           } else {
             this._twRaf = null;
             this._twNodes = null;
+            if (this._twPad) { this._twPad.style.height = ''; this._twPad.style.overflow = ''; this._twPad.style.boxSizing = ''; this._twPad = null; }
           }
         };
         this._twRaf = requestAnimationFrame(step);
@@ -903,8 +936,10 @@ export function initEffects(copy: HomeContent): () => void {
 
       _toggle(key) {
         this._twStop();
+        var prev = this._open;
         this._open = this._open === key ? null : key;
         var open = this._open;
+        this._swapAbove(prev, key);
         // Data-driven: every collapsible panel carries [data-brief]="<key>".
         var panels = document.querySelectorAll('[data-brief]');
         Array.prototype.forEach.call(panels, (pnl) => {
@@ -925,6 +960,37 @@ export function initEffects(copy: HomeContent): () => void {
         });
         if (open) this._briefFx(open);
         if (this._refreshOffs) setTimeout(this._refreshOffs, 550);
+      }
+
+      // Opening one entry closes another. When the one that closes sits ABOVE
+      // the header you just tapped, its collapse drags everything below it
+      // upward — measured at ~1400px, straight off the top of the screen, which
+      // is the accordion throwing you somewhere you did not ask to be.
+      //
+      // Chasing that with a per-frame scroll correction is not enough: the
+      // height easing is front-loaded, so a single frame early in the
+      // transition moves the page further than a frame of correction can
+      // answer, and the row visibly kicks before settling. Instead the closing
+      // panel is collapsed in one step with its transition suppressed, and the
+      // scroll is adjusted by the exact same amount before the frame paints —
+      // so the tapped row does not move at all, at any point. Panels BELOW the
+      // header are left to animate normally: they cannot move it.
+      _swapAbove(prev, key) {
+        if (!prev || prev === key) return;
+        var btn = document.getElementById('btn-' + key);
+        var pnl = document.querySelector('[data-brief="' + prev + '"]');
+        if (!btn || !pnl) return;
+        var y0 = btn.getBoundingClientRect().top;
+        if (pnl.getBoundingClientRect().top >= y0) return; // below the header: harmless
+        pnl.style.transition = 'none';
+        pnl.style.gridTemplateRows = '0fr';
+        void pnl.offsetHeight; // commit the collapse, then read the new position
+        var d = btn.getBoundingClientRect().top - y0;
+        if (d) {
+          var to = (window.scrollY || 0) + d;
+          try { window.scrollTo({ top: to, behavior: 'instant' }); } catch (e) { window.scrollTo(0, to); }
+        }
+        requestAnimationFrame(() => { pnl.style.transition = ''; });
       }
 
       _briefFx(key) {
@@ -1059,7 +1125,7 @@ export function initEffects(copy: HomeContent): () => void {
           barOn: on && this.state.bar,
           barLabel: this.state.label || copy.bar.fallbackLabel,
           barPart: this._pad(Math.max(0, this.state.part) + 1) + ' / ' + this._pad(copy.bar.jumps.length),
-          docketText: docket[this.state.docket] || copy.docket.items[0],
+          docketText: docket[this.state.docket] || docket[0],
           docketIdx: this._pad(this.state.docket + 1) + ' / 08',
           dsRing: (this.props.docketStyle || 'ring') === 'ring',
           dsDial: (this.props.docketStyle || 'ring') === 'dial',
