@@ -128,6 +128,9 @@ export interface HomeContent {
     eyebrow: string
     chyron: string
     aside: string
+    /** Mobile only: the list opens at a preview length behind this control. */
+    more: string
+    less: string
     /**
      * Two tracks on one line. Desktop: `above` sits over the line on accent
      * dots, `below` under it on ink dots. Mobile: the line runs down the middle
@@ -515,6 +518,8 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Personal timeline',
       chyron: 'Personal timeline',
       aside: 'direction #tech',
+      more: 'Show all',
+      less: 'Show less',
       above: [
         { year: '2015', title: 'Ph.D. in banking law', caption: 'Faculty of Law, University of Ljubljana' },
         { year: '2017', title: 'Blockchain Think Tank Slovenia', caption: 'Co-founder' },
@@ -890,6 +895,8 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Osebna kronologija',
       chyron: 'Osebna kronologija',
       aside: 'smer #tech',
+      more: 'Prikaži vse',
+      less: 'Prikaži manj',
       above: [
         { year: '2015', title: 'Doktorat iz bančnega prava', caption: 'Pravna fakulteta Univerze v Ljubljani' },
         { year: '2017', title: 'Blockchain Think Tank Slovenija', caption: 'Soustanovitelj' },
