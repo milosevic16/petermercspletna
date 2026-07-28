@@ -150,8 +150,13 @@
               <button type="button" data-on-click="mediaNext" :aria-label="t.media.nextAria" style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid rgba(236,231,220,0.3); color:var(--ivory); font-size:1.15rem; line-height:1; cursor:pointer; transition:border-color 0.18s cubic-bezier(0.4,0,0.2,1), background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="border-color:var(--ivory); background:rgba(236,231,220,0.08);">›</button>
             </span>
           </h2>
-          <div id="media-strip" style="display:flex; gap:1.4rem; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:0.9rem;">
-            <a v-for="(card, ci) in t.media.cards" :key="ci" :data-reveal="ci" :href="card.href" :target="card.external ? '_blank' : undefined" :rel="card.external ? 'noopener' : undefined" :title="card.titleAttr" style="display:flex; flex-direction:column; flex:0 0 min(84%, 22rem); scroll-snap-align:start; min-width:0; background:color-mix(in oklab, var(--graphite) 88%, #FFFFFF); border:1px solid rgba(236,231,220,0.12); border-left:3px solid transparent; text-decoration:none; color:inherit; transition:transform 0.25s cubic-bezier(0.2,0.7,0.2,1), border-color 0.25s cubic-bezier(0.2,0.7,0.2,1), background 0.25s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateY(-5px); border-left-color:var(--accent); background:color-mix(in oklab, var(--graphite) 82%, #FFFFFF);">
+          <!-- The strip free-scrolls: scroll-snap-type/align are gone, so a swipe
+               or a drag comes to rest where it lands instead of being pulled to
+               a card edge. Edge fades and the See more control are driven by
+               _mediaEdges() in Home.effects.ts. -->
+          <div style="position:relative;">
+          <div id="media-strip" style="display:flex; gap:1.4rem; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; padding-bottom:0.9rem;">
+            <a v-for="(card, ci) in t.media.cards" :key="ci" :data-reveal="ci" :href="card.href" :target="card.external ? '_blank' : undefined" :rel="card.external ? 'noopener' : undefined" :title="card.titleAttr" style="display:flex; flex-direction:column; flex:0 0 min(84%, 22rem); min-width:0; background:color-mix(in oklab, var(--graphite) 88%, #FFFFFF); border:1px solid rgba(236,231,220,0.12); border-left:3px solid transparent; text-decoration:none; color:inherit; transition:transform 0.25s cubic-bezier(0.2,0.7,0.2,1), border-color 0.25s cubic-bezier(0.2,0.7,0.2,1), background 0.25s cubic-bezier(0.2,0.7,0.2,1);" data-hover="transform:translateY(-5px); border-left-color:var(--accent); background:color-mix(in oklab, var(--graphite) 82%, #FFFFFF);">
               <div style="aspect-ratio:16/10; overflow:hidden; background:color-mix(in oklab, var(--graphite) 72%, #000000);">
                 <div :id="'media-slot-' + (ci + 1)" style="width:100%; height:100%; display:block;"></div>
               </div>
@@ -162,6 +167,8 @@
                 <span style="margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.68rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:#948E81;">{{ card.cta || t.media.cta }} <svg aria-hidden="true" viewBox="0 0 12 12" width="0.85em" height="0.85em" fill="none" style="flex:none;"><path d="M3.6 8.4L8.4 3.6M8.4 3.6H5M8.4 3.6V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
               </div>
             </a>
+          </div>
+            <button id="media-more" type="button" class="pm-strip-more" data-on-click="mediaNext">{{ t.media.more }}<svg aria-hidden="true" viewBox="0 0 12 12" width="0.8em" height="0.8em" fill="none"><path d="M4.2 2.4L7.8 6l-3.6 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
           </div>
         </div>
       </div>
@@ -444,6 +451,48 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
+/* Edge fades. The strip sits on the photo backdrop, so a coloured gradient
+   overlay would be wrong — masking the strip itself fades the CARDS out and
+   lets whatever is behind show through, on any background. Applied only on the
+   side that actually has more content (classes set by _mediaEdges). */
+#media-strip { --strip-fade: 4.5rem; }
+#media-strip.pm-fade-r {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade)), transparent 100%);
+}
+#media-strip.pm-fade-l {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade));
+}
+#media-strip.pm-fade-l.pm-fade-r {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade), #000 calc(100% - var(--strip-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade), #000 calc(100% - var(--strip-fade)), transparent 100%);
+}
+
+/* "See more": sits over the right-hand fade, on the same blurred-pill pattern
+   as the map's coach hint. visibility (not just opacity) so it leaves the tab
+   order once the strip reaches the end. */
+.pm-strip-more {
+  position: absolute; right: 0.35rem; top: calc(50% - 0.45rem);
+  transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.6rem 1rem; min-height: 40px;
+  background: rgba(20, 21, 23, 0.82);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  border: 1px solid rgba(236, 231, 220, 0.24); border-radius: 999px;
+  color: var(--ivory); cursor: pointer;
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  white-space: nowrap; -webkit-tap-highlight-color: transparent;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0s linear 0.25s,
+              background 0.18s cubic-bezier(0.4,0,0.2,1), border-color 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+.pm-strip-more.is-on { opacity: 1; visibility: visible; transition-delay: 0s, 0s, 0s, 0s; }
+.pm-strip-more:hover, .pm-strip-more:focus-visible {
+  background: rgba(20, 21, 23, 0.92); border-color: var(--ivory); outline: none;
+}
+@media (max-width: 740px) { .pm-strip-more { right: 0.25rem; padding: 0.55rem 0.85rem; font-size: 0.66rem; } }
 
 /* ---- Timeline: two tracks on one rail -----------------------------------
    Desktop: `above` sits over the line on accent dots, `below` under it on ink

@@ -116,6 +116,8 @@ export interface HomeContent {
     chyron: string
     /** Alt for the full-bleed portrait band that eases the map into this section. */
     bridgeAlt: string
+    /** Label on the pill that scrolls more cards into view. */
+    more: string
     prevAria: string
     nextAria: string
     cards: MediaCard[]
@@ -446,6 +448,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'On record — media',
       chyron: 'Media & press',
       bridgeAlt: 'Peter Merc speaking on stage, microphone in hand',
+      more: 'See more',
       prevAria: 'Scroll coverage back',
       nextAria: 'Scroll coverage forward',
       cards: [
@@ -821,6 +824,7 @@ const home: Localized<HomeContent> = {
       eyebrow: 'Za zapisnik — mediji',
       chyron: 'Mediji in tisk',
       bridgeAlt: 'Peter Merc med nastopom na odru, z mikrofonom v roki',
+      more: 'Prikaži več',
       prevAria: 'Pomakni prispevke nazaj',
       nextAria: 'Pomakni prispevke naprej',
       cards: [

@@ -172,7 +172,7 @@ export function initEffects(copy: HomeContent): () => void {
         onScroll();
         this._c.push(() => window.removeEventListener('scroll', onScroll));
 
-        var onResize = () => { this._refreshOffs(); onScroll(); this._fitMap(); this._fitPanelAll(); };
+        var onResize = () => { this._refreshOffs(); onScroll(); this._fitMap(); this._fitPanelAll(); this._mediaEdges(); };
         __fx.on(window, 'resize', onResize);
         __fx.on(window, 'load', onResize);
         this._c.push(() => window.removeEventListener('resize', onResize));
@@ -388,8 +388,15 @@ export function initEffects(copy: HomeContent): () => void {
               }
             }, 55);
           };
+          // Edge fades + See more. Runs undebounced so the fade tracks the
+          // finger, unlike the card-settle above which waits for rest.
+          var onMEdge = () => this._mediaEdges();
+          __fx.on(mstrip, 'scroll', onMEdge, { passive: true });
           __fx.on(mstrip, 'scroll', onMStrip, { passive: true });
-          this._c.push(() => mstrip.removeEventListener('scroll', onMStrip));
+          this._c.push(() => { mstrip.removeEventListener('scroll', onMStrip); mstrip.removeEventListener('scroll', onMEdge); });
+          // Card widths settle after fonts/images, so re-measure a few times.
+          this._mediaEdges();
+          [120, 400, 1200].forEach((d) => setTimeout(() => this._mediaEdges(), d));
         }
         // All "What I do" dossiers start closed (no auto-open).
 
@@ -810,6 +817,22 @@ export function initEffects(copy: HomeContent): () => void {
           var t = document.getElementById('sig-' + (i + 1));
           if (t) t.style.background = ok[i] ? 'var(--accent)' : 'rgba(236,231,220,0.15)';
         }
+      }
+
+      // Fade whichever edge still has cards beyond it, and show "See more" only
+      // while there is somewhere to go. Tolerance of 2px: fractional layout and
+      // smooth-scroll easing rarely land exactly on the end.
+      _mediaEdges() {
+        var s = document.getElementById('media-strip');
+        if (!s) return;
+        var max = s.scrollWidth - s.clientWidth;
+        var overflows = max > 4;
+        var atStart = s.scrollLeft <= 2;
+        var atEnd = s.scrollLeft >= max - 2;
+        s.classList.toggle('pm-fade-l', overflows && !atStart);
+        s.classList.toggle('pm-fade-r', overflows && !atEnd);
+        var more = document.getElementById('media-more');
+        if (more) more.classList.toggle('is-on', overflows && !atEnd);
       }
 
       _mediaScroll(dir) {
