@@ -520,22 +520,17 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 }
 
 #media-strip { scrollbar-width: thin; scrollbar-color: rgba(148,142,129,0.55) transparent; }
-/* Edge fades. The strip sits on the photo backdrop, so a coloured gradient
-   overlay would be wrong — masking the strip itself fades the CARDS out and
-   lets whatever is behind show through, on any background. Applied only on the
-   side that actually has more content (classes set by _mediaEdges). */
+/* Trailing edge fade. The strip sits on the photo backdrop, so a coloured
+   gradient overlay would be wrong — masking the strip itself fades the CARDS
+   out and lets whatever is behind show through, on any background.
+   Right edge only: a fade on the left ate into the title of the card you had
+   just scrolled to (most visible on mobile, where a card fills the viewport),
+   and it signposts nothing — the direction of travel is what matters. Applied
+   only while cards remain beyond the edge (class set by _mediaEdges). */
 #media-strip { --strip-fade: 4.5rem; }
 #media-strip.pm-fade-r {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade)), transparent 100%);
   mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade)), transparent 100%);
-}
-#media-strip.pm-fade-l {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade));
-  mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade));
-}
-#media-strip.pm-fade-l.pm-fade-r {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade), #000 calc(100% - var(--strip-fade)), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 var(--strip-fade), #000 calc(100% - var(--strip-fade)), transparent 100%);
 }
 
 /* "See more": sits over the right-hand fade, on the same blurred-pill pattern

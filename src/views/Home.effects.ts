@@ -852,17 +852,17 @@ export function initEffects(copy: HomeContent): () => void {
         }
       }
 
-      // Fade whichever edge still has cards beyond it, and show "See more" only
-      // while there is somewhere to go. Tolerance of 2px: fractional layout and
-      // smooth-scroll easing rarely land exactly on the end.
+      // Fade the trailing edge while cards remain beyond it, and show "See more"
+      // only while there is somewhere to go. Leading edge is deliberately never
+      // faded — it clipped the title of the card just scrolled to. Tolerance of
+      // 2px: fractional layout and smooth-scroll easing rarely land exactly on
+      // the end.
       _mediaEdges() {
         var s = document.getElementById('media-strip');
         if (!s) return;
         var max = s.scrollWidth - s.clientWidth;
         var overflows = max > 4;
-        var atStart = s.scrollLeft <= 2;
         var atEnd = s.scrollLeft >= max - 2;
-        s.classList.toggle('pm-fade-l', overflows && !atStart);
         s.classList.toggle('pm-fade-r', overflows && !atEnd);
         var more = document.getElementById('media-more');
         if (more) more.classList.toggle('is-on', overflows && !atEnd);
