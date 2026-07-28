@@ -1,5 +1,7 @@
 // Language-switch transition: rapidly "re-types" the visible text in the new
-// language (same ▌ caret aesthetic as the briefs' typeout animation). Runs on
+// language. No caret: forty of them blinking down the viewport at once read as
+// damage rather than typing (the briefs keep theirs — one panel, one caret).
+// Runs on
 // the document's FIRST viewport — the locale switch scrolls to top, and
 // measurement may happen before that scroll applies — walking #pm-root so the
 // persistent chrome (masthead nav) sweeps together with the remounted view.
@@ -73,7 +75,7 @@ export function runLanguageRetype(): void {
         if (n.node.nodeValue !== n.full) n.node.nodeValue = n.full
       } else {
         done = false
-        n.node.nodeValue = n.full.slice(0, Math.max(0, count)) + '▌'
+        n.node.nodeValue = n.full.slice(0, Math.max(0, count))
       }
     }
     if (!done) {

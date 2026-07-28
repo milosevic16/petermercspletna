@@ -226,6 +226,15 @@ function linkOrgNames(text: string): string {
  * else is escaped, so this takes the plain fields (`credential`, a list item's
  * `key`/`detail`) and the trusted `paragraphHtml` alike.
  */
+// The docket ticker reads shortest line first, longest last: the strip is one
+// line tall, so starting on the shortest entry eases the eye into it and the
+// growth from tick to tick is gradual instead of jumping long/short at random.
+// Sorted here rather than in the data so the file stays in authoring order, and
+// so the server-rendered first item and the runtime rotator cannot disagree.
+export function docketOrder(items: string[]): string[] {
+  return items.slice().sort((a, b) => a.length - b.length || a.localeCompare(b))
+}
+
 export function withOrgLinks(copy: string): string {
   return copy
     .split(/(<[^>]*>)/)

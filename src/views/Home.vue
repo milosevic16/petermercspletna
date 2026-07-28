@@ -27,7 +27,7 @@
 
     <button id="docket" type="button" data-on-click="advanceDocket" :aria-label="t.docket.aria" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 1.1rem; width:100%; box-sizing:border-box; background:var(--graphite); border:0; padding:0.7rem clamp(1.25rem, 4vw, 3rem); cursor:pointer; text-align:left; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:color-mix(in oklab, var(--graphite) 93%, #FFFFFF);">
       <span style="flex:none; display:inline-flex; align-items:center; background:var(--ivory); border-left:3px solid var(--accent); color:var(--graphite); padding:0.38rem 0.7rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.docket.eyebrow }}</span>
-      <span style="flex:1 1 14rem; min-width:0; overflow:hidden;"><span id="docket-item" style="display:block; font-family:'Spectral', Georgia, serif; font-style:italic; font-size:1.05rem; line-height:1.4; color:var(--ivory);" data-bind="docketText">{{ t.docket.items[0] }}</span></span>
+      <span style="flex:1 1 14rem; min-width:0; overflow:hidden;"><span id="docket-item" style="display:block; font-family:'Spectral', Georgia, serif; font-style:italic; font-size:1.05rem; line-height:1.4; color:var(--ivory);" data-bind="docketText">{{ docketFirst }}</span></span>
       <span style="flex:none; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.18em; color:#948E81; font-variant-numeric:tabular-nums;" data-bind="docketIdx">01 / 08</span>
 
         <span aria-hidden="true" style="flex:none; width:18px; height:18px; display:inline-flex;">
@@ -358,7 +358,7 @@ import { runLanguageRetype } from '@/composables/retype'
 import { usePageContent } from '@/i18n/useContent'
 import { useHead } from '@/i18n/useHead'
 import { consumeLangSwitch } from '@/i18n/locale'
-import home, { withOrgLinks } from '@/content/home'
+import home, { docketOrder, withOrgLinks } from '@/content/home'
 
 // All copy comes from the locale-keyed content module. The router remounts
 // this view on '/' ↔ '/sl' (router-view :key), so t.value is stable for the
@@ -385,6 +385,10 @@ const timelineMerged = computed(() => {
 // control on the line. tlLive gates the whole mechanism on being hydrated, so
 // the server-rendered HTML ships the complete list (crawlers and JS-off
 // readers get everything; the collapse is a client-side affordance).
+// The ticker starts on the shortest line (see docketOrder); the pre-rendered
+// markup has to name the same one or the first tick would swap it out.
+const docketFirst = computed(() => docketOrder(t.value.docket.items)[0])
+
 const TL_PREVIEW = 5
 const tlLive = ref(false)
 const tlOpen = ref(false)
