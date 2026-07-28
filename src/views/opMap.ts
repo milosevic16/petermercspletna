@@ -968,14 +968,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // page provably never moves while the map is fullscreen.
   const snapLockedY = () => { try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) } }
   const onLockedScroll = () => { if (fsState === 'fullscreen' && Math.abs((window.scrollY || 0) - lockedY) > 1) snapLockedY() }
-  // The lock has two halves, and keeping them apart is what makes the handoff
-  // clean. The touchmove guard is the half that actually stops iOS scrolling,
-  // and it changes no styles, so it goes on at once. overflow:hidden is only
-  // the belt to that guard's braces — but it is also the one part that reflows
-  // the document, and on iOS it can take the scroll offset with it. Applied in
-  // the handoff frame, that landed right where the eye was: the page behind
-  // stepped while the overlay held still. It now waits for the zoom to land,
-  // by which point the overlay covers everything it could disturb.
+  // The lock's pieces are applied at the freeze step (see enterFullscreen:
+  // overflow first — the only reliable iOS momentum kill — then the guard),
+  // one frame before the overlay is measured, so whatever they shift has
+  // settled before anything is placed from it.
   function lockScroll() {
     lockedY = window.scrollY || 0
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
@@ -1016,7 +1012,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
     entering = false
-    lockOverflow() // deferred to here on purpose (see lockScroll)
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
@@ -1064,7 +1059,19 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     fsState = 'fullscreen' // the touchmove guard keys off this — set it before the guard can be needed
     armed = false          // the once-per-load auto-open is spent on ANY entry
     if (io) { io.disconnect(); io = null } // its one job is done
+    wireTouch() // pan must be live from the first fullscreen frame
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
+    // The stop itself, in iOS order of reliability: overflow:hidden kills a
+    // momentum fling DEAD (a programmatic scrollTo does not — WebKit keeps
+    // coasting right over it, and a page still coasting when the next touch
+    // lands makes iOS claim that touch as a stop-the-scroll gesture, every
+    // move arriving cancelable:false — the classic dead-pan failure). The
+    // scrollTo below is for engines whose momentum it does cancel; the guard
+    // covers finger-down input. Deferring the overflow lock to the zoom's
+    // landing (a flicker fix that mattered only on desktop, where hiding the
+    // scrollbar reflows — iOS has no layout scrollbar) is what let momentum
+    // survive into fullscreen and killed panning on the phone.
+    lockOverflow()
     try { window.scrollTo({ top: window.scrollY || 0, behavior: 'instant' as ScrollBehavior }) } catch { /* noop */ }
     requestAnimationFrame(() => {
       if (!entering || disposed || fsState !== 'fullscreen' || placeholder) return
@@ -1079,7 +1086,6 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const oldU2p = Math.min(cssW / VBW, cssH / VBH) || 1
     const oldCam = { ...cam }
     const oldW = cssW, oldH = cssH
-    wireTouch()            // pan listeners exist only while fullscreen
     lastFocused = (document.activeElement as HTMLElement) || null
     placeholder = document.createElement('div')
     placeholder.className = 'op-map-ph'
