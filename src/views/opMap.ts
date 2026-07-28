@@ -969,11 +969,18 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const snapLockedY = () => { try { window.scrollTo({ top: lockedY, behavior: 'instant' as ScrollBehavior }) } catch { window.scrollTo(0, lockedY) } }
   const onLockedScroll = () => { if (fsState === 'fullscreen' && Math.abs((window.scrollY || 0) - lockedY) > 1) snapLockedY() }
   // The lock's pieces are applied at the freeze step (see enterFullscreen:
-  // overflow first — the only reliable iOS momentum kill — then the guard),
-  // one frame before the overlay is measured, so whatever they shift has
-  // settled before anything is placed from it.
+  // position pinned FIRST, then overflow — the only reliable iOS momentum kill
+  // — then the guard), one frame before the overlay is measured, so whatever
+  // they shift has settled before anything is placed from it.
+  //
+  // lockedY is deliberately NOT captured here. By the time this runs the
+  // overflow lock has been on for a frame, and that lock is the one step that
+  // moves the page: it cancels an in-flight scroll to its landing position
+  // (measured: a 47px jump) and on iOS can take the offset with it outright.
+  // Captured after it, lockedY records where the lock left the page instead of
+  // where the reader was — and lockedY is what onLockedScroll pins to and what
+  // Close returns to, so the error outlives the entry.
   function lockScroll() {
-    lockedY = window.scrollY || 0
     document.addEventListener('touchmove', onDocTouchMove, { passive: false })
     window.addEventListener('scroll', onLockedScroll, { passive: true })
   }
@@ -1066,13 +1073,24 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // coasting right over it, and a page still coasting when the next touch
     // lands makes iOS claim that touch as a stop-the-scroll gesture, every
     // move arriving cancelable:false — the classic dead-pan failure). The
-    // scrollTo below is for engines whose momentum it does cancel; the guard
+    // snapLockedY below is for engines whose momentum it does cancel; the guard
     // covers finger-down input. Deferring the overflow lock to the zoom's
     // landing (a flicker fix that mattered only on desktop, where hiding the
     // scrollbar reflows — iOS has no layout scrollbar) is what let momentum
     // survive into fullscreen and killed panning on the phone.
+    //
+    // Order matters as much as the step itself. Pin the position BEFORE the
+    // lock: the entry is meant to stop the page dead where the reader is, but
+    // overflow:hidden cancels an in-flight scroll by jumping it to its landing
+    // position — 47px measured here — and that jump now paints, because the
+    // lock runs a frame before the overlay exists to hide it. Locking to the
+    // pre-lock offset and snapping straight back in the same frame keeps the
+    // momentum kill and drops the step. It also keeps lockedY honest, which is
+    // what onLockedScroll holds the page at and what Close returns to.
+    lockedY = window.scrollY || 0
+    window.addEventListener('scroll', onLockedScroll, { passive: true })
     lockOverflow()
-    try { window.scrollTo({ top: window.scrollY || 0, behavior: 'instant' as ScrollBehavior }) } catch { /* noop */ }
+    snapLockedY()
     requestAnimationFrame(() => {
       if (!entering || disposed || fsState !== 'fullscreen' || placeholder) return
       placeFullscreen()
