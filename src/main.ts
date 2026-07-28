@@ -17,7 +17,16 @@ export const createApp = ViteSSG(App, { routes, scrollBehavior }, ({ router, isC
   // Keep the locale ref in lockstep with the route BEFORE the view renders, so
   // usePageContent/useHead resolve the right language on each navigation — on
   // the server (per-route SSG render) and in the browser alike.
-  router.beforeEach((to, from) => {
+  //
+  // beforeResolve, not beforeEach: the views are lazy, so a navigation is async,
+  // and flipping the locale at the START of one left the OUTGOING view mounted
+  // and reactive — it re-rendered into the new language and painted it, in full,
+  // for as long as the route took to commit (~140ms measured). Then the remount
+  // blanked it to run the sweep, which read as a flicker. beforeResolve fires
+  // once the route is resolved, so the flip and the view swap land in the same
+  // update: the new language is first painted by the incoming view, whose
+  // onMounted has already handed it to the sweep.
+  router.beforeResolve((to, from) => {
     const l = (to.meta.locale as Locale | undefined) ?? 'en'
     if (locale.value !== l) {
       // Cancel a still-running retype BEFORE the ref flips: it restores the

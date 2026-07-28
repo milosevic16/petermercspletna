@@ -636,9 +636,9 @@ export function initEffects(copy: HomeContent): () => void {
         if (h > 0) { root.style.boxSizing = 'border-box'; root.style.height = h + 'px'; root.style.overflow = 'hidden'; this._twPad = root; }
         this._twNodes = nodes;
         nodes.forEach((n) => { n.node.nodeValue = ''; });
-        // ~560ms end to end, clamped so a one-line panel is not instant and a
+        // ~730ms end to end, clamped so a one-line panel is not instant and a
         // very long one does not drag; the panel's own 0.5s open runs under it.
-        var speed = Math.max(0.5, Math.min(3.4, total / 560));
+        var speed = Math.max(0.38, Math.min(2.6, total / 730));
         var t0 = performance.now();
         var step = () => {
           var budget = Math.floor((performance.now() - t0) * speed);
