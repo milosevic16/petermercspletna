@@ -235,11 +235,16 @@
             </div>
           </div>
         </div>
+        <!-- Sixteen entries is a long scroll on a phone, so the rail opens at a
+             preview and the rest sit behind a control that reads as a node on
+             the line itself. The collapse is gated on tlLive, which only turns
+             on after mount: the pre-rendered HTML therefore carries the whole
+             list, so it stays complete for crawlers and for JS-off readers. -->
         <div class="pm-mobile-only">
           <div id="tl-v" class="tl-v">
             <span aria-hidden="true" class="tl-v-base"></span>
             <span data-tl-line="" aria-hidden="true" class="tl-v-fill"></span>
-            <div v-for="e in timelineMerged" :key="e.side + e.year + e.title" data-tl-item="" class="tl-v-row" :class="'tl-v-' + e.side">
+            <div v-for="e in timelinePreview" :key="e.side + e.year + e.title" data-tl-item="" class="tl-v-row" :class="'tl-v-' + e.side">
               <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
               <span class="tl-txt">
                 <span class="tl-year">{{ e.year }}</span>
@@ -247,6 +252,31 @@
                 <span class="tl-cap">{{ e.caption }}</span>
               </span>
             </div>
+            <div class="tl-more" :class="{ 'tl-more-open': tlOpen || !tlLive }">
+              <div class="tl-more-in">
+                <div v-for="e in timelineRest" :key="e.side + e.year + e.title" data-tl-item="" class="tl-v-row tl-more-row" :class="'tl-v-' + e.side">
+                  <span data-tl-dot="" aria-hidden="true" class="tl-dot"></span>
+                  <span class="tl-txt">
+                    <span class="tl-year">{{ e.year }}</span>
+                    <strong class="tl-title">{{ e.title }}</strong>
+                    <span class="tl-cap">{{ e.caption }}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              v-if="tlLive && timelineRest.length"
+              type="button"
+              class="tl-more-btn"
+              :class="{ 'is-open': tlOpen }"
+              :aria-expanded="tlOpen ? 'true' : 'false'"
+              @click="toggleTimeline">
+              <span v-if="!tlOpen" class="tl-more-count">+{{ timelineRest.length }}</span>
+              <span>{{ tlOpen ? t.timeline.less : t.timeline.more }}</span>
+              <svg class="tl-more-chev" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <path d="M3.5 6 L8 10.5 L12.5 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -327,7 +357,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { initEffects } from './Home.effects'
 import { initOpMap } from './opMap'
 import { useRootVars } from '@/composables/useTheme'
@@ -358,6 +388,40 @@ const timelineMerged = computed(() => {
   return merged.map((e) => ({ ...e, step: (e.side === 'above' ? up++ : down++) % 2 === 1 }))
 })
 
+// Mobile timeline: the rail opens at a preview and the rest expand behind the
+// control on the line. tlLive gates the whole mechanism on being hydrated, so
+// the server-rendered HTML ships the complete list (crawlers and JS-off
+// readers get everything; the collapse is a client-side affordance).
+const TL_PREVIEW = 5
+const tlLive = ref(false)
+const tlOpen = ref(false)
+const timelinePreview = computed(() => timelineMerged.value.slice(0, TL_PREVIEW))
+const timelineRest = computed(() => timelineMerged.value.slice(TL_PREVIEW))
+function toggleTimeline() {
+  tlOpen.value = !tlOpen.value
+  if (!tlOpen.value) return
+  // The wrapper animates its own height; the rows arrive on top of that, each
+  // a beat after the last, so the list reads as unfolding rather than
+  // appearing. Capped so the tail of a long list never lags behind the height.
+  nextTick(() => {
+    let reduced = false
+    try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { /* noop */ }
+    if (reduced) return
+    const rows = document.querySelectorAll<HTMLElement>('#tl-v .tl-more-row')
+    rows.forEach((row, i) => {
+      // The section's scroll reveal parks every row at opacity 0 until it
+      // fires; a row opened before that would unfold invisibly.
+      row.style.opacity = ''
+      try {
+        row.animate(
+          [{ opacity: 0, transform: 'translateY(-20px)' }, { opacity: 1, transform: 'none' }],
+          { duration: 540, delay: Math.min(60 + i * 65, 620), easing: 'cubic-bezier(0.34,1.56,0.64,1)', fill: 'backwards' },
+        )
+      } catch { /* noop */ }
+    })
+  })
+}
+
 // This page's design tokens (baked from the original #pm-root inline vars).
 // Applied at runtime so pages with different palettes never clobber each other.
 const ROOT_VARS: Record<string, string> = {
@@ -374,6 +438,7 @@ const ROOT_VARS: Record<string, string> = {
 let dispose: (() => void) | undefined
 let disposeMap: (() => void) | undefined
 onMounted(() => {
+  tlLive.value = true
   useRootVars(ROOT_VARS)
   dispose = initEffects(t.value)
   // Build the interactive operating map into #op-map (over the SSR fallback).
@@ -553,6 +618,68 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .tl-v-below .tl-txt { grid-column: 2; text-align: left; }
 .tl-v-below .tl-dot { border-color: var(--ink); }
 .tl-v-below .tl-year { color: var(--ink); }
+
+/* The collapsed tail. Height animates via grid-template-rows 0fr -> 1fr, which
+   needs no measured pixel value and so survives any content length; the
+   negative top margin cancels the rail's row gap while the wrapper is shut, so
+   a closed list leaves no phantom space. */
+.tl-more { display: grid; grid-template-rows: 0fr; margin-top: -1.6rem; transition: grid-template-rows 0.72s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.tl-more-open { grid-template-rows: 1fr; }
+.tl-more-in { display: flex; flex-direction: column; gap: 1.6rem; padding-top: 1.6rem; min-height: 0; overflow: hidden; }
+/* The control sits centred on the rail and masks it with the page colour, the
+   same trick the dots use — so it reads as the next node on the line rather
+   than a button parked underneath it. */
+.tl-more-btn {
+  align-self: center;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.5rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink2);
+  font-family: 'Instrument Sans', Arial, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tl-more-btn:hover, .tl-more-btn:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent);
+  outline: none;
+}
+.tl-more-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  padding: 0.16rem 0.36rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #F4F1EA;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.tl-more-chev { flex: none; transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.tl-more-btn.is-open .tl-more-chev { transform: rotate(180deg); }
+/* A slow nudge downward while there is more to see; it stops once open. */
+@media (prefers-reduced-motion: no-preference) {
+  .tl-more-btn:not(.is-open) .tl-more-chev { animation: tl-more-bob 2.6s ease-in-out infinite; }
+}
+@keyframes tl-more-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
 
 /* Operating-map node labels. font-size is in SVG user units, so it scales down
    with the whole svg; on mobile (narrow column) that got too small, so bump it
