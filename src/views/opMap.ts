@@ -476,6 +476,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   const clampTo = (v: number, m: number) => Math.max(-m, Math.min(m, v))
   let momActive = false, momVX = 0, momVY = 0
   function stopMomentum() { momActive = false }
+  // Settle window after the overlay lands (see fsLanded). A timestamp compared
+  // against the clock, never a flag some path could forget to clear: the worst
+  // a stale value can do is lie in the past, which is exactly "not frozen".
+  const SETTLE_MS = 1000
+  let panFrozenUntil = 0
+  const panFrozen = () => performance.now() < panFrozenUntil
   // Fold the pan into the base camera and zero it, so a navigation glide starts
   // from exactly where the eye is (no snap-back of the pan on nav).
   function foldPan() { stopMomentum(); if (panX || panY) { cam.tx += panX; cam.ty += panY; panX = 0; panY = 0 } }
@@ -978,11 +984,16 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     const t = e.touches[0]
     if (t.clientX < 24) { resetGesture(); return }         // dodge iOS edge back-swipe
     if (inDesc(e.target)) { resetGesture(); return }       // the description keeps its own scroll
-    stopMomentum(); hideCoach()
+    stopMomentum()
+    // A touch inside the settle window is the tail of the page scroll that
+    // brought the reader here, not an instruction — so it does not count as
+    // the hint having been acted on either.
+    if (!panFrozen()) hideCoach()
     suppressClick = false // a fresh gesture: never swallow this one's tap
     tActive = true; tId = t.identifier
     tUPP = VBW / (cssW || 1)
     tSX = t.clientX; tSY = t.clientY; tPX0 = panX; tPY0 = panY
+    tRX = t.clientX; tRY = t.clientY
     tMoved = false
     tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
   }
@@ -994,11 +1005,24 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     let t: Touch | null = null
     for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === tId) { t = e.touches[i]; break }
     if (!t) return
+    // Movement since the gesture STARTED decides tMoved — never the pan
+    // reference below, which moves. A drag that happens entirely inside the
+    // settle window still has to count as a drag, or its touchend would be
+    // taken for a tap and open whatever node it ended on.
     const dx = t.clientX - tSX, dy = t.clientY - tSY
     if (!tMoved) { if (Math.hypot(dx, dy) < DECIDE) return; tMoved = true }
+    if (panFrozen()) {
+      // Hold the graph still, but keep the pan reference under the finger:
+      // carrying the frozen distance would make the map leap by however far
+      // the stray scroll travelled the instant the window expires. Velocity
+      // is re-based too, so nothing is flung when the finger lifts.
+      tRX = t.clientX; tRY = t.clientY; tPX0 = panX; tPY0 = panY
+      tLX = t.clientX; tLY = t.clientY; tLT = e.timeStamp; tVX = 0; tVY = 0
+      return
+    }
     const m = panMax()
-    panX = clampTo(tPX0 + dx * tUPP, m.x)
-    panY = clampTo(tPY0 + dy * tUPP, m.y)
+    panX = clampTo(tPX0 + (t.clientX - tRX) * tUPP, m.x)
+    panY = clampTo(tPY0 + (t.clientY - tRY) * tUPP, m.y)
     const now = e.timeStamp, dt = now - tLT
     if (dt > 0) { tVX = ((t.clientX - tLX) * tUPP / dt) * 16; tVY = ((t.clientY - tLY) * tUPP / dt) * 16; tLX = t.clientX; tLY = t.clientY; tLT = now }
     requestDraw() // one synchronous canvas paint per frame — nothing to tile or defer
@@ -1046,11 +1070,17 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     snapLockedY() // Close lands exactly where the page was when the map opened
   }
   let coachTimer = 0
+  // Kept in step with the .op-coach pulse in Home.vue: 550ms delay (so the
+  // glow starts only once the hint has finished sliding into place) + three
+  // 880ms pulses = 3190ms, and it leaves right after the third one fades.
+  // Changing either side without the other either cuts a pulse off or leaves
+  // the hint sitting there dark.
+  const COACH_MS = 3300
   function showCoach() {
     if (!content.coach || isDesktop()) return
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
     coachEl.classList.add('show')
-    coachTimer = window.setTimeout(() => { coachEl.classList.remove('show'); coachTimer = 0 }, 4200)
+    coachTimer = window.setTimeout(() => { coachEl.classList.remove('show'); coachTimer = 0 }, COACH_MS)
   }
   function hideCoach() {
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
@@ -1061,6 +1091,13 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
     entering = false
+    // The overlay arrives at the end of a scroll, and the finger that did that
+    // scrolling is usually still travelling. Left alone, that leftover movement
+    // was read as a deliberate drag and threw the graph far off-centre before
+    // the reader had even looked at it. Ignore MOVEMENT for a beat — see
+    // onDocTouchMove, which still preventDefaults every move (the scroll lock
+    // depends on it) and still lets taps through.
+    panFrozenUntil = performance.now() + SETTLE_MS
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
@@ -1383,6 +1420,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // against the touch list — never ordered against zero.
   let tActive = false
   let tId = 0, tSX = 0, tSY = 0, tPX0 = 0, tPY0 = 0, tMoved = false, suppressClick = false
+  // The pan reference (client px) is deliberately NOT the gesture origin: the
+  // settle window re-bases it every frame so a frozen drag accumulates no
+  // offset, while tSX/tSY stay put as the origin tMoved is judged against.
+  let tRX = 0, tRY = 0
   let tLX = 0, tLY = 0, tLT = 0, tVX = 0, tVY = 0 // last sample + velocity (units/frame)
   let tUPP = 1 // world units per CSS px, cached per gesture (no per-move layout reads)
   const DECIDE = 6

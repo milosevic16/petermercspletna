@@ -845,8 +845,40 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     transition: opacity 0.5s ease, transform 0.5s ease;
   }
   .op-map.op-fs .op-coach.show { opacity: 1; transform: translate(-50%, 0); }
+  /* Three pulses of accent glow, then the hint goes. It lands on a busy first
+     frame and is easy to miss, so it announces itself — but a fixed three
+     times, not a loop, because a hint that keeps blinking becomes furniture.
+     The 550ms delay lets the slide-in finish first; a glow that starts
+     mid-slide reads as a stutter. No fill mode, so during that delay the
+     animation contributes nothing and the entry transition owns the transform.
+     translate(-50%) is restated in every keyframe: a transform keyframe
+     replaces the .show transform outright, and dropping it would kick the
+     hint half its own width to the right for the length of the animation.
+     Timing is mirrored by COACH_MS in opMap.ts, which hides it. */
+  .op-map.op-fs .op-coach.show { animation: op-coach-pulse 880ms ease-out 550ms 3; }
 }
-@media (prefers-reduced-motion: reduce) { .op-coach { transition: none !important; } }
+@keyframes op-coach-pulse {
+  0%, 100% {
+    transform: translate(-50%, 0) scale(1);
+    border-color: rgba(236, 231, 220, 0.14);
+    box-shadow: 0 0 0 0 rgba(210, 69, 62, 0);
+  }
+  22% {
+    transform: translate(-50%, 0) scale(1.035);
+    border-color: rgba(210, 69, 62, 0.9);
+    box-shadow: 0 0 18px 3px rgba(210, 69, 62, 0.45), 0 0 0 1px rgba(210, 69, 62, 0.35);
+  }
+  62% {
+    transform: translate(-50%, 0) scale(1);
+    border-color: rgba(236, 231, 220, 0.14);
+    box-shadow: 0 0 0 0 rgba(210, 69, 62, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .op-coach { transition: none !important; }
+  /* The glow is decoration; the words carry the whole message without it. */
+  .op-map.op-fs .op-coach.show { animation: none; }
+}
 /* The scene is drawn on ONE canvas (opMap.ts). No SVG: iOS WebKit's legacy SVG
    engine cannot composite inner SVG elements, so panning either repainted the
    whole SVG per frame (chop) or checkerboarded (grey tiles chasing the finger).
