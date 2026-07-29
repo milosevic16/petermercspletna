@@ -1091,12 +1091,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
     entering = false
-    // The overlay arrives at the end of a scroll, and the finger that did that
-    // scrolling is usually still travelling. Left alone, that leftover movement
-    // was read as a deliberate drag and threw the graph far off-centre before
-    // the reader had even looked at it. Ignore MOVEMENT for a beat — see
-    // onDocTouchMove, which still preventDefaults every move (the scroll lock
-    // depends on it) and still lets taps through.
+    // Re-arm from the exact landing moment. enterFullscreen already froze the
+    // zoom itself (see there); this is what guarantees a full second of stillness
+    // once the graph is actually sitting there, however long the entry took.
     panFrozenUntil = performance.now() + SETTLE_MS
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
@@ -1146,6 +1143,15 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     armed = false          // the once-per-load auto-open is spent on ANY entry
     if (io) { io.disconnect(); io = null } // its one job is done
     wireTouch() // pan must be live from the first fullscreen frame
+    // Armed HERE, not at fsLanded: the pan is live from this frame on, and the
+    // stray scroll that the settle window exists to absorb happens DURING the
+    // entry zoom, not after it. Arming on landing meant the freeze switched on
+    // about a second too late, once the graph had already been dragged.
+    // Covers the zoom (CAM_DUR) plus the full second past it; fsLanded then
+    // re-arms from the exact landing moment, so a slow entry still gets its
+    // whole second. Both are bounded timestamps rather than a flag — an entry
+    // that never lands can only ever let the freeze lapse, never wedge it on.
+    panFrozenUntil = performance.now() + CAM_DUR + SETTLE_MS
     // Inline, not only CSS: the production minifier once merged the overlay's
     // duplicate-selector rules and dropped touch-action from the container —
     // shipping the exact iOS claimed-gesture bug this exists to prevent. An
