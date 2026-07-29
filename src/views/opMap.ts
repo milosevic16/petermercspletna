@@ -482,6 +482,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // 700ms: long enough to swallow the tail of the scroll that opened the map,
   // short enough that a reader who means to drag never feels held off.
   const SETTLE_MS = 700
+  // Whether the entry now on screen was the automatic one. Only gates whether
+  // the window is armed at all — it can never hold the freeze on, because the
+  // freeze itself is always a bounded timestamp.
+  let autoEntry = false
   let panFrozenUntil = 0
   const panFrozen = () => performance.now() < panFrozenUntil
   // Fold the pan into the base camera and zero it, so a navigation glide starts
@@ -1093,10 +1097,11 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // scene, and the hint would have competed with the animation.
   function fsLanded() {
     entering = false
-    // Re-arm from the exact landing moment. enterFullscreen already froze the
-    // zoom itself (see there); this is what guarantees the full settle window
-    // once the graph is actually sitting there, however long the entry took.
-    panFrozenUntil = performance.now() + SETTLE_MS
+    // Re-arm from the exact landing moment, and only for the automatic entry.
+    // enterFullscreen already froze the zoom itself (see there); this is what
+    // guarantees the full settle window once the graph is actually sitting
+    // there, however long the entry took.
+    if (autoEntry) panFrozenUntil = performance.now() + SETTLE_MS
     syncBack()
     try { pmback.focus({ preventScroll: true }) } catch { /* noop */ }
     showCoach()
@@ -1137,7 +1142,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // overlay placed mid-fling lands offset from the picture on screen — the
   // step that read as the layout resetting. Measured a frame after the stop,
   // with the page provably still, they agree.
-  function enterFullscreen() {
+  // `auto` marks the once-per-load entry the IntersectionObserver triggers by
+  // itself. Only that one gets the settle window: it is the only entry that
+  // arrives mid-scroll with the reader's finger still moving. A tap on a node
+  // is a deliberate act by someone already looking at the map, and holding
+  // their first drag would just feel broken.
+  function enterFullscreen(auto = false) {
     if (isDesktop() || fsState !== 'collapsed' || entering) return
     stopFsAnim() // BEFORE the flags: it clears `entering` (it is teardown for aborted entries)
     entering = true
@@ -1153,7 +1163,12 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // re-arms from the exact landing moment, so a slow entry still gets the
     // whole window. Both are bounded timestamps rather than a flag — an entry
     // that never lands can only ever let the freeze lapse, never wedge it on.
-    panFrozenUntil = performance.now() + CAM_DUR + SETTLE_MS
+    //
+    // A manual entry clears it outright rather than leaving it alone: closing
+    // an auto-opened map and tapping straight back in lands inside the old
+    // window, and a stale timestamp would freeze the deliberate entry too.
+    autoEntry = auto
+    panFrozenUntil = auto ? performance.now() + CAM_DUR + SETTLE_MS : 0
     // Inline, not only CSS: the production minifier once merged the overlay's
     // duplicate-selector rules and dropped touch-action from the container —
     // shipping the exact iOS claimed-gesture bug this exists to prevent. An
@@ -1515,7 +1530,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
         const bh = en.boundingClientRect.height
         const rb = en.rootBounds
         const needed = (rb ? Math.min(bh, rb.height) : bh) - Math.max(12, bh * 0.03)
-        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen()
+        if (en.intersectionRect.height >= needed && seenAway && armed && !isDesktop() && fsState === 'collapsed') enterFullscreen(true)
       }
     }, { threshold: Array.from({ length: 51 }, (_, i) => i / 50) })
     io.observe(container)
