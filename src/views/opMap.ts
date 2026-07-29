@@ -479,7 +479,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   // Settle window after the overlay lands (see fsLanded). A timestamp compared
   // against the clock, never a flag some path could forget to clear: the worst
   // a stale value can do is lie in the past, which is exactly "not frozen".
-  const SETTLE_MS = 1000
+  // 700ms: long enough to swallow the tail of the scroll that opened the map,
+  // short enough that a reader who means to drag never feels held off.
+  const SETTLE_MS = 700
   let panFrozenUntil = 0
   const panFrozen = () => performance.now() < panFrozenUntil
   // Fold the pan into the base camera and zero it, so a navigation glide starts
@@ -1092,7 +1094,7 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   function fsLanded() {
     entering = false
     // Re-arm from the exact landing moment. enterFullscreen already froze the
-    // zoom itself (see there); this is what guarantees a full second of stillness
+    // zoom itself (see there); this is what guarantees the full settle window
     // once the graph is actually sitting there, however long the entry took.
     panFrozenUntil = performance.now() + SETTLE_MS
     syncBack()
@@ -1147,9 +1149,9 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
     // stray scroll that the settle window exists to absorb happens DURING the
     // entry zoom, not after it. Arming on landing meant the freeze switched on
     // about a second too late, once the graph had already been dragged.
-    // Covers the zoom (CAM_DUR) plus the full second past it; fsLanded then
-    // re-arms from the exact landing moment, so a slow entry still gets its
-    // whole second. Both are bounded timestamps rather than a flag — an entry
+    // Covers the zoom (CAM_DUR) plus the settle window past it; fsLanded then
+    // re-arms from the exact landing moment, so a slow entry still gets the
+    // whole window. Both are bounded timestamps rather than a flag — an entry
     // that never lands can only ever let the freeze lapse, never wedge it on.
     panFrozenUntil = performance.now() + CAM_DUR + SETTLE_MS
     // Inline, not only CSS: the production minifier once merged the overlay's
