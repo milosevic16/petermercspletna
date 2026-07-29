@@ -845,9 +845,16 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     transition: opacity 0.5s ease, transform 0.5s ease;
   }
   .op-map.op-fs .op-coach.show { opacity: 1; transform: translate(-50%, 0); }
-  /* Three pulses of accent glow, then the hint goes. It lands on a busy first
-     frame and is easy to miss, so it announces itself — but a fixed three
-     times, not a loop, because a hint that keeps blinking becomes furniture.
+  /* Three slow swells of accent glow, then the hint goes. It lands on a busy
+     first frame and is easy to miss, so it announces itself — but a fixed
+     three times, not a loop, because a hint that keeps blinking becomes
+     furniture.
+     Shaped as a sine rather than a blink: the peak sits at the MIDPOINT and
+     the curve is sine-in-out, so brightness eases away from rest and back
+     with zero velocity at both ends. That is what makes consecutive swells
+     join without a kink — an off-centre peak or a flat tail reads as a
+     flash followed by dead air. Slow (1.8s each) and shallow on purpose;
+     a continuous swell is noticed without ever demanding attention.
      The 550ms delay lets the slide-in finish first; a glow that starts
      mid-slide reads as a stutter. No fill mode, so during that delay the
      animation contributes nothing and the entry transition owns the transform.
@@ -855,7 +862,7 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
      replaces the .show transform outright, and dropping it would kick the
      hint half its own width to the right for the length of the animation.
      Timing is mirrored by COACH_MS in opMap.ts, which hides it. */
-  .op-map.op-fs .op-coach.show { animation: op-coach-pulse 880ms ease-out 550ms 3; }
+  .op-map.op-fs .op-coach.show { animation: op-coach-pulse 1800ms cubic-bezier(0.37, 0, 0.63, 1) 550ms 3; }
 }
 @keyframes op-coach-pulse {
   0%, 100% {
@@ -863,15 +870,10 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     border-color: rgba(236, 231, 220, 0.14);
     box-shadow: 0 0 0 0 rgba(210, 69, 62, 0);
   }
-  22% {
-    transform: translate(-50%, 0) scale(1.035);
-    border-color: rgba(210, 69, 62, 0.9);
-    box-shadow: 0 0 18px 3px rgba(210, 69, 62, 0.45), 0 0 0 1px rgba(210, 69, 62, 0.35);
-  }
-  62% {
-    transform: translate(-50%, 0) scale(1);
-    border-color: rgba(236, 231, 220, 0.14);
-    box-shadow: 0 0 0 0 rgba(210, 69, 62, 0);
+  50% {
+    transform: translate(-50%, 0) scale(1.012);
+    border-color: rgba(210, 69, 62, 0.62);
+    box-shadow: 0 0 20px 2px rgba(210, 69, 62, 0.34), 0 0 0 1px rgba(210, 69, 62, 0.26);
   }
 }
 @media (prefers-reduced-motion: reduce) {

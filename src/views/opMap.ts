@@ -1072,10 +1072,10 @@ export function initOpMap(container: HTMLElement, content: OpMapContent): () => 
   let coachTimer = 0
   // Kept in step with the .op-coach pulse in Home.vue: 550ms delay (so the
   // glow starts only once the hint has finished sliding into place) + three
-  // 880ms pulses = 3190ms, and it leaves right after the third one fades.
-  // Changing either side without the other either cuts a pulse off or leaves
-  // the hint sitting there dark.
-  const COACH_MS = 3300
+  // 1800ms swells = 5950ms, and it leaves right after the third one settles
+  // back to rest. Changing either side without the other either cuts a swell
+  // off mid-rise or leaves the hint sitting there dark.
+  const COACH_MS = 6100
   function showCoach() {
     if (!content.coach || isDesktop()) return
     if (coachTimer) { clearTimeout(coachTimer); coachTimer = 0 }
