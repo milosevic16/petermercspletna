@@ -266,6 +266,7 @@
             </div>
             <button
               v-if="tlLive && timelineRest.length"
+              ref="tlBtn"
               type="button"
               class="tl-more-btn"
               :class="{ 'is-open': tlOpen }"
@@ -401,9 +402,41 @@ const tlLive = ref(false)
 const tlOpen = ref(false)
 const timelinePreview = computed(() => timelineMerged.value.slice(0, TL_PREVIEW))
 const timelineRest = computed(() => timelineMerged.value.slice(TL_PREVIEW))
+// Closing the list deletes a screenful of rows from ABOVE the button while the
+// scroll offset stays where it was, so the page slides up under the reader and
+// dumps them somewhere unrelated — the further down the list they had opened,
+// the bigger the jump. The button is what they just tapped, so it is the right
+// thing to hold still: each frame of the height transition, measure how far it
+// has drifted from where it was tapped and take exactly that back out of the
+// scroll position. Runs for a beat longer than the 0.72s grid transition; if
+// motion is reduced and the collapse is instant, the first frame corrects it
+// and the rest find nothing to do. Clamps naturally at the top of the document,
+// where holding the anchor is impossible and also barely noticeable.
+const tlBtn = ref<HTMLElement | null>(null)
+function holdAnchor(el: HTMLElement | null, dur: number) {
+  if (!el) return
+  const y0 = el.getBoundingClientRect().top
+  let t0 = 0
+  const step = (now: number) => {
+    if (!t0) t0 = now
+    const drift = el.getBoundingClientRect().top - y0
+    // Instant, never the global `scroll-behavior: smooth` from base.css: a
+    // smooth scroll would animate toward a target that this loop moves again
+    // on the very next frame, so the corrections would chase each other and
+    // never settle. Same override the router applies on route change.
+    if (Math.abs(drift) > 0.5) {
+      try { window.scrollBy({ top: drift, behavior: 'instant' as ScrollBehavior }) }
+      catch { window.scrollTo(0, window.scrollY + drift) }
+    }
+    if (now - t0 < dur) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 function toggleTimeline() {
+  const closing = tlOpen.value
   tlOpen.value = !tlOpen.value
-  if (!tlOpen.value) return
+  if (closing) { holdAnchor(tlBtn.value, 820); return }
   // The wrapper animates its own height; the rows arrive on top of that, each
   // a beat after the last, so the list reads as unfolding rather than
   // appearing. Capped so the tail of a long list never lags behind the height.
@@ -556,7 +589,12 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
 .pm-strip-more:hover, .pm-strip-more:focus-visible {
   background: rgba(20, 21, 23, 0.92); border-color: var(--ivory); outline: none;
 }
-@media (max-width: 740px) { .pm-strip-more { right: 0.25rem; padding: 0.55rem 0.85rem; font-size: 0.66rem; } }
+/* Mobile: the fade carries the "there is more" signal on its own. The pill sat
+   over the card you were reading to advertise a swipe that is already the
+   obvious gesture on a touch strip, so on phones it goes entirely — display:none
+   rather than opacity, so it also leaves the tab order. The fade is driven by
+   pm-fade-r on the strip itself and is independent of this control. */
+@media (max-width: 740px) { .pm-strip-more { display: none; } }
 
 /* ---- Timeline: two tracks on one rail -----------------------------------
    Desktop: `above` sits over the line on accent dots, `below` under it on ink
