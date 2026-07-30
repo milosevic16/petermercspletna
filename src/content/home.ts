@@ -122,7 +122,6 @@ export interface HomeContent {
     nextAria: string
     cards: MediaCard[]
     cta: string
-    note: string
     /** Row-style link under the cards, out to the full archive. */
     archive: { seg: string; title: string; linkLabel: string; href: string }
   }
@@ -518,7 +517,6 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Open coverage',
-      note: 'Drop a photo straight onto each card — it sticks. ⚠ Every card is still waiting on its image.',
       archive: {
         seg: 'Archive',
         title: 'Every interview, column and mention — collected on Lemur Legal',
@@ -896,7 +894,6 @@ const home: Localized<HomeContent> = {
         },
       ],
       cta: 'Odpri prispevek',
-      note: 'Fotografijo spustite naravnost na kartico — obstane. ⚠ Vse kartice še čakajo na slike.',
       archive: {
         seg: 'Arhiv',
         title: 'Vsi intervjuji, kolumne in omembe — zbrani na spletni strani Lemur Legal',

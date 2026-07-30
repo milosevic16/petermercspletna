@@ -172,9 +172,6 @@
           </div>
         </div>
       </div>
-      <div style="max-width:76rem; margin:0 auto; padding-left:clamp(1.25rem, 5vw, 4rem); padding-right:clamp(1.25rem, 5vw, 4rem);">
-        <p style="margin:0; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.8rem; color:var(--ink2);">{{ t.media.note }}</p>
-      </div>
       <!-- The archive row stays grey: a graphite band closes the section, and
            the row inside keeps its dark-palette styling untouched. -->
       <!-- Equal padding top and bottom: the row sits centred in the belt. -->
