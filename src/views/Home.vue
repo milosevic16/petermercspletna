@@ -27,18 +27,32 @@
 
     <button id="docket" type="button" data-on-click="advanceDocket" :aria-label="t.docket.aria" style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 1.1rem; width:100%; box-sizing:border-box; background:var(--graphite); border:0; padding:0.7rem clamp(1.25rem, 4vw, 3rem); cursor:pointer; text-align:left; transition:background 0.18s cubic-bezier(0.4,0,0.2,1);" data-hover="background:color-mix(in oklab, var(--graphite) 93%, #FFFFFF);">
       <span style="flex:none; display:inline-flex; align-items:center; background:var(--ivory); border-left:3px solid var(--accent); color:var(--graphite); padding:0.38rem 0.7rem; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.62rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;">{{ t.docket.eyebrow }}</span>
-      <span style="flex:1 1 14rem; min-width:0; overflow:hidden;"><span id="docket-item" style="display:block; font-family:'Spectral', Georgia, serif; font-style:italic; font-size:1.05rem; line-height:1.4; color:var(--ivory);" data-bind="docketText">{{ docketFirst }}</span></span>
-      <span style="flex:none; font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.18em; color:#948E81; font-variant-numeric:tabular-nums;" data-bind="docketIdx">01 / 08</span>
-
-        <span aria-hidden="true" style="flex:none; width:18px; height:18px; display:inline-flex;">
-          <svg viewBox="0 0 18 18" style="width:100%; height:100%; transform:rotate(-90deg); display:block;">
-            <circle cx="9" cy="9" r="7.5" fill="none" stroke="rgba(236,231,220,0.18)" stroke-width="1.5"></circle>
-            <circle id="docket-prog-ring" cx="9" cy="9" r="7.5" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="47.12" stroke-dashoffset="47.12"></circle>
-          </svg>
+      <!-- Text, counter and ring are ONE nested row, and the nesting is the
+           fix. This outer row wraps, and a wrapping flex row is broken into
+           lines using each item's base size BEFORE any shrinking — so as four
+           siblings, the 14rem text claimed its full basis, pushed itself onto
+           a second line, and left the 18px ring nothing to sit beside but a
+           third line of its own. It cleared 390px by a few pixels and failed
+           at 360px, which is the whole difference between the two phones.
+           As a nested row the group cannot be separated from the text at any
+           width: the inner row does not wrap (default nowrap), so the text
+           shrinks instead — it already carries min-width:0 and overflow:hidden
+           for exactly that. .docket-main then takes flex-basis:100% on phones
+           (see the scoped rule), so instead of depending on whether a few
+           pixels happen to be spare, the block deterministically gets its own
+           line under the badge on every phone, and stays inline on desktop. -->
+      <span class="docket-main">
+        <span style="flex:1 1 auto; min-width:0; overflow:hidden;"><span id="docket-item" style="display:block; font-family:'Spectral', Georgia, serif; font-style:italic; font-size:1.05rem; line-height:1.4; color:var(--ivory);" data-bind="docketText">{{ docketFirst }}</span></span>
+        <span style="flex:none; display:inline-flex; align-items:center; gap:1.1rem;">
+          <span style="font-family:'Instrument Sans', Arial, sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.18em; color:#948E81; font-variant-numeric:tabular-nums;" data-bind="docketIdx">01 / 08</span>
+          <span aria-hidden="true" style="flex:none; width:18px; height:18px; display:inline-flex;">
+            <svg viewBox="0 0 18 18" style="width:100%; height:100%; transform:rotate(-90deg); display:block;">
+              <circle cx="9" cy="9" r="7.5" fill="none" stroke="rgba(236,231,220,0.18)" stroke-width="1.5"></circle>
+              <circle id="docket-prog-ring" cx="9" cy="9" r="7.5" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="47.12" stroke-dashoffset="47.12"></circle>
+            </svg>
+          </span>
         </span>
-
-
-
+      </span>
     </button>
 
     <section id="facets" data-screen-label="What I do" style="background:var(--paper); padding:clamp(3rem, 6.5vw, 4.8rem) 0;">
@@ -518,6 +532,21 @@ onUnmounted(() => { if (disposeMap) disposeMap(); if (dispose) dispose() })
     text-decoration-color: var(--accent);
     filter: drop-shadow(0 0 4px rgba(210, 69, 62, 0.8)) drop-shadow(0 0 12px rgba(210, 69, 62, 0.6)) drop-shadow(0 0 26px rgba(210, 69, 62, 0.4));
   }
+}
+
+/* Docket: the text+counter+ring block. Declared HERE rather than inline, which
+   the rest of this row uses, for one reason — an inline `flex` shorthand beats a
+   stylesheet rule on specificity, so the phone override below would silently
+   never apply. (It didn't: at 412px the block kept its 14rem basis, sat beside
+   the badge, and squeezed the headline to 121px.)
+   On phones the basis goes to 100% so the block deterministically takes its own
+   line under the badge, instead of depending on whether a few pixels happen to
+   be spare — the 14rem basis cleared 390px and failed at 360px, which is
+   precisely why the ring sat a line lower on Android than on the iPhone.
+   Desktop keeps 14rem and the whole row stays on one line. */
+.docket-main { flex: 1 1 14rem; min-width: 0; display: flex; align-items: center; gap: 1.1rem; }
+@media (max-width: 740px) {
+  .docket-main { flex-basis: 100%; }
 }
 
 /* Node-panel ‹/› controls. Position is kept stable by the reserved panel
